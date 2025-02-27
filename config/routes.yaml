@@ -1,0 +1,5 @@
+modulo_core_controllers:
+    resource:
+        path: ../src/ModuloCore/Controller/
+        namespace: App\ModuloCore\Controller
+    type: attribute

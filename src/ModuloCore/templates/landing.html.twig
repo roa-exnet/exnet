@@ -1,0 +1,37 @@
+{# templates/landing.html.twig #}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Landing Page</title>
+</head>
+<body>
+    <h1>Welcome to the Landing Page</h1>
+
+    <div>
+        <h2>Configuración básica del módulo</h2>
+        <p>Este módulo está diseñado para ser fácilmente configurado y extendido. A continuación, se explican los pasos básicos para integrarlo en tu proyecto Symfony.</p>
+        
+        <h3>1. Configuración de las rutas de las plantillas (Twig)</h3>
+        <pre><code>twig:
+    paths:
+        '%kernel.project_dir%/src/ModuloCore/templates': ~</code></pre>
+        <p>La configuración de <code>twig</code> le dice a Symfony dónde buscar las plantillas de Twig del módulo. En este caso, las plantillas se encuentran en <code>src/ModuloCore/templates</code>.</p>
+
+        <h3>2. Configuración de los controladores del módulo</h3>
+        <pre><code>modulo_core_controllers:
+    resource:
+        path: ../src/ModuloCore/Controller/
+        namespace: App\ModuloCore\Controller
+    type: attribute</code></pre>
+        <p>Con esta configuración, Symfony sabe que los controladores del módulo están en el directorio <code>src/ModuloCore/Controller/</code>. El espacio de nombres de los controladores es <code>App\ModuloCore\Controller</code> y se utilizan atributos para la definición de las rutas.</p>
+
+        <h3>3. Configuración de los servicios</h3>
+        <pre><code>services:
+    App\ModuloCore\Controller\:
+        resource: '../src/ModuloCore/Controller'
+        tags: ['controller.service_arguments']</code></pre>
+        <p>Esta configuración permite que los controladores del módulo sean tratados como servicios en Symfony, lo que permite inyectar dependencias automáticamente en los métodos del controlador mediante <code>autowire</code>.</p>
+        
+    </div>
+</body>
+</html>
