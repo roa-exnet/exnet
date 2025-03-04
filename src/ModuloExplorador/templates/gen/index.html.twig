@@ -1,0 +1,85 @@
+{# templates/directory/index.html.twig #}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contenido del Directorio</title>
+    <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
+</head>
+<body>
+<h1>Explorador de Archivos</h1>
+
+<p>Contador de Archivos: {{ file_count }}</p>
+<p>Contador de Directorios: {{ dir_count }}</p>
+
+<p>Ruta actual: {{ directory }}</p>
+
+<!-- Mostrar el formulario para crear una carpeta -->
+<div class="create-folder">
+    <h3>Crear nueva carpeta:</h3>
+    <form action="{{ path('crear_carpeta') }}" method="POST">
+        <input type="text" name="folder_name" placeholder="Nombre de la carpeta" required>
+        <!-- Asegúrate de pasar la ruta actual en el formulario -->
+        <input type="hidden" name="path" value="{{ directory }}">
+        <button type="submit" class="btn-create-folder">Crear Carpeta</button>
+    </form>
+</div>
+
+
+<!-- Mostrar directorios como botones -->
+<div class="container">
+<h3>Contenido de la carpeta:</h3>
+
+<ul class="list-group horizontal-list">
+{% if parent_directory != directory %}
+    {% if directory != lastDir %}
+    <li>
+    <form action="{{ path('explorer') }}" method="POST" style="display: inline;">
+    <input type="hidden" name="path" value="{{ parent_directory }}">
+    
+    <button type="submit" class="dir">
+        <div class="btn-content">
+            <img src="{{ asset('images/folder.png') }}" alt="entrar" class="btn-icon">
+            <span>..</span> 
+        </div>
+    </button>
+</form>
+    </li>
+    {% endif %}    
+{% endif %}
+
+    {% for item in dirsOnly %}
+        <li>
+            <form action="{{ path('explorer') }}" method="POST" style="display: inline;">
+                <input type="hidden" name="path" value="{{ directory ~ '/' ~ item | url_encode }}">
+                <input type="hidden" name="last" value="{{ directory }}">
+                <button type="submit" class="dir">
+                    <div class="btn-content">
+                        <img src="{{ asset('images/folder.png') }}" alt="entrar" class="btn-icon">
+                        <span>{{ item }}</span>
+                    </div>
+                </button>
+            </form>
+    </li>
+    {% endfor %}
+    {% for item in filesOnly %}
+        <li>
+        <form action="{{ path('abrir_archivo') }}" method="POST" style="display: inline;">
+            <input type="hidden" name="path" value="{{ directory ~ '/'}}">
+            <input type="hidden" name="filename" value="{{ item }}">
+            
+            <button class="archivo">
+                <div class="btn-content">
+                    <img src="{{ asset('images/file.png') }}" alt="entrar" class="btn-icon">
+                    <span>{{ item }}</span>
+                </div>
+            </button>
+        </form>
+        </li> 
+    {% endfor %}
+</ul>
+</div>
+</body>
+</html>

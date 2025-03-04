@@ -4,6 +4,13 @@ modulo_core_controllers:
         namespace: App\ModuloCore\Controller
     type: attribute
 
+modulo_Explorador_controllers:
+    resource:
+        path: ../src/ModuloExplorador/Controller/
+        namespace: App\ModuloExplorador\Controller
+    type: attribute
+
+
 # modulo_test_controllers:
 #     resource:
 #         path: ../src/ModuloTest/Controller/

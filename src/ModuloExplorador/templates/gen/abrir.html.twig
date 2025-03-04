@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contenido del Archivo</title>
+    <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
+</head>
+<body>
+{% block body %}
+    <h1>Contenido del archivo: {{ filename }}</h1>
+    <p>Ruta: {{ directory }}</p>
+
+    <div class="file-content">
+        {% if isImage %}
+        <!-- Si el archivo es una imagen, mostrarla en un iframe -->
+        <iframe id="imageIframe" width="100%" height="100%" frameborder="0" style="overflow:hidden; border:none;" onerror="handleImageError()">
+            <p>Tu navegador no soporta iframes.</p>
+        </iframe>
+        {% else %}
+        <!-- Si no es una imagen, mostrar el contenido del archivo de texto -->
+        <pre>{{ fileContent }}</pre>
+        {% endif %}
+    </div>
+
+    <ul class="list-group horizontal-list">
+        <li>
+            <form action="{{ path('download') }}" method="POST">
+                <input type="hidden" name="file_path" value="{{ directory ~ '/' ~ filename }}">
+                <button class="back">
+                    <div class="btn-content">
+                        <img src="{{ asset('images/download.png') }}" alt="entrar" class="btn-icono">
+                        Descargar
+                    </div>
+                </button>
+            </form>
+        </li>
+        <li>
+            <form action="{{ path('explorer') }}" method="POST" style="display: inline;">
+                <input type="hidden" name="path" value="{{ directory }}">
+                <button class="back">
+                    <div class="btn-content">
+                        <img src="{{ asset('images/arrow.png') }}" alt="entrar" class="btn-icono">
+                        <span>Volver</span>
+                    </div>
+                </button>
+            </form>
+        </li>
+    </ul>
+
+    <!-- Botón para cargar la imagen -->
+    <button id="reloadButton" onclick="cargarImagen()" disabled>
+        Cargar Imagen
+    </button>
+{% endblock %}
+
+<script>
+    // Función para cargar la imagen
+    function cargarImagen() {
+        var filename = "{{ filename }}";
+        var directory = "{{ directory }}";
+        
+        fetch("{{ path('ver_imagen', {'filename': filename}) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'path': directory
+            })
+        })
+        .then(response => response.blob())
+        .then(imageBlob => {
+            var img = URL.createObjectURL(imageBlob);
+            document.getElementById('imageIframe').src = img;
+            document.getElementById('reloadButton').disabled = true;  // Deshabilitar el botón después de cargar la imagen
+        })
+        .catch(error => {
+            console.error('Error cargando la imagen:', error);
+            // Si hay error en la carga, habilitamos el botón para que el usuario lo intente de nuevo
+            document.getElementById('reloadButton').disabled = false;
+        });
+    }
+
+    // Función que maneja el error al cargar la imagen en el iframe
+    function handleImageError() {
+        console.log('Error al cargar la imagen en el iframe.');
+        document.getElementById('reloadButton').disabled = false;  // Habilitar el botón de nuevo
+    }
+
+    // Ejecutar la función de carga de imagen al cargar la página
+    document.addEventListener('DOMContentLoaded', cargarImagen);
+</script>
+
+</body>
+</html>
