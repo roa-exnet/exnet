@@ -26,7 +26,14 @@ doctrine:
                 dir: '%kernel.project_dir%/src/ModuloCore/Entity'
                 prefix: 'App\ModuloCore\Entity'
                 alias: ModuloCore
-            
+
+            # ModuloTest:
+            #     type: attribute
+            #     is_bundle: false
+            #     dir: '%kernel.project_dir%/src/ModuloTest/Entity'
+            #     prefix: 'App\ModuloTest\Entity'
+            #     alias: ModuloTest
+
         controller_resolver:
             auto_mapping: false
 

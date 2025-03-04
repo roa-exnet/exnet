@@ -26,3 +26,12 @@ services:
         tags: ['controller.service_arguments']
 
     #END ------------------------------------------------------- ModuloCore -----------------------------------------------------------------------------
+    # App\ModuloTest\Controller\:
+    #     resource: '../src/ModuloTest/Controller'
+    #     tags: ['controller.service_arguments']
+
+    # App\ModuloTest\Service\:
+    #     resource: '../src/ModuloTest/Service/'
+    #     autowire: true
+    #     autoconfigure: true
+    #     public: true

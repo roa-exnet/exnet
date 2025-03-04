@@ -3,3 +3,9 @@ modulo_core_controllers:
         path: ../src/ModuloCore/Controller/
         namespace: App\ModuloCore\Controller
     type: attribute
+
+# modulo_test_controllers:
+#     resource:
+#         path: ../src/ModuloTest/Controller/
+#         namespace: App\ModuloTest\Controller
+#     type: attribute
