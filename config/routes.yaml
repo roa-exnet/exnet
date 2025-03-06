@@ -11,6 +11,13 @@ modulo_Explorador_controllers:
     type: attribute
 
 
+modulo_Chat_controllers:
+    resource:
+        path: ../src/ModuloChat/Controller/
+        namespace: App\ModuloChat\Controller
+    type: attribute
+
+
 # modulo_test_controllers:
 #     resource:
 #         path: ../src/ModuloTest/Controller/

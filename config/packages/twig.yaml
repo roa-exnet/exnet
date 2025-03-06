@@ -2,4 +2,5 @@ twig:
     paths:
         '%kernel.project_dir%/src/ModuloCore/templates': ~
         '%kernel.project_dir%/src/ModuloExplorador/templates': ~
+        '%kernel.project_dir%/src/ModuloChat/templates': ~ # DESACTIVADO
         # '%kernel.project_dir%/src/ModuloTest/templates': ~

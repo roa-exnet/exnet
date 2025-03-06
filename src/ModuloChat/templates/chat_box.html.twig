@@ -1,0 +1,34 @@
+{# src/ModuloChat/templates/chat_box.html.twig #}
+
+<div class="chat-header">
+    <h2>{{ chat.name }}</h2>
+    <div>
+        {% if chat.type == 'private' %}
+            {% set otherParticipant = null %}
+            {% for participant in chat.participants %}
+                {% if participant.participantIdentifier != userId %}
+                    {% set otherParticipant = participant %}
+                {% endif %}
+            {% endfor %}
+            
+            {% if otherParticipant %}
+                Conversación con {{ otherParticipant.participantName }}
+            {% else %}
+                Chat privado
+            {% endif %}
+        {% else %}
+            {{ chat.participants|length }} participantes
+        {% endif %}
+    </div>
+</div>
+
+<div class="chat-messages">
+    {% include 'chat_messages.html.twig' with {'messages': messages, 'userId': userId} %}
+</div>
+
+<div class="chat-input">
+    <form id="messageForm" data-chat-id="{{ chat.id }}">
+        <input type="text" id="messageInput" placeholder="Escribe un mensaje..." autocomplete="off" required>
+        <button type="submit">Enviar</button>
+    </form>
+</div>

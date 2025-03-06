@@ -1,0 +1,307 @@
+/* ROA Authentication Styles
+   Prefix: roa-
+   Version: 1.0
+*/
+
+/* ===== General Styles ===== */
+.roa-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+.roa-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.roa-card-header {
+    padding: 20px;
+    background-color: #2c3e50;
+    color: white;
+    font-weight: 600;
+}
+
+.roa-card-body {
+    padding: 25px;
+}
+
+/* ===== Auth Forms ===== */
+.roa-auth-container {
+    max-width: 480px;
+    margin: 60px auto;
+}
+
+.roa-form-group {
+    margin-bottom: 20px;
+}
+
+.roa-form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.roa-form-control {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #333;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    transition: border-color 0.3s ease;
+}
+
+.roa-form-control:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+}
+
+.roa-form-check {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.roa-form-check-input {
+    margin-right: 10px;
+}
+
+.roa-form-check-label {
+    font-size: 14px;
+}
+
+.roa-form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.roa-form-error {
+    color: #e74c3c;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+/* ===== Buttons ===== */
+.roa-btn {
+    display: inline-block;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 12px 24px;
+    font-size: 16px;
+    line-height: 1.5;
+    border-radius: 4px;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.roa-btn-primary {
+    color: #fff;
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.roa-btn-primary:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+.roa-btn-secondary {
+    color: #fff;
+    background-color: #7f8c8d;
+    border-color: #7f8c8d;
+}
+
+.roa-btn-secondary:hover {
+    background-color: #6c7a7a;
+    border-color: #6c7a7a;
+}
+
+.roa-btn-danger {
+    color: #fff;
+    background-color: #e74c3c;
+    border-color: #e74c3c;
+}
+
+.roa-btn-danger:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+}
+
+.roa-btn-block {
+    display: block;
+    width: 100%;
+}
+
+/* ===== Alert Messages ===== */
+.roa-alert {
+    position: relative;
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+
+.roa-alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.roa-alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.roa-alert-warning {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+}
+
+.roa-alert-info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+}
+
+/* ===== Navigation ===== */
+.roa-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 0;
+    background-color: #2c3e50;
+    color: white;
+}
+
+.roa-nav-brand {
+    font-size: 22px;
+    font-weight: bold;
+    color: white;
+    text-decoration: none;
+}
+
+.roa-nav-links {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.roa-nav-item {
+    margin-left: 20px;
+}
+
+.roa-nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    transition: color 0.3s;
+    font-weight: 500;
+}
+
+.roa-nav-link:hover {
+    color: #ffffff;
+}
+
+.roa-nav-divider {
+    margin: 0 15px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== User Profile ===== */
+.roa-user-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.roa-user-menu {
+    position: absolute;
+    right: 0;
+    z-index: 1000;
+    min-width: 200px;
+    padding: 10px 0;
+    margin: 0;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    list-style: none;
+    display: none;
+}
+
+.roa-user-dropdown:hover .roa-user-menu {
+    display: block;
+}
+
+.roa-user-menu-item {
+    padding: 8px 15px;
+}
+
+.roa-user-menu-link {
+    display: block;
+    color: #333;
+    text-decoration: none;
+}
+
+.roa-user-menu-link:hover {
+    background-color: #f8f9fa;
+}
+
+/* ===== Helpers ===== */
+.roa-text-center {
+    text-align: center;
+}
+
+.roa-mt-3 {
+    margin-top: 15px;
+}
+
+.roa-mb-3 {
+    margin-bottom: 15px;
+}
+
+.roa-my-3 {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.roa-p-3 {
+    padding: 15px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+    .roa-auth-container {
+        max-width: 100%;
+        margin: 30px auto;
+    }
+    
+    .roa-nav {
+        flex-direction: column;
+        padding: 10px 0;
+    }
+    
+    .roa-nav-links {
+        margin-top: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .roa-nav-item {
+        margin: 5px 10px;
+    }
+}

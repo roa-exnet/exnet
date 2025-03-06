@@ -25,13 +25,15 @@ services:
         resource: '../src/ModuloCore/Controller'
         tags: ['controller.service_arguments']
 
-    #END ------------------------------------------------------- ModuloCore -----------------------------------------------------------------------------
-    # App\ModuloTest\Controller\:
-    #     resource: '../src/ModuloTest/Controller'
-    #     tags: ['controller.service_arguments']
-
-    # App\ModuloTest\Service\:
-    #     resource: '../src/ModuloTest/Service/'
-    #     autowire: true
-    #     autoconfigure: true
-    #     public: true
+    #END ------------------------------------------------------- ModuloCore -----------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloChat (DESACTIVADO) -------------------------------------------------------------------------- 
+    #App\ModuloChat\Controller\:
+        #resource: '../src/ModuloChat/Controller'
+        #tags: ['controller.service_arguments']
+        
+    #App\ModuloChat\Service\:
+        #resource: '../src/ModuloChat/Service/'
+        #autowire: true
+        #autoconfigure: true
+        #public: true
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        

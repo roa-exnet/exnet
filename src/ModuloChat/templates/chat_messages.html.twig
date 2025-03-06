@@ -1,0 +1,20 @@
+{# src/ModuloChat/templates/chat_messages.html.twig #}
+
+{% for message in messages %}
+    {% if message.messageType == 'system' %}
+        <div class="message message-system">
+            {{ message.content }}
+            <div><small>{{ message.sentAt|date('Y-m-d H:i:s') }}</small></div>
+        </div>
+    {% else %}
+        <div class="message {% if message.senderIdentifier == userId %}message-sent{% else %}message-received{% endif %}">
+            <div><strong>{{ message.senderName }}</strong></div>
+            <div>{{ message.content }}</div>
+            <div><small>{{ message.sentAt|date('Y-m-d H:i:s') }}</small></div>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="message message-system">
+        No hay mensajes en este chat. ¡Sé el primero en enviar uno!
+    </div>
+{% endfor %}
