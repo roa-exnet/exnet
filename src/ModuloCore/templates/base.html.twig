@@ -20,11 +20,21 @@
 <body>
     {% block navbar %}
         <nav class="exnet-navbar d-flex align-items-center">
-            <div class="container">
+            <div class="container d-flex justify-content-between align-items-center">
                 <h1 class="exnet-navbar-title">Exnet</h1>
+                <div class="d-flex">
+                    {% for menu in menus %}
+                        <a href="{{ menu.ruta ?: '#' }}" class="nav-item">
+                            <i class="{{ menu.icon }}"></i>
+                            <span>{{ menu.nombre }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
             </div>
         </nav>
     {% endblock %}
+
+
     <div class="flex-grow-1">
         <main class="container mt-4">
             {% block body %}{% endblock %}

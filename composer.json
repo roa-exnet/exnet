@@ -77,6 +77,9 @@
         }
     },
     "require-dev": {
-        "symfony/debug-bundle": "7.2.*"
+        "symfony/debug-bundle": "7.2.*",
+        "symfony/monolog-bundle": "^3.0",
+        "symfony/stopwatch": "7.2.*",
+        "symfony/web-profiler-bundle": "7.2.*"
     }
 }

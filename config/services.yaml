@@ -24,6 +24,9 @@ services:
     App\ModuloCore\Controller\:
         resource: '../src/ModuloCore/Controller'
         tags: ['controller.service_arguments']
+    
+    App\ModuloCore\EventSubscriber\MenuSubscriber:
+        tags: ['kernel.event_subscriber']
 
     #END ------------------------------------------------------- ModuloCore -----------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloChat (DESACTIVADO) -------------------------------------------------------------------------- 
