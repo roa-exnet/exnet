@@ -1,6 +1,44 @@
 .exnet-container-transparent {
-    background: rgba(255, 255, 255, 0.1); /* Leve transparencia */
+    background: rgba(0, 0, 0, 0.6);
     padding: 20px;
     border-radius: 10px;
-    backdrop-filter: blur(5px); /* Efecto de desenfoque */
+    backdrop-filter: blur(5px);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+}
+
+.exnet-container-transparent:hover {
+    transform: scale(1.02);
+}
+
+/* Brillo más fino */
+.exnet-container-transparent::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent 45%, #e6b87eb7 50%, transparent 55%);
+    transform: skewX(-10deg);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Activar el brillo en hover */
+.exnet-container-transparent:hover::before {
+    opacity: 1;
+    left: 100%;
+    animation: shine-move 0.8s ease-out;
+}
+
+/* Animación del brillo */
+@keyframes shine-move {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
 }
