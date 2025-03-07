@@ -1,0 +1,9 @@
+.exnet-main-title {
+    font-size: 3rem;
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+    user-select: none; /* Evita selección */
+    pointer-events: none; /* Evita focus y clics */
+}

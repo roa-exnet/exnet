@@ -2,19 +2,41 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ROA - Exnet{% endblock %}</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     
-    {# CSS Global #}
-    <link rel="stylesheet" href="{{ asset('css/general.css') }}">
-    
-    {% block styles %}{% endblock %}
+    {% block head %}
+        <link rel="stylesheet" href="{{ asset('bootstrap/css/bootstrap.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('fontawesome/css/all.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/general.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/titles.css')}}">
+        <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/responsive.css') }}">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    {% endblock %}
 </head>
 <body>
+    {% block navbar %}
+        <nav class="exnet-navbar d-flex align-items-center">
+            <div class="container">
+                <h1 class="exnet-navbar-title">Exnet</h1>
+            </div>
+        </nav>
+    {% endblock %}
+    <div class="flex-grow-1">
+        <main class="container mt-4">
+            {% block body %}{% endblock %}
+        </main>
+    </div>
 
-    {% block navbar %}{% endblock %}
-
-
-    {% block scripts %}{% endblock %}
 </body>
+
+    {% block imports %}
+        <script src="{{ asset('bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+
+        {# <script src="{{ asset('js/navbar.js') }}"></script> #}
+        
+    {% endblock %}
 </html>

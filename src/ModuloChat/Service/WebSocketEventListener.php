@@ -1,6 +1,6 @@
 <?php
 
-namespace App\ModuloChat\EventListener;
+namespace App\ModuloChat\Service;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;

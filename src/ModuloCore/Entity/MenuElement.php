@@ -36,6 +36,9 @@ class MenuElement
     #[ORM\Column]
     private ?bool $enabled = null;
 
+    #[ORM\Column(length: 255)]
+    private ?string $nombre = null;
+
     public function __construct()
     {
         $this->modulo = new ArrayCollection();
@@ -126,6 +129,18 @@ class MenuElement
     public function setEnabled(bool $enabled): static
     {
         $this->enabled = $enabled;
+
+        return $this;
+    }
+
+    public function getNombre(): ?string
+    {
+        return $this->nombre;
+    }
+
+    public function setNombre(string $nombre): static
+    {
+        $this->nombre = $nombre;
 
         return $this;
     }
