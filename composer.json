@@ -18,6 +18,7 @@
         "symfony/form": "7.2.*",
         "symfony/framework-bundle": "7.2.*",
         "symfony/maker-bundle": "^1.62",
+        "symfony/mercure": "^0.6.5",
         "symfony/mercure-bundle": "^0.3.9",
         "symfony/runtime": "7.2.*",
         "symfony/security-bundle": "7.2.*",
@@ -74,5 +75,8 @@
             "allow-contrib": false,
             "require": "7.2.*"
         }
+    },
+    "require-dev": {
+        "symfony/debug-bundle": "7.2.*"
     }
 }

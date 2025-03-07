@@ -110,7 +110,7 @@ class MessageService
             $metadata['deletedBy'] = $deletedBy;
             
             $metadata['originalContent'] = $message->getContent();
-            $message->setContent('[This message was deleted]')
+            $message->setContent('[This message was deleted]') 
                 ->setMetadata($metadata);
             
             $this->entityManager->flush();

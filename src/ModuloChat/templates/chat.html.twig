@@ -200,166 +200,158 @@
 
 {% block javascripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Variables para el modal
-        const chatModal = document.getElementById('chatModal');
-        const btnNewChat = document.getElementById('btnNewChat');
-        const closeBtn = document.querySelector('.close');
-        
-        // Abrir modal
-        btnNewChat.addEventListener('click', function() {
-            chatModal.style.display = "block";
-        });
-        
-        // Cerrar modal
-        closeBtn.addEventListener('click', function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // Variables para el modal
+    const chatModal = document.getElementById('chatModal');
+    const btnNewChat = document.getElementById('btnNewChat');
+    const closeBtn = document.querySelector('.close');
+    
+    // Abrir modal
+    btnNewChat.addEventListener('click', function() {
+        chatModal.style.display = "block";
+    });
+    
+    // Cerrar modal
+    closeBtn.addEventListener('click', function() {
+        chatModal.style.display = "none";
+    });
+    
+    // Cerrar al hacer clic fuera
+    window.addEventListener('click', function(event) {
+        if (event.target == chatModal) {
             chatModal.style.display = "none";
-        });
-        
-        // Cerrar al hacer clic fuera
-        window.addEventListener('click', function(event) {
-            if (event.target == chatModal) {
-                chatModal.style.display = "none";
-            }
-        });
-        
-        // Evitar múltiples envíos del formulario
-        let isSubmitting = false;
-        
-        // Manejar el envío del formulario de chat
-        document.getElementById('chatForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            if (isSubmitting) return;
-            isSubmitting = true;
-            
-            const recipientId = document.getElementById('recipientId').value;
-            const recipientName = document.getElementById('recipientName').value;
-            const submitButton = this.querySelector('button[type="submit"]');
-            
-            // Deshabilitar el botón mientras se procesa
-            if (submitButton) submitButton.disabled = true;
-            
-            fetch('/chat/create/private', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    'recipientId': recipientId,
-                    'recipientName': recipientName
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                isSubmitting = false;
-                if (submitButton) submitButton.disabled = false;
-                
-                if (data.success) {
-                    chatModal.style.display = "none";
-                    // Simplemente recarga la página para mostrar el nuevo chat
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => {
-                isSubmitting = false;
-                if (submitButton) submitButton.disabled = false;
-                console.error('Error:', error);
-                alert('Ha ocurrido un error al crear el chat.');
-            });
-        });
-        
-        // Cargar un chat cuando se hace clic en la lista
-        document.querySelectorAll('.chat-list-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                // Eliminar la clase active de cualquier otro item
-                document.querySelectorAll('.chat-list-item').forEach(function(el) {
-                    el.classList.remove('active');
-                });
-                
-                // Agregar la clase active al elemento actual
-                this.classList.add('active');
-                
-                // Cargar el chat
-                const chatId = this.getAttribute('data-chat-id');
-                loadChat(chatId);
-            });
-        });
-        
-        // Función para cargar un chat
-        function loadChat(chatId) {
-            fetch('/chat/' + chatId)
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('chatMain').innerHTML = html;
-                    
-                    // Configurar el formulario de envío de mensajes
-                    const messageForm = document.getElementById('messageForm');
-                    if (messageForm) {
-                        messageForm.addEventListener('submit', function(e) {
-                            e.preventDefault();
-                            
-                            const chatId = this.getAttribute('data-chat-id');
-                            const messageInput = document.getElementById('messageInput');
-                            const content = messageInput.value.trim();
-                            
-                            if (content) {
-                                sendMessage(chatId, content);
-                                messageInput.value = '';
-                            }
-                        });
-                    }
-                    
-                    // Hacer scroll al último mensaje
-                    const messagesContainer = document.querySelector('.chat-messages');
-                    if (messagesContainer) {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Ha ocurrido un error al cargar el chat.');
-                });
-        }
-        
-        // Función para enviar un mensaje
-        function sendMessage(chatId, content) {
-            fetch('/chat/send/' + chatId, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    'content': content
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Actualizar la vista de mensajes
-                    const messagesContainer = document.querySelector('.chat-messages');
-                    
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = 'message message-sent';
-                    messageDiv.innerHTML = `
-                        <div><strong>${data.message.sender}</strong></div>
-                        <div>${data.message.content}</div>
-                        <div><small>${data.message.timestamp}</small></div>
-                    `;
-                    
-                    messagesContainer.prepend(messageDiv);
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ha ocurrido un error al enviar el mensaje.');
-            });
         }
     });
+    
+    // Evitar múltiples envíos del formulario
+    let isSubmitting = false;
+    
+    // Manejar el envío del formulario de chat
+    document.getElementById('chatForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (isSubmitting) return;
+        isSubmitting = true;
+        
+        const recipientId = document.getElementById('recipientId').value;
+        const recipientName = document.getElementById('recipientName').value;
+        const submitButton = this.querySelector('button[type="submit"]');
+        
+        // Deshabilitar el botón mientras se procesa
+        if (submitButton) submitButton.disabled = true;
+        
+        fetch('/chat/create/private', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'recipientId': recipientId,
+                'recipientName': recipientName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            isSubmitting = false;
+            if (submitButton) submitButton.disabled = false;
+            
+            if (data.success) {
+                chatModal.style.display = "none";
+                window.location.reload(); // Recargar la página para mostrar el nuevo chat
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            isSubmitting = false;
+            if (submitButton) submitButton.disabled = false;
+            console.error('Error:', error);
+            alert('Ha ocurrido un error al crear el chat.');
+        });
+    });
+    
+    // Cargar un chat cuando se hace clic en la lista
+    document.querySelectorAll('.chat-list-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            document.querySelectorAll('.chat-list-item').forEach(function(el) {
+                el.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            const chatId = this.getAttribute('data-chat-id');
+            loadChat(chatId);
+        });
+    });
+    
+    // Función para cargar un chat
+    function loadChat(chatId) {
+        fetch('/chat/' + chatId)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('chatMain').innerHTML = html;
+                
+                const messageForm = document.getElementById('messageForm');
+                if (messageForm) {
+                    messageForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        const messageInput = document.getElementById('messageInput');
+                        const content = messageInput.value.trim();
+                        
+                        if (content) {
+                            sendMessage(chatId, content);
+                            messageInput.value = '';
+                        }
+                    });
+                }
+                
+                const messagesContainer = document.querySelector('.chat-messages');
+                if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ha ocurrido un error al cargar el chat.');
+            });
+    }
+    
+    // Función para enviar un mensaje
+    function sendMessage(chatId, content) {
+        fetch('/chat/send/' + chatId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'content': content
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const messagesContainer = document.querySelector('.chat-messages');
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message message-sent';
+                messageDiv.innerHTML = `
+                    <div><strong>${data.message.sender}</strong></div>
+                    <div>${data.message.content}</div>
+                    <div><small>${data.message.timestamp}</small></div>
+                `;
+                
+                messagesContainer.prepend(messageDiv);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ha ocurrido un error al enviar el mensaje.');
+        });
+    }
+});
+
 </script>
 {% endblock %}
 {% endblock %}

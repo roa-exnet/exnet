@@ -9,6 +9,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mercure\PublisherInterface;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Annotation\Route;
 
 #[Route('/chat', name: 'chat_')]
@@ -16,11 +18,13 @@ class ChatController extends AbstractController
 {
     private ChatService $chatService;
     private MessageService $messageService;
+    private PublisherInterface $publisher;  // Inyectamos el servicio PublisherInterface
 
-    public function __construct(ChatService $chatService, MessageService $messageService)
+    public function __construct(ChatService $chatService, MessageService $messageService, PublisherInterface $publisher)
     {
         $this->chatService = $chatService;
         $this->messageService = $messageService;
+        $this->publisher = $publisher;  // Iniciamos el publisher
     }
 
     #[Route('/', name: 'index')]
@@ -90,6 +94,21 @@ class ChatController extends AbstractController
         if (!$message) {
             return $this->json(['success' => false, 'error' => 'No tienes permiso para enviar mensajes en este chat'], 403);
         }
+
+        // Publicar el mensaje a través de Mercure
+        $this->publisher->__invoke(
+            new Update(
+                'chat_' . $chat->getId(),  // Tema de Mercure
+                json_encode([
+                    'id' => $message->getId(),
+                    'content' => $message->getContent(),
+                    'sender' => $message->getSenderName(),
+                    'senderId' => $message->getSenderIdentifier(),
+                    'timestamp' => $message->getSentAt()->format('Y-m-d H:i:s')
+                ]),
+                true  // Esto permite que el mensaje se publique en tiempo real
+            )
+        );
         
         return $this->json([
             'success' => true,
@@ -140,7 +159,6 @@ class ChatController extends AbstractController
     {
         return '123'; 
     }
-
 
     private function getUserName(): string
     {
