@@ -14,7 +14,7 @@ class ChatMessage
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'messages')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, referencedColumnName: "id")]
     private ?Chat $chat = null;
 
     #[ORM\Column(length: 255)]
@@ -151,5 +151,23 @@ class ChatMessage
         $this->metadata = $metadata;
 
         return $this;
+    }
+    
+    /**
+     * Comprueba si el mensaje ha sido leído
+     */
+    public function isRead(): bool
+    {
+        return $this->readAt !== null;
+    }
+    
+    public function isSystemMessage(): bool
+    {
+        return $this->messageType === 'system';
+    }
+    
+    public function isFromUser(string $userId): bool
+    {
+        return $this->senderIdentifier === $userId;
     }
 }

@@ -3,139 +3,9 @@
 
 {% block title %}Chat{% endblock %}
 
-{% block stylesheets %}
-<style>
-    .chat-container {
-        display: flex;
-        height: 100vh;
-        max-height: 800px;
-    }
-    
-    .chat-sidebar {
-        width: 300px;
-        border-right: 1px solid #ddd;
-        overflow-y: auto;
-        background-color: #f5f5f5;
-    }
-    
-    .chat-main {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .chat-header {
-        padding: 15px;
-        border-bottom: 1px solid #ddd;
-        background-color: #f9f9f9;
-    }
-    
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 15px;
-        display: flex;
-        flex-direction: column-reverse;
-    }
-    
-    .chat-input {
-        border-top: 1px solid #ddd;
-        padding: 15px;
-        background-color: #f9f9f9;
-    }
-    
-    .chat-input input {
-        width: 80%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-    
-    .chat-input button {
-        padding: 8px 15px;
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    
-    .chat-list-item {
-        padding: 15px;
-        border-bottom: 1px solid #ddd;
-        cursor: pointer;
-    }
-    
-    .chat-list-item:hover {
-        background-color: #e9e9e9;
-    }
-    
-    .chat-list-item.active {
-        background-color: #e1e1e1;
-    }
-    
-    .message {
-        margin-bottom: 15px;
-        max-width: 80%;
-    }
-    
-    .message-sent {
-        align-self: flex-end;
-        background-color: #dcf8c6;
-        padding: 10px;
-        border-radius: 8px;
-    }
-    
-    .message-received {
-        align-self: flex-start;
-        background-color: #f1f0f0;
-        padding: 10px;
-        border-radius: 8px;
-    }
-    
-    .message-system {
-        align-self: center;
-        background-color: #f8f8f8;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 0.8em;
-        color: #777;
-    }
-    
-    .chat-actions {
-        padding: 15px;
-        border-top: 1px solid #ddd;
-    }
-    
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0,0,0,0.4);
-    }
-    
-    .modal-content {
-        background-color: white;
-        margin: 15% auto;
-        padding: 20px;
-        border: 1px solid #888;
-        width: 80%;
-        max-width: 500px;
-    }
-    
-    .close {
-        color: #aaa;
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-</style>
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/chat.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -144,27 +14,7 @@
         <h2 style="padding: 15px;">Chats</h2>
         
         <div class="chat-list">
-            {% for chat in chats %}
-                <div class="chat-list-item" data-chat-id="{{ chat.id }}">
-                    <strong>{{ chat.name }}</strong>
-                    <div>
-                        {% set otherParticipant = null %}
-                        {% for participant in chat.participants %}
-                            {% if participant.participantIdentifier != userId %}
-                                {% set otherParticipant = participant %}
-                            {% endif %}
-                        {% endfor %}
-                        
-                        {% if otherParticipant %}
-                            {{ otherParticipant.participantName }}
-                        {% else %}
-                            Chat privado
-                        {% endif %}
-                    </div>
-                </div>
-            {% else %}
-                <div style="padding: 15px;">No tienes chats activos</div>
-            {% endfor %}
+            <div style="padding: 15px;">Cargando conversaciones...</div>
         </div>
         
         <div class="chat-actions">
@@ -186,12 +36,17 @@
         <h2>Nuevo chat</h2>
         <form id="chatForm">
             <div style="margin-bottom: 15px;">
-                <label for="recipientId">ID del destinatario:</label>
-                <input type="text" id="recipientId" name="recipientId" required>
+                <label for="chatName">Nombre del chat:</label>
+                <input type="text" id="chatName" name="chatName" required>
             </div>
-            <div style="margin-bottom: 15px;">
-                <label for="recipientName">Nombre del destinatario:</label>
-                <input type="text" id="recipientName" name="recipientName" required>
+            <div style="margin-bottom: 15px;" class="form-user-search">
+                <label for="userSearch">Buscar usuario:</label>
+                <div class="search-container">
+                    <input type="text" id="userSearch" name="userSearch" placeholder="Buscar por nombre o email...">
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                <div id="selectedUsers" class="selected-users"></div>
+                <input type="hidden" id="recipientIds" name="recipientIds">
             </div>
             <button type="submit">Crear chat</button>
         </form>
@@ -199,16 +54,243 @@
 </div>
 
 {% block javascripts %}
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Información de usuario
+    const userId = {{ userId|json_encode|raw }};
+    const userName = {{ userName|json_encode|raw }};
+    const websocketUrl = {{ websocketUrl|json_encode|raw }};
+    
+    // Inicializar la conexión WebSocket
+    const socket = io(websocketUrl);
+    let currentRoomId = null;
+    
+    // Eventos de conexión
+    socket.on('connect', () => {
+        console.log('Conectado al servidor WebSocket');
+        
+        // Autenticar al usuario
+        socket.emit('authenticate', { userId, userName });
+    });
+    
+    socket.on('authenticated', (data) => {
+        console.log('Autenticado como:', data.userName);
+        loadRooms(); // Cargar salas disponibles
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Desconectado del servidor WebSocket');
+    });
+    
+    socket.on('error', (error) => {
+        console.error('Error WebSocket:', error);
+    });
+    
+    // Eventos para mensajes y actualizaciones
+    socket.on('message', (message) => {
+        if (message.roomId === currentRoomId) {
+            addMessageToChat(message);
+        }
+    });
+    
+    socket.on('user_joined', (data) => {
+        if (data.roomId === currentRoomId) {
+            const systemMessage = {
+                id: `system_${Date.now()}`,
+                roomId: data.roomId,
+                senderId: 'system',
+                senderName: 'System',
+                content: `${data.userName} se ha unido al chat`,
+                type: 'system',
+                timestamp: new Date()
+            };
+            
+            addMessageToChat(systemMessage);
+        }
+    });
+    
+    socket.on('user_left', (data) => {
+        if (data.roomId === currentRoomId) {
+            const systemMessage = {
+                id: `system_${Date.now()}`,
+                roomId: data.roomId,
+                senderId: 'system',
+                senderName: 'System',
+                content: `${data.userName} ha abandonado el chat`,
+                type: 'system',
+                timestamp: new Date()
+            };
+            
+            addMessageToChat(systemMessage);
+        }
+    });
+    
+    socket.on('user_typing', (data) => {
+        if (data.roomId === currentRoomId && data.userId !== userId) {
+            updateTypingIndicator(data);
+        }
+    });
+    
+    socket.on('room_created', (data) => {
+        console.log('Nueva sala creada:', data);
+        loadRooms(); // Recargar la lista de salas
+    });
+    
     // Variables para el modal
     const chatModal = document.getElementById('chatModal');
     const btnNewChat = document.getElementById('btnNewChat');
     const closeBtn = document.querySelector('.close');
     
+    // Setup para el autocompletado de usuario
+    const userSearch = document.getElementById('userSearch');
+    const searchResults = document.getElementById('searchResults');
+    const selectedUsers = document.getElementById('selectedUsers');
+    const recipientIdsInput = document.getElementById('recipientIds');
+    let selectedRecipients = [];
+    
+    // Función para buscar usuarios
+    let searchTimeout;
+    userSearch.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            searchResults.innerHTML = '';
+            searchResults.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            // En una implementación real, harías una petición AJAX al servidor
+            // Por ahora, simularemos una respuesta con datos ficticios
+            simulateUserSearch(query);
+        }, 300);
+    });
+    
+    // Función para simular la búsqueda de usuarios (reemplazar con AJAX real)
+    function simulateUserSearch(query) {
+        // Mostrar indicador de carga
+        searchResults.innerHTML = '<div class="loading">Buscando usuarios...</div>';
+        searchResults.style.display = 'block';
+        
+        // Realizar la petición al endpoint de búsqueda
+        fetch(`/chat/api/users/search?q=${encodeURIComponent(query)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log(`Encontrados ${data.users.length} usuarios para la consulta: "${query}"`);
+                    displaySearchResults(data.users);
+                } else {
+                    console.error('Error en la búsqueda:', data.error || 'Error desconocido');
+                    searchResults.innerHTML = '<div class="no-results">Error al buscar usuarios</div>';
+                    searchResults.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error al buscar usuarios:', error);
+                searchResults.innerHTML = '<div class="no-results">Error al conectar con el servidor</div>';
+                searchResults.style.display = 'block';
+            });
+    }
+    
+    // Mostrar resultados de búsqueda
+function displaySearchResults(users) {
+    searchResults.innerHTML = '';
+    
+    if (!users || users.length === 0) {
+        searchResults.innerHTML = '<div class="no-results">No se encontraron usuarios</div>';
+        searchResults.style.display = 'block';
+        return;
+    }
+    
+    users.forEach(user => {
+        // No mostrar usuarios ya seleccionados
+        if (selectedRecipients.some(selected => selected.id === user.id)) {
+            return;
+        }
+        
+        const userElement = document.createElement('div');
+        userElement.className = 'user-result';
+        userElement.innerHTML = `
+            <div class="user-info">
+                <div class="user-name">${user.nombre}</div>
+                <div class="user-email">${user.email}</div>
+            </div>
+        `;
+        
+        userElement.addEventListener('click', () => {
+            selectUser(user);
+            searchResults.style.display = 'none';
+            userSearch.value = '';
+        });
+        
+        searchResults.appendChild(userElement);
+    });
+    
+    searchResults.style.display = 'block';
+}
+    
+    // Seleccionar un usuario
+    function selectUser(user) {
+        // Verificar si el usuario ya está seleccionado
+        if (selectedRecipients.some(selected => selected.id === user.id)) {
+            return;
+        }
+        
+        selectedRecipients.push(user);
+        updateSelectedUsers();
+        updateRecipientIds();
+    }
+    
+    // Actualizar la lista de usuarios seleccionados
+    function updateSelectedUsers() {
+        selectedUsers.innerHTML = '';
+        
+        selectedRecipients.forEach(user => {
+            const userTag = document.createElement('div');
+            userTag.className = 'user-tag';
+            userTag.innerHTML = `
+                <span>${user.nombre}</span>
+                <button type="button" class="remove-user" data-id="${user.id}">&times;</button>
+            `;
+            
+            selectedUsers.appendChild(userTag);
+        });
+        
+        // Eventos para eliminar usuarios
+        document.querySelectorAll('.remove-user').forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = parseInt(this.getAttribute('data-id'));
+                selectedRecipients = selectedRecipients.filter(user => user.id !== userId);
+                updateSelectedUsers();
+                updateRecipientIds();
+            });
+        });
+        
+        // Mostrar u ocultar el contenedor según si hay usuarios seleccionados
+        selectedUsers.style.display = selectedRecipients.length > 0 ? 'flex' : 'none';
+    }
+    
+    // Actualizar el campo oculto con los IDs de los destinatarios
+    function updateRecipientIds() {
+        const ids = selectedRecipients.map(user => user.id);
+        recipientIdsInput.value = ids.join(',');
+    }
+    
     // Abrir modal
     btnNewChat.addEventListener('click', function() {
         chatModal.style.display = "block";
+        // Reiniciar el formulario
+        document.getElementById('chatForm').reset();
+        selectedRecipients = [];
+        updateSelectedUsers();
+        updateRecipientIds();
     });
     
     // Cerrar modal
@@ -223,6 +305,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Cerrar resultados de búsqueda al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.search-container')) {
+            searchResults.style.display = 'none';
+        }
+    });
+    
     // Evitar múltiples envíos del formulario
     let isSubmitting = false;
     
@@ -233,125 +322,239 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isSubmitting) return;
         isSubmitting = true;
         
-        const recipientId = document.getElementById('recipientId').value;
-        const recipientName = document.getElementById('recipientName').value;
+        const chatName = document.getElementById('chatName').value;
+        const recipientIds = document.getElementById('recipientIds').value.split(',');
         const submitButton = this.querySelector('button[type="submit"]');
+        
+        // Validar que haya al menos un destinatario
+        if (recipientIds.length === 0 || recipientIds[0] === '') {
+            alert('Debes seleccionar al menos un destinatario');
+            isSubmitting = false;
+            return;
+        }
         
         // Deshabilitar el botón mientras se procesa
         if (submitButton) submitButton.disabled = true;
         
-        fetch('/chat/create/private', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                'recipientId': recipientId,
-                'recipientName': recipientName
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            isSubmitting = false;
-            if (submitButton) submitButton.disabled = false;
-            
-            if (data.success) {
+        // Crear sala utilizando la API WebSocket
+        createRoom(chatName, recipientIds)
+            .then(data => {
+                isSubmitting = false;
+                if (submitButton) submitButton.disabled = false;
+                
                 chatModal.style.display = "none";
-                window.location.reload(); // Recargar la página para mostrar el nuevo chat
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(error => {
-            isSubmitting = false;
-            if (submitButton) submitButton.disabled = false;
-            console.error('Error:', error);
-            alert('Ha ocurrido un error al crear el chat.');
-        });
-    });
-    
-    // Cargar un chat cuando se hace clic en la lista
-    document.querySelectorAll('.chat-list-item').forEach(function(item) {
-        item.addEventListener('click', function() {
-            document.querySelectorAll('.chat-list-item').forEach(function(el) {
-                el.classList.remove('active');
-            });
-            this.classList.add('active');
-            
-            const chatId = this.getAttribute('data-chat-id');
-            loadChat(chatId);
-        });
-    });
-    
-    // Función para cargar un chat
-    function loadChat(chatId) {
-        fetch('/chat/' + chatId)
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById('chatMain').innerHTML = html;
-                
-                const messageForm = document.getElementById('messageForm');
-                if (messageForm) {
-                    messageForm.addEventListener('submit', function(e) {
-                        e.preventDefault();
-                        
-                        const messageInput = document.getElementById('messageInput');
-                        const content = messageInput.value.trim();
-                        
-                        if (content) {
-                            sendMessage(chatId, content);
-                            messageInput.value = '';
-                        }
-                    });
-                }
-                
-                const messagesContainer = document.querySelector('.chat-messages');
-                if (messagesContainer) {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
+                loadRooms(); // Recargar las salas
             })
             .catch(error => {
+                isSubmitting = false;
+                if (submitButton) submitButton.disabled = false;
                 console.error('Error:', error);
-                alert('Ha ocurrido un error al cargar el chat.');
+                alert('Ha ocurrido un error al crear el chat.');
+            });
+    });
+    
+    // Cargar las salas disponibles
+    function loadRooms() {
+        fetch(`${websocketUrl}/rooms`)
+            .then(response => response.json())
+            .then(rooms => {
+                const chatList = document.querySelector('.chat-list');
+                
+                if (rooms.length === 0) {
+                    chatList.innerHTML = '<div style="padding: 15px;">No hay chats disponibles</div>';
+                    return;
+                }
+                
+                chatList.innerHTML = '';
+                
+                rooms.forEach(room => {
+                    const roomElement = document.createElement('div');
+                    roomElement.className = 'chat-list-item';
+                    roomElement.setAttribute('data-room-id', room.id);
+                    roomElement.innerHTML = `
+                        <strong>${room.name}</strong>
+                        <div>
+                            <small>${room.participants} participante(s)</small>
+                        </div>
+                    `;
+                    
+                    // Evento click para cargar el chat
+                    roomElement.addEventListener('click', function() {
+                        document.querySelectorAll('.chat-list-item').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        this.classList.add('active');
+                        
+                        const roomId = this.getAttribute('data-room-id');
+                        loadRoom(roomId);
+                    });
+                    
+                    chatList.appendChild(roomElement);
+                });
+            })
+            .catch(error => {
+                console.error('Error al cargar las salas:', error);
+            });
+    }
+    
+    // Función para crear una nueva sala
+    function createRoom(name, participantIds) {
+        return fetch(`/chat/rooms`, {  // URL actualizada para usar el endpoint de Symfony
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name,
+                creatorId: userId,
+                creatorName: userName,
+                participantIds
+            })
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error('Error al crear la sala');
+            }
+            return response.json();
+        });
+    }
+        
+    // Función para cargar una sala específica
+    function loadRoom(roomId) {
+        // Si estamos en una sala, salimos
+        if (currentRoomId) {
+            socket.emit('leave_room', { roomId: currentRoomId, userId });
+        }
+        
+        currentRoomId = roomId;
+        
+        // Unirse a la nueva sala
+        socket.emit('join_room', { roomId, userId });
+        
+        // Cargar mensajes previos
+        fetch(`${websocketUrl}/rooms/${roomId}/messages`)
+            .then(response => response.json())
+            .then(messages => {
+                // Crear la interfaz del chat
+                const chatMain = document.getElementById('chatMain');
+                chatMain.innerHTML = `
+                    <div class="chat-header">
+                        <h2>Chat</h2>
+                    </div>
+                    <div class="chat-messages"></div>
+                    <div class="typing-indicator" style="display: none;"></div>
+                    <div class="chat-input">
+                        <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
+                        <button id="sendButton">Enviar</button>
+                    </div>
+                `;
+                
+                const messagesContainer = document.querySelector('.chat-messages');
+                
+                // Mostrar mensajes en orden cronológico inverso
+                messages.reverse().forEach(message => {
+                    addMessageToChat(message, false);
+                });
+                
+                // Configurar el envío de mensajes
+                const messageInput = document.getElementById('messageInput');
+                const sendButton = document.getElementById('sendButton');
+                
+                sendButton.addEventListener('click', () => {
+                    sendMessage();
+                });
+                
+                messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+                
+                // Detectar cuando el usuario está escribiendo
+                let typingTimeout;
+                messageInput.addEventListener('input', () => {
+                    socket.emit('typing', { roomId, isTyping: true });
+                    
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        socket.emit('typing', { roomId, isTyping: false });
+                    }, 1000);
+                });
+            })
+            .catch(error => {
+                console.error('Error al cargar los mensajes:', error);
+                currentRoomId = null;
             });
     }
     
     // Función para enviar un mensaje
-    function sendMessage(chatId, content) {
-        fetch('/chat/send/' + chatId, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                'content': content
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const messagesContainer = document.querySelector('.chat-messages');
-                
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message message-sent';
-                messageDiv.innerHTML = `
-                    <div><strong>${data.message.sender}</strong></div>
-                    <div>${data.message.content}</div>
-                    <div><small>${data.message.timestamp}</small></div>
-                `;
-                
-                messagesContainer.prepend(messageDiv);
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Ha ocurrido un error al enviar el mensaje.');
+    function sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        const content = messageInput.value.trim();
+        
+        if (!content || !currentRoomId) return;
+        
+        socket.emit('send_message', {
+            roomId: currentRoomId,
+            content,
+            type: 'text'
         });
+        
+        messageInput.value = '';
+    }
+    
+    // Función para añadir un mensaje al chat
+    function addMessageToChat(message, scroll = true) {
+        const messagesContainer = document.querySelector('.chat-messages');
+        if (!messagesContainer) return;
+        
+        const messageDiv = document.createElement('div');
+        
+        if (message.type === 'system') {
+            messageDiv.className = 'message message-system';
+            messageDiv.textContent = message.content;
+        } else {
+            const isSentByMe = message.senderId === userId.toString();
+            messageDiv.className = `message ${isSentByMe ? 'message-sent' : 'message-received'}`;
+            
+            // Formatear fecha si es string
+            let timestamp = message.timestamp;
+            if (typeof timestamp === 'string') {
+                timestamp = new Date(timestamp);
+            }
+            
+            const formattedTime = timestamp instanceof Date 
+                ? timestamp.toLocaleTimeString() 
+                : 'ahora';
+            
+            messageDiv.innerHTML = `
+                <div><strong>${message.senderName}</strong></div>
+                <div>${message.content}</div>
+                <div><small>${formattedTime}</small></div>
+            `;
+        }
+        
+        // Insertar al principio para mantener orden inverso
+        messagesContainer.prepend(messageDiv);
+        
+        // Scroll al final del chat (que es arriba en flex-direction: column-reverse)
+        if (scroll) {
+            messagesContainer.scrollTop = 0;
+        }
+    }
+    
+    // Función para actualizar el indicador de escritura
+    function updateTypingIndicator(data) {
+        const typingIndicator = document.querySelector('.typing-indicator');
+        if (!typingIndicator) return;
+        
+        if (data.isTyping) {
+            typingIndicator.textContent = `${data.userName} está escribiendo...`;
+            typingIndicator.style.display = 'block';
+        } else {
+            typingIndicator.style.display = 'none';
+        }
     }
 });
-
 </script>
 {% endblock %}
 {% endblock %}

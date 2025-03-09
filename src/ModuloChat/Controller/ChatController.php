@@ -2,166 +2,381 @@
 
 namespace App\ModuloChat\Controller;
 
-use App\ModuloChat\Entity\Chat;
 use App\ModuloChat\Service\ChatService;
-use App\ModuloChat\Service\MessageService;
+use App\ModuloCore\Entity\User;
+use App\ModuloChat\Entity\Chat;
+use App\ModuloCore\Repository\UserRepository;
+use Monolog\DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mercure\PublisherInterface;
-use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[Route('/chat', name: 'chat_')]
 class ChatController extends AbstractController
 {
     private ChatService $chatService;
-    private MessageService $messageService;
-    private PublisherInterface $publisher;  // Inyectamos el servicio PublisherInterface
-
-    public function __construct(ChatService $chatService, MessageService $messageService, PublisherInterface $publisher)
+    private string $websocketUrl;
+    private EntityManagerInterface $entityManager;
+    
+    public function __construct(ChatService $chatService, EntityManagerInterface $entityManager)
     {
         $this->chatService = $chatService;
-        $this->messageService = $messageService;
-        $this->publisher = $publisher;  // Iniciamos el publisher
+        $this->entityManager = $entityManager;
+        $this->websocketUrl = 'http://localhost:3033';
     }
-
+    
     #[Route('/', name: 'index')]
     public function index(): Response
     {
-        $userId = $this->getUserIdentifier();
+        $userId = '1';
+        $userName = 'Usuario de Prueba';
         
-        $chats = $this->chatService->getActiveChatsForParticipant($userId);
-        
-        return $this->render('chat.html.twig', [
-            'chats' => $chats,
+        return $this->render('@ModuloChat/chat.html.twig', [
             'userId' => $userId,
-            'userName' => $this->getUserName()
+            'userName' => $userName,
+            'websocketUrl' => $this->websocketUrl
         ]);
     }
-
-    #[Route('/{id}', name: 'view', requirements: ['id' => '\d+'])]
-    public function viewChat(Chat $chat): Response
+    
+    #[Route('/rooms', name: 'rooms', methods: ['GET'])]
+    public function getRooms(): JsonResponse
     {
-        $userId = $this->getUserIdentifier();
-        
-        $this->messageService->markMessagesAsRead($chat, $userId);
-        
-        $messages = $this->messageService->getChatMessages($chat, 50);
-        
-        return $this->render('chat_box.html.twig', [
-            'chat' => $chat,
-            'messages' => $messages,
-            'userId' => $userId,
-            'userName' => $this->getUserName()
-        ]);
-    }
-
-    #[Route('/messages/{id}', name: 'messages', requirements: ['id' => '\d+'])]
-    public function getMessages(Chat $chat, Request $request): Response
-    {
-        $limit = $request->query->getInt('limit', 50);
-        $offset = $request->query->getInt('offset', 0);
-        
-        $messages = $this->messageService->getChatMessages($chat, $limit, $offset);
-        
-        // Renderizar solo los mensajes para cargas AJAX
-        return $this->render('chat_messages.html.twig', [
-            'messages' => $messages,
-            'userId' => $this->getUserIdentifier()
-        ]);
-    }
-
-    #[Route('/send/{id}', name: 'send_message', methods: ['POST'])]
-    public function sendMessage(Chat $chat, Request $request): JsonResponse
-    {
-        $content = $request->request->get('content');
-        $userId = $this->getUserIdentifier();
-        $userName = $this->getUserName();
-        
-        if (empty($content)) {
-            return $this->json(['success' => false, 'error' => 'El mensaje no puede estar vacío'], 400);
+        try {
+            $rooms = $this->chatService->getRooms();
+            
+            $formattedRooms = [];
+            foreach ($rooms as $room) {
+                $formattedRooms[] = [
+                    'id' => $room->getId(),
+                    'name' => $room->getName(),
+                    'type' => $room->getType(),
+                    'createdAt' => $room->getCreatedAt()->format('Y-m-d H:i:s'),
+                    'participantsCount' => $room->countActiveParticipants()
+                ];
+            }
+            
+            return $this->json([
+                'success' => true,
+                'rooms' => $formattedRooms
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al obtener las salas de chat: ' . $e->getMessage()
+            ], 500);
         }
-        
-        $message = $this->messageService->sendMessage(
-            $chat,
-            $userId,
-            $userName,
-            $content
-        );
-        
-        if (!$message) {
-            return $this->json(['success' => false, 'error' => 'No tienes permiso para enviar mensajes en este chat'], 403);
-        }
-
-        // Publicar el mensaje a través de Mercure
-        $this->publisher->__invoke(
-            new Update(
-                'chat_' . $chat->getId(),  // Tema de Mercure
-                json_encode([
+    }
+    
+    #[Route('/rooms/{roomId}', name: 'room_detail', methods: ['GET'])]
+    public function getRoomDetail(string $roomId): JsonResponse
+    {
+        try {
+            $result = $this->chatService->getRoom($roomId);
+            
+            if (!$result) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'La sala de chat no existe'
+                ], 404);
+            }
+            
+            $chat = $result['chat'];
+            $messages = $result['messages'];
+            
+            $formattedMessages = [];
+            foreach ($messages as $message) {
+                $formattedMessages[] = [
                     'id' => $message->getId(),
-                    'content' => $message->getContent(),
-                    'sender' => $message->getSenderName(),
                     'senderId' => $message->getSenderIdentifier(),
-                    'timestamp' => $message->getSentAt()->format('Y-m-d H:i:s')
-                ]),
-                true  // Esto permite que el mensaje se publique en tiempo real
-            )
-        );
-        
-        return $this->json([
-            'success' => true,
-            'message' => [
+                    'senderName' => $message->getSenderName(),
+                    'content' => $message->getContent(),
+                    'type' => $message->getMessageType(),
+                    'sentAt' => $message->getSentAt()->format('Y-m-d H:i:s'),
+                    'read' => $message->getReadAt() !== null
+                ];
+            }
+            
+            $participants = [];
+            foreach ($chat->getParticipants() as $participant) {
+                if ($participant->isIsActive()) {
+                    $participants[] = [
+                        'id' => $participant->getParticipantIdentifier(),
+                        'name' => $participant->getParticipantName(),
+                        'role' => $participant->getRole(),
+                        'joinedAt' => $participant->getJoinedAt()->format('Y-m-d H:i:s')
+                    ];
+                }
+            }
+            
+            return $this->json([
+                'success' => true,
+                'room' => [
+                    'id' => $chat->getId(),
+                    'name' => $chat->getName(),
+                    'type' => $chat->getType(),
+                    'createdAt' => $chat->getCreatedAt()->format('Y-m-d H:i:s'),
+                    'participants' => $participants
+                ],
+                'messages' => $formattedMessages
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al obtener los detalles de la sala: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    #[Route('/rooms', name: 'create_room', methods: ['POST'])]
+    public function createRoom(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+    
+            if (!$data || !isset($data['name'], $data['creatorId'], $data['creatorName'])) {
+                return $this->json(['success' => false, 'error' => 'Datos inválidos'], 400);
+            }
+    
+            $name = $data['name'];
+            $creatorId = $data['creatorId'];
+            $creatorName = $data['creatorName'];
+            $participantIds = $data['participantIds'] ?? [];
+    
+            // Crear el objeto Chat
+            $chat = new Chat();
+            $chat->setId('room_' . uniqid());
+            $chat->setName($name);
+            $chat->setType('private');
+            $chat->setIsActive(true);
+            $chat->setCreatedAt(new \DateTimeImmutable('now'));
+    
+            $this->entityManager->persist($chat);
+    
+            $this->addParticipantToChat($chat, $creatorId, $creatorName, 'creator');
+    
+            foreach ($participantIds as $participantId) {
+                if ($participantId != $creatorId) {
+                    $user = $this->entityManager->getRepository(User::class)->find($participantId);
+                    $participantName = $user ? $user->getNombre() . ' ' . $user->getApellidos() : 'Usuario ' . $participantId;
+                    $this->addParticipantToChat($chat, $participantId, $participantName, 'member');
+                }
+            }
+    
+            $this->entityManager->flush();
+    
+            return $this->json([
+                'success' => true,
+                'room' => [
+                    'id' => $chat->getId(),
+                    'name' => $chat->getName(),
+                    'type' => $chat->getType(),
+                    'createdAt' => $chat->getCreatedAt()->format('Y-m-d H:i:s'),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['success' => false, 'error' => 'Error al crear la sala: ' . $e->getMessage()], 500);
+        }
+    }
+    
+    #[Route('/rooms/{roomId}/messages', name: 'send_message', methods: ['POST'])]
+    public function sendMessage(Request $request, string $roomId): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            
+            if (!isset($data['senderId']) || !isset($data['content'])) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Faltan parámetros obligatorios (senderId, content)'
+                ], 400);
+            }
+            
+            $senderId = $data['senderId'];
+            $senderName = $data['senderName'] ?? 'Usuario ' . $senderId;
+            $content = $data['content'];
+            $messageType = $data['type'] ?? 'text';
+            
+            $message = $this->chatService->sendMessage($roomId, $senderId, $senderName, $content, $messageType);
+            
+            if (!$message) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Error al enviar el mensaje'
+                ], 500);
+            }
+            
+            return $this->json([
+                'success' => true,
                 'id' => $message->getId(),
-                'content' => $message->getContent(),
-                'sender' => $message->getSenderName(),
-                'senderId' => $message->getSenderIdentifier(),
-                'timestamp' => $message->getSentAt()->format('Y-m-d H:i:s')
-            ]
-        ]);
+                'message' => [
+                    'id' => $message->getId(),
+                    'senderId' => $message->getSenderIdentifier(),
+                    'senderName' => $message->getSenderName(),
+                    'content' => $message->getContent(),
+                    'type' => $message->getMessageType(),
+                    'sentAt' => $message->getSentAt()->format('Y-m-d H:i:s')
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al enviar el mensaje: ' . $e->getMessage()
+            ], 500);
+        }
     }
-
-    #[Route('/create/private', name: 'create_private', methods: ['POST'])]
-    public function createPrivateChat(Request $request): JsonResponse
+    
+    #[Route('/rooms/{roomId}/participants', name: 'add_participant', methods: ['POST'])]
+    public function addParticipant(Request $request, string $roomId): JsonResponse
     {
-        $recipientId = $request->request->get('recipientId');
-        $recipientName = $request->request->get('recipientName');
-        
-        if (empty($recipientId)) {
-            return $this->json(['success' => false, 'error' => 'Se requiere un destinatario'], 400);
-        }
-        
-        $userId = $this->getUserIdentifier();
-        $userName = $this->getUserName();
-        
-        $chat = $this->chatService->getOrCreatePrivateChat(
-            $userId,
-            $userName,
-            $recipientId,
-            $recipientName
-        );
-        
-        if (count($chat->getMessages()) === 0) {
-            $this->messageService->sendSystemMessage(
-                $chat,
-                'Chat iniciado'
-            );
-        }
         
         return $this->json([
-            'success' => true,
-            'chatId' => $chat->getId()
-        ]);
+            'success' => false,
+            'error' => 'Método no implementado'
+        ], 501);
+    }
+    
+    #[Route('/rooms/{roomId}/participants/{participantId}', name: 'remove_participant', methods: ['DELETE'])]
+    public function removeParticipant(string $roomId, string $participantId): JsonResponse
+    {
+        try {
+            $success = $this->chatService->removeParticipant($roomId, $participantId);
+            
+            if (!$success) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Error al eliminar el participante'
+                ], 400);
+            }
+            
+            return $this->json([
+                'success' => true
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al eliminar el participante: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    #[Route('/user/{userId}/rooms', name: 'user_rooms', methods: ['GET'])]
+    public function getUserRooms(string $userId): JsonResponse
+    {
+        try {
+            $rooms = $this->chatService->getUserChats($userId);
+            
+            $formattedRooms = [];
+            foreach ($rooms as $room) {
+                $formattedRooms[] = [
+                    'id' => $room->getId(),
+                    'name' => $room->getName(),
+                    'type' => $room->getType(),
+                    'createdAt' => $room->getCreatedAt()->format('Y-m-d H:i:s'),
+                    'participantsCount' => count($room->getActiveParticipants())
+                ];
+            }
+            
+            return $this->json([
+                'success' => true,
+                'rooms' => $formattedRooms
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al obtener las salas del usuario: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    #[Route('/rooms/{roomId}/messages/{messageId}/read', name: 'mark_message_read', methods: ['POST'])]
+    public function markMessageAsRead(string $roomId, string $messageId): JsonResponse
+    {
+        try {
+            $success = $this->chatService->markMessageAsRead($messageId);
+            
+            if (!$success) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Error al marcar el mensaje como leído'
+                ], 400);
+            }
+            
+            return $this->json([
+                'success' => true
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al marcar el mensaje como leído: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    private function getUserIdentifier(): string
+    #[Route('/api/users/search', name: 'search_users', methods: ['GET'])]
+    public function searchUsers(Request $request): JsonResponse
     {
-        return '123'; 
+        $query = $request->query->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return $this->json([
+                'success' => true,
+                'users' => []
+            ]);
+        }
+        
+        try {
+            $userRepository = $this->entityManager->getRepository(User::class);
+            
+            $qb = $userRepository->createQueryBuilder('u');
+            $qb->where('u.nombre LIKE :query')
+               ->orWhere('u.apellidos LIKE :query')
+               ->orWhere('u.email LIKE :query')
+               ->andWhere('u.is_active = :active')
+               ->setParameter('query', '%' . $query . '%')
+               ->setParameter('active', true)
+               ->setMaxResults(10);
+            
+            $results = $qb->getQuery()->getResult();
+            
+            $users = [];
+            foreach ($results as $user) {
+                $users[] = [
+                    'id' => $user->getId(),
+                    'nombre' => $user->getNombre() . ' ' . $user->getApellidos(),
+                    'email' => $user->getEmail()
+                ];
+            }
+            
+            return $this->json([
+                'success' => true,
+                'users' => $users
+            ]);
+        } catch (\Exception $e) {
+            $mockUsers = $this->getMockUsers($query);
+            $mockUsers = array_values($mockUsers);
+            
+            return $this->json([
+                'success' => true,
+                'users' => $mockUsers,
+                'note' => 'Usando datos simulados debido a un error: ' . $e->getMessage()
+            ]);
+        }
     }
 
-    private function getUserName(): string
+    private function getMockUsers(string $query): array
     {
-        return 'Usuario de Prueba';
+        $mockUsers = [
+            ['id' => 1, 'nombre' => 'Admin Usuario', 'email' => 'admin@example.com'],
+        ];
+        
+        return array_filter($mockUsers, function($user) use ($query) {
+            $query = strtolower($query);
+            return (strpos(strtolower($user['nombre']), $query) !== false) || 
+                  (strpos(strtolower($user['email']), $query) !== false);
+        });
     }
 }

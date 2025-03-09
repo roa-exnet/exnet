@@ -6,6 +6,9 @@ use App\ModuloChat\Entity\Chat;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
+/**
+ * @extends ServiceEntityRepository<Chat>
+ */
 class ChatRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -13,50 +16,84 @@ class ChatRepository extends ServiceEntityRepository
         parent::__construct($registry, Chat::class);
     }
 
-    public function findActiveChatsForParticipant(string $participantIdentifier): array
+    /**
+     * Encuentra chats activos por usuario participante
+     */
+    public function findActiveByParticipant(string $userId): array
     {
         return $this->createQueryBuilder('c')
-            ->join('c.participants', 'p')
-            ->where('c.isActive = :active')
-            ->andWhere('p.participantIdentifier = :participantId')
-            ->andWhere('p.isActive = :participantActive')
+            ->innerJoin('c.participants', 'p')
+            ->where('p.participantIdentifier = :userId')
+            ->andWhere('p.isActive = :active')
+            ->andWhere('c.isActive = :active')
+            ->setParameter('userId', $userId)
             ->setParameter('active', true)
-            ->setParameter('participantId', $participantIdentifier)
-            ->setParameter('participantActive', true)
             ->orderBy('c.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
     }
 
-    public function findOrCreatePrivateChat(string $participant1, string $participant2): Chat
+    /**
+     * Encuentra chats con mensajes no leídos para un usuario
+     */
+    public function findWithUnreadMessages(string $userId): array
     {
-        $entityManager = $this->getEntityManager();
-        
-        $existingChat = $this->createQueryBuilder('c')
-            ->join('c.participants', 'p1')
-            ->join('c.participants', 'p2')
-            ->where('c.type = :type')
-            ->andWhere('p1.participantIdentifier = :id1')
-            ->andWhere('p2.participantIdentifier = :id2')
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.participants', 'p')
+            ->innerJoin('c.messages', 'm')
+            ->where('p.participantIdentifier = :userId')
+            ->andWhere('p.isActive = :active')
             ->andWhere('c.isActive = :active')
-            ->setParameter('type', 'private')
-            ->setParameter('id1', $participant1)
-            ->setParameter('id2', $participant2)
+            ->andWhere('m.senderIdentifier != :userId')
+            ->andWhere('m.readAt IS NULL')
+            ->setParameter('userId', $userId)
             ->setParameter('active', true)
+            ->distinct()
+            ->orderBy('c.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
-        
-        if (!empty($existingChat)) {
-            return $existingChat[0];
+    }
+
+    /**
+     * Encuentra los chats más recientes para un usuario
+     */
+    public function findRecentByParticipant(string $userId, int $limit = 5): array
+    {
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.participants', 'p')
+            ->leftJoin('c.messages', 'm')
+            ->where('p.participantIdentifier = :userId')
+            ->andWhere('p.isActive = :active')
+            ->andWhere('c.isActive = :active')
+            ->setParameter('userId', $userId)
+            ->setParameter('active', true)
+            ->orderBy('m.sentAt', 'DESC')
+            ->groupBy('c.id')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Busca chats por nombre o participante
+     */
+    public function search(string $term, ?string $userId = null): array
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->where('c.name LIKE :term')
+            ->setParameter('term', '%' . $term . '%')
+            ->andWhere('c.isActive = :active')
+            ->setParameter('active', true);
+
+        if ($userId) {
+            $qb->innerJoin('c.participants', 'p')
+                ->andWhere('p.participantIdentifier = :userId')
+                ->andWhere('p.isActive = :active')
+                ->setParameter('userId', $userId);
         }
-        
-        $chat = new Chat();
-        $chat->setName('Private Chat')
-            ->setType('private');
-        
-        $entityManager->persist($chat);
-        $entityManager->flush();
-        
-        return $chat;
+
+        return $qb->orderBy('c.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 }

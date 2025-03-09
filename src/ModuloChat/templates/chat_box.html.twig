@@ -1,34 +1,12 @@
-{# src/ModuloChat/templates/chat_box.html.twig #}
-
+{# src/ModuloChat/templates/chat_room.html.twig #}
 <div class="chat-header">
-    <h2>{{ chat.name }}</h2>
-    <div>
-        {% if chat.type == 'private' %}
-            {% set otherParticipant = null %}
-            {% for participant in chat.participants %}
-                {% if participant.participantIdentifier != userId %}
-                    {% set otherParticipant = participant %}
-                {% endif %}
-            {% endfor %}
-            
-            {% if otherParticipant %}
-                Conversación con {{ otherParticipant.participantName }}
-            {% else %}
-                Chat privado
-            {% endif %}
-        {% else %}
-            {{ chat.participants|length }} participantes
-        {% endif %}
-    </div>
+    <h2>{{ roomId }}</h2>
 </div>
-
 <div class="chat-messages">
-    {% include 'chat_messages.html.twig' with {'messages': messages, 'userId': userId} %}
+    <!-- Los mensajes se cargarán aquí desde el servidor WebSocket -->
 </div>
-
+<div class="typing-indicator" style="display: none;"></div>
 <div class="chat-input">
-    <form id="messageForm" data-chat-id="{{ chat.id }}">
-        <input type="text" id="messageInput" placeholder="Escribe un mensaje..." autocomplete="off" required>
-        <button type="submit">Enviar</button>
-    </form>
+    <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
+    <button id="sendButton">Enviar</button>
 </div>

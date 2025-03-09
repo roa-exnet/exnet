@@ -1,7 +1,5 @@
 <?php
-
 namespace App\ModuloChat\Entity;
-
 use App\ModuloChat\Repository\ChatParticipantRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -14,7 +12,7 @@ class ChatParticipant
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'participants')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, referencedColumnName: "id")]
     private ?Chat $chat = null;
 
     #[ORM\Column(length: 255)]
@@ -53,7 +51,6 @@ class ChatParticipant
     public function setChat(?Chat $chat): static
     {
         $this->chat = $chat;
-
         return $this;
     }
 
@@ -65,7 +62,6 @@ class ChatParticipant
     public function setParticipantIdentifier(string $participantIdentifier): static
     {
         $this->participantIdentifier = $participantIdentifier;
-
         return $this;
     }
 
@@ -77,7 +73,6 @@ class ChatParticipant
     public function setParticipantName(?string $participantName): static
     {
         $this->participantName = $participantName;
-
         return $this;
     }
 
@@ -89,7 +84,6 @@ class ChatParticipant
     public function setJoinedAt(\DateTimeImmutable $joinedAt): static
     {
         $this->joinedAt = $joinedAt;
-
         return $this;
     }
 
@@ -101,7 +95,6 @@ class ChatParticipant
     public function setLeftAt(?\DateTimeImmutable $leftAt): static
     {
         $this->leftAt = $leftAt;
-
         return $this;
     }
 
@@ -113,7 +106,6 @@ class ChatParticipant
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
-
         return $this;
     }
 
@@ -125,7 +117,6 @@ class ChatParticipant
     public function setRole(string $role): static
     {
         $this->role = $role;
-
         return $this;
     }
 
@@ -133,7 +124,16 @@ class ChatParticipant
     {
         $this->leftAt = new \DateTimeImmutable();
         $this->isActive = false;
-
         return $this;
+    }
+
+    public function isCreator(): bool
+    {
+        return $this->role === 'creator';
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin' || $this->role === 'creator';
     }
 }

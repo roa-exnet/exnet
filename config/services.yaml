@@ -4,6 +4,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    websocket_url: 'http://144.91.89.13:3033'
 
 services:
     # default configuration for services in *this* file
@@ -29,14 +30,18 @@ services:
         tags: ['kernel.event_subscriber']
 
     #END ------------------------------------------------------- ModuloCore -----------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloChat (DESACTIVADO) -------------------------------------------------------------------------- 
-    #App\ModuloChat\Controller\:
-        #resource: '../src/ModuloChat/Controller'
-        #tags: ['controller.service_arguments']
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    App\ModuloChat\Controller\:
+        resource: '../src/ModuloChat/Controller'
+        tags: ['controller.service_arguments']
         
-    #App\ModuloChat\Service\:
-        #resource: '../src/ModuloChat/Service/'
-        #autowire: true
-        #autoconfigure: true
-        #public: true
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
+        tags: ['console.command']
+        
+    App\ModuloChat\Service\:
+        resource: '../src/ModuloChat/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
     #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        

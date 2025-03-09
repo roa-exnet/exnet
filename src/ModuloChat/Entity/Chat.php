@@ -11,9 +11,8 @@ use Doctrine\ORM\Mapping as ORM;
 class Chat
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
-    private ?int $id = null;
+    #[ORM\Column(length: 255)]
+    private ?string $id = null;
 
     #[ORM\Column(length: 255)]
     private ?string $name = null;
@@ -43,9 +42,16 @@ class Chat
         $this->createdAt = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int
+    public function getId(): ?string
     {
         return $this->id;
+    }
+    
+    public function setId(string $id): static
+    {
+        $this->id = $id;
+        
+        return $this;
     }
 
     public function getName(): ?string
@@ -105,7 +111,6 @@ class Chat
     public function removeMessage(ChatMessage $message): static
     {
         if ($this->messages->removeElement($message)) {
-            // set the owning side to null (unless already changed)
             if ($message->getChat() === $this) {
                 $message->setChat(null);
             }
@@ -173,5 +178,22 @@ class Chat
         $this->isActive = false;
 
         return $this;
+    }
+    
+    public function getActiveParticipants(): array
+    {
+        $activeParticipants = [];
+        foreach ($this->participants as $participant) {
+            if ($participant->isIsActive()) {
+                $activeParticipants[] = $participant;
+            }
+        }
+        
+        return $activeParticipants;
+    }
+    
+    public function countActiveParticipants(): int
+    {
+        return count($this->getActiveParticipants());
     }
 }

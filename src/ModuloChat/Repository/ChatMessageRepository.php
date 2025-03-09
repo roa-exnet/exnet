@@ -17,53 +17,87 @@ class ChatMessageRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return ChatMessage[] Returns an array of ChatMessage objects for a specific chat
+     * Encuentra los mensajes no leídos de un chat para un usuario específico
      */
-    public function findByChatId(int $chatId, int $limit = 50, int $offset = 0): array
+    public function findUnreadMessagesForUser(string $chatId, string $userId): array
     {
         return $this->createQueryBuilder('m')
-            ->andWhere('m.chat = :chatId')
+            ->where('m.chat = :chatId')
+            ->andWhere('m.senderIdentifier != :userId')
+            ->andWhere('m.readAt IS NULL')
             ->setParameter('chatId', $chatId)
-            ->orderBy('m.sentAt', 'DESC')
-            ->setMaxResults($limit)
-            ->setFirstResult($offset)
+            ->setParameter('userId', $userId)
+            ->orderBy('m.sentAt', 'ASC')
             ->getQuery()
             ->getResult();
     }
 
     /**
-     * @return int Returns the number of unread messages for a participant in a chat
+     * Cuenta los mensajes no leídos de un chat para un usuario específico
      */
-    public function countUnreadMessages(int $chatId, string $participantIdentifier): int
+    public function countUnreadMessagesForUser(string $chatId, string $userId): int
     {
         return $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
-            ->andWhere('m.chat = :chatId')
-            ->andWhere('m.senderIdentifier != :sender')
+            ->where('m.chat = :chatId')
+            ->andWhere('m.senderIdentifier != :userId')
             ->andWhere('m.readAt IS NULL')
             ->setParameter('chatId', $chatId)
-            ->setParameter('sender', $participantIdentifier)
+            ->setParameter('userId', $userId)
             ->getQuery()
             ->getSingleScalarResult();
     }
 
     /**
-     * Mark all messages in a chat as read for a specific participant
+     * Encuentra los últimos mensajes de cada chat para un usuario específico
      */
-    public function markAllAsRead(int $chatId, string $participantIdentifier): int
+    public function findLatestMessagesByChats(array $chatIds): array
     {
-        $now = new \DateTimeImmutable();
+        $qb = $this->createQueryBuilder('m');
         
+        $subQuery = $this->_em->createQueryBuilder()
+            ->select('MAX(m2.id)')
+            ->from(ChatMessage::class, 'm2')
+            ->where('m2.chat = m.chat')
+            ->groupBy('m2.chat');
+        
+        return $qb->where('m.id IN (' . $subQuery->getDQL() . ')')
+            ->andWhere($qb->expr()->in('m.chat', ':chatIds'))
+            ->setParameter('chatIds', $chatIds)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Marca todos los mensajes de un chat como leídos para un usuario específico
+     */
+    public function markAllAsRead(string $chatId, string $userId): int
+    {
         return $this->createQueryBuilder('m')
             ->update()
             ->set('m.readAt', ':now')
             ->where('m.chat = :chatId')
-            ->andWhere('m.senderIdentifier != :sender')
+            ->andWhere('m.senderIdentifier != :userId')
             ->andWhere('m.readAt IS NULL')
-            ->setParameter('now', $now)
             ->setParameter('chatId', $chatId)
-            ->setParameter('sender', $participantIdentifier)
+            ->setParameter('userId', $userId)
+            ->setParameter('now', new \DateTimeImmutable())
             ->getQuery()
             ->execute();
+    }
+
+    /**
+     * Encuentra los mensajes de un chat con paginación
+     */
+    public function findMessagesWithPagination(string $chatId, int $page = 1, int $limit = 20): array
+    {
+        return $this->createQueryBuilder('m')
+            ->where('m.chat = :chatId')
+            ->setParameter('chatId', $chatId)
+            ->orderBy('m.sentAt', 'DESC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 }

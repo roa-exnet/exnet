@@ -38,7 +38,7 @@
 .exnet-navbar .nav-item span {
     font-size: 0.9rem;
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-5px);
     transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     position: absolute;
     top: 100%;
