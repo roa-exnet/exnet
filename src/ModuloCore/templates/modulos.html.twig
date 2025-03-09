@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Añadir Módulos{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <div class="row">
+            {% for modulo in modulos %}
+                <div class="col-md-6 mb-4">
+                    <div class="exnet-card position-relative">
+                        {% if modulo.estado == 1 %}
+                            <span class="exnet-ribbon">Instalado</span>
+                        {% endif %}
+                        <i class="{{ modulo.icon }} fa-3x"></i>
+                        <h5 class="mt-2">{{ modulo.nombre }}</h5>
+                        <p>{{ modulo.descripcion }}</p>
+                        <a href="{{ modulo.ruta }}" 
+                           class="{% if modulo.estado == 1 %}exnet-btn-disabled{% else %}exnet-btn-orange{% endif %}">
+                            {% if modulo.estado == 1 %}Instalado{% else %}Añadir{% endif %}
+                        </a>
+                    </div>
+                </div>
+
+                {% if loop.index is even %}
+                    </div><div class="row">
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}

@@ -11,6 +11,7 @@
 
 body {
     font-family: var(--font-primary);
+    user-select: none;
 }
 
 .exnet-footer {

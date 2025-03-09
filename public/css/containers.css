@@ -42,3 +42,54 @@
         left: 100%;
     }
 }
+
+
+.exnet-regular-container {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+    color: white;
+    user-select: none;
+
+}
+
+
+/*------------------------CARDS---------------------------------*/
+.exnet-card {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+    color: white;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.exnet-card:hover {
+    transform: scale(1.03);
+}
+
+.exnet-ribbon {
+    position: absolute;
+    top: 25px;
+    right: -35px;
+    background: #e68a00; /* Naranja */
+    color: white;
+    padding: 5px 15px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    transform: rotate(45deg);
+    min-width: 145px;
+}
+
+
+/*^--------------------- END OF CARDS ------------------------*/

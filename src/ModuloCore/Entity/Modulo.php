@@ -21,7 +21,7 @@ class Modulo
     #[ORM\Column(length: 255)]
     private ?string $descripcion = null;
 
-    #[ORM\Column]
+    #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $install_date = null;
 
     #[ORM\Column(nullable: true)]
@@ -32,6 +32,15 @@ class Modulo
      */
     #[ORM\ManyToMany(targetEntity: MenuElement::class, mappedBy: 'modulo')]
     private Collection $menuElements;
+
+    #[ORM\Column(length: 255)]
+    private ?string $icon = null;
+
+    #[ORM\Column(length: 255)]
+    private ?string $ruta = null;
+
+    #[ORM\Column]
+    private ?bool $estado = null;
 
     public function __construct()
     {
@@ -114,6 +123,42 @@ class Modulo
         if ($this->menuElements->removeElement($menuElement)) {
             $menuElement->removeModulo($this);
         }
+
+        return $this;
+    }
+
+    public function getIcon(): ?string
+    {
+        return $this->icon;
+    }
+
+    public function setIcon(string $icon): static
+    {
+        $this->icon = $icon;
+
+        return $this;
+    }
+
+    public function getRuta(): ?string
+    {
+        return $this->ruta;
+    }
+
+    public function setRuta(string $ruta): static
+    {
+        $this->ruta = $ruta;
+
+        return $this;
+    }
+
+    public function isEstado(): ?bool
+    {
+        return $this->estado;
+    }
+
+    public function setEstado(bool $estado): static
+    {
+        $this->estado = $estado;
 
         return $this;
     }
