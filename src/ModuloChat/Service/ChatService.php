@@ -20,7 +20,7 @@ class ChatService
     {
         $this->entityManager = $entityManager;
         // Valor por defecto para evitar errores
-        $this->websocketUrl = 'http://localhost:3033';
+        $this->websocketUrl = 'http://144.91.89.13:3033';
         $this->httpClient = HttpClient::create();
     }
     

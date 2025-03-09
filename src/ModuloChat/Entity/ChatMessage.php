@@ -153,9 +153,6 @@ class ChatMessage
         return $this;
     }
     
-    /**
-     * Comprueba si el mensaje ha sido leído
-     */
     public function isRead(): bool
     {
         return $this->readAt !== null;

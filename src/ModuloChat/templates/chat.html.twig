@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     socket.on('authenticated', (data) => {
         console.log('Autenticado como:', data.userName);
-        loadRooms(); // Cargar salas disponibles
+        loadUserRooms(userId); // Cargar las salas específicas del usuario
     });
     
     socket.on('disconnect', () => {
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     socket.on('room_created', (data) => {
         console.log('Nueva sala creada:', data);
-        loadRooms(); // Recargar la lista de salas
+        loadUserRooms(userId); // Corregido: cambiado de LoadUserRooms a loadUserRooms
     });
     
     // Variables para el modal
@@ -200,41 +200,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Mostrar resultados de búsqueda
-function displaySearchResults(users) {
-    searchResults.innerHTML = '';
-    
-    if (!users || users.length === 0) {
-        searchResults.innerHTML = '<div class="no-results">No se encontraron usuarios</div>';
-        searchResults.style.display = 'block';
-        return;
-    }
-    
-    users.forEach(user => {
-        // No mostrar usuarios ya seleccionados
-        if (selectedRecipients.some(selected => selected.id === user.id)) {
+    function displaySearchResults(users) {
+        searchResults.innerHTML = '';
+        
+        if (!users || users.length === 0) {
+            searchResults.innerHTML = '<div class="no-results">No se encontraron usuarios</div>';
+            searchResults.style.display = 'block';
             return;
         }
         
-        const userElement = document.createElement('div');
-        userElement.className = 'user-result';
-        userElement.innerHTML = `
-            <div class="user-info">
-                <div class="user-name">${user.nombre}</div>
-                <div class="user-email">${user.email}</div>
-            </div>
-        `;
-        
-        userElement.addEventListener('click', () => {
-            selectUser(user);
-            searchResults.style.display = 'none';
-            userSearch.value = '';
+        users.forEach(user => {
+            // No mostrar usuarios ya seleccionados
+            if (selectedRecipients.some(selected => selected.id === user.id)) {
+                return;
+            }
+            
+            const userElement = document.createElement('div');
+            userElement.className = 'user-result';
+            userElement.innerHTML = `
+                <div class="user-info">
+                    <div class="user-name">${user.nombre}</div>
+                    <div class="user-email">${user.email}</div>
+                </div>
+            `;
+            
+            userElement.addEventListener('click', () => {
+                selectUser(user);
+                searchResults.style.display = 'none';
+                userSearch.value = '';
+            });
+            
+            searchResults.appendChild(userElement);
         });
         
-        searchResults.appendChild(userElement);
-    });
-    
-    searchResults.style.display = 'block';
-}
+        searchResults.style.display = 'block';
+    }
     
     // Seleccionar un usuario
     function selectUser(user) {
@@ -343,7 +343,7 @@ function displaySearchResults(users) {
                 if (submitButton) submitButton.disabled = false;
                 
                 chatModal.style.display = "none";
-                loadRooms(); // Recargar las salas
+                loadUserRooms(userId); // Recargar las salas
             })
             .catch(error => {
                 isSubmitting = false;
@@ -353,21 +353,52 @@ function displaySearchResults(users) {
             });
     });
     
-    // Cargar las salas disponibles
-    function loadRooms() {
-        fetch(`${websocketUrl}/rooms`)
-            .then(response => response.json())
-            .then(rooms => {
+    // Función para crear una nueva sala
+    function createRoom(name, participantIds) {
+        return fetch(`/chat/rooms`, {  // URL actualizada para usar el endpoint de Symfony
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name,
+                creatorId: userId,
+                creatorName: userName,
+                participantIds
+            })
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error('Error al crear la sala');
+            }
+            return response.json();
+        });
+    }
+
+    // Función para cargar las salas del usuario
+    function loadUserRooms(userId) {
+        fetch(`/chat/user/rooms?userId=${userId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error de servidor: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
                 const chatList = document.querySelector('.chat-list');
                 
-                if (rooms.length === 0) {
-                    chatList.innerHTML = '<div style="padding: 15px;">No hay chats disponibles</div>';
+                if (!data.success) {
+                    chatList.innerHTML = `<div style="padding: 15px;">Error: ${data.error || 'Error desconocido'}</div>`;
+                    return;
+                }
+                
+                if (!data.rooms || data.rooms.length === 0) {
+                    chatList.innerHTML = '<div style="padding: 15px;">No tienes chats disponibles</div>';
                     return;
                 }
                 
                 chatList.innerHTML = '';
                 
-                rooms.forEach(room => {
+                data.rooms.forEach(room => {
                     const roomElement = document.createElement('div');
                     roomElement.className = 'chat-list-item';
                     roomElement.setAttribute('data-room-id', room.id);
@@ -393,29 +424,10 @@ function displaySearchResults(users) {
                 });
             })
             .catch(error => {
-                console.error('Error al cargar las salas:', error);
+                console.error('Error al cargar las salas del usuario:', error);
+                document.querySelector('.chat-list').innerHTML = 
+                    `<div style="padding: 15px; color: red;">Error al cargar las salas: ${error.message}</div>`;
             });
-    }
-    
-    // Función para crear una nueva sala
-    function createRoom(name, participantIds) {
-        return fetch(`/chat/rooms`, {  // URL actualizada para usar el endpoint de Symfony
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                name,
-                creatorId: userId,
-                creatorName: userName,
-                participantIds
-            })
-        }).then(response => {
-            if (!response.ok) {
-                throw new Error('Error al crear la sala');
-            }
-            return response.json();
-        });
     }
         
     // Función para cargar una sala específica
@@ -427,18 +439,28 @@ function displaySearchResults(users) {
         
         currentRoomId = roomId;
         
-        // Unirse a la nueva sala
+        // Unirse a la nueva sala (WebSocket para tiempo real)
         socket.emit('join_room', { roomId, userId });
         
-        // Cargar mensajes previos
-        fetch(`${websocketUrl}/rooms/${roomId}/messages`)
-            .then(response => response.json())
-            .then(messages => {
+        // Cargar mensajes previos desde Symfony (no del WebSocket)
+        fetch(`/chat/rooms/${roomId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error de servidor: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Error desconocido');
+                }
+                
                 // Crear la interfaz del chat
                 const chatMain = document.getElementById('chatMain');
                 chatMain.innerHTML = `
                     <div class="chat-header">
-                        <h2>Chat</h2>
+                        <h2>${data.room.name}</h2>
+                        <div class="participants-count">${data.room.participants.length} participantes</div>
                     </div>
                     <div class="chat-messages"></div>
                     <div class="typing-indicator" style="display: none;"></div>
@@ -451,9 +473,25 @@ function displaySearchResults(users) {
                 const messagesContainer = document.querySelector('.chat-messages');
                 
                 // Mostrar mensajes en orden cronológico inverso
-                messages.reverse().forEach(message => {
-                    addMessageToChat(message, false);
-                });
+                if (data.messages && data.messages.length > 0) {
+                    // Ordenar por fecha, del más reciente al más antiguo
+                    const sortedMessages = data.messages.sort((a, b) => 
+                        new Date(b.sentAt) - new Date(a.sentAt)
+                    );
+                    
+                    sortedMessages.forEach(message => {
+                        addMessageToChat({
+                            senderId: message.senderId,
+                            senderName: message.senderName,
+                            content: message.content,
+                            type: message.type,
+                            timestamp: new Date(message.sentAt)
+                        }, false);
+                    });
+                } else {
+                    // No hay mensajes
+                    messagesContainer.innerHTML = '<div class="no-messages">Aún no hay mensajes en este chat.</div>';
+                }
                 
                 // Configurar el envío de mensajes
                 const messageInput = document.getElementById('messageInput');
@@ -472,17 +510,30 @@ function displaySearchResults(users) {
                 // Detectar cuando el usuario está escribiendo
                 let typingTimeout;
                 messageInput.addEventListener('input', () => {
-                    socket.emit('typing', { roomId, isTyping: true });
+                    socket.emit('typing', { roomId, userId, userName, isTyping: true });
                     
                     clearTimeout(typingTimeout);
                     typingTimeout = setTimeout(() => {
-                        socket.emit('typing', { roomId, isTyping: false });
+                        socket.emit('typing', { roomId, userId, userName, isTyping: false });
                     }, 1000);
                 });
             })
             .catch(error => {
                 console.error('Error al cargar los mensajes:', error);
                 currentRoomId = null;
+                
+                const chatMain = document.getElementById('chatMain');
+                chatMain.innerHTML = `
+                    <div style="display: flex; height: 100%; align-items: center; justify-content: center; flex-direction: column;">
+                        <h3>Error al cargar el chat</h3>
+                        <p>${error.message}</p>
+                        <button id="btnRetry">Reintentar</button>
+                    </div>
+                `;
+                
+                document.getElementById('btnRetry').addEventListener('click', () => {
+                    loadRoom(roomId);
+                });
             });
     }
     
@@ -493,13 +544,56 @@ function displaySearchResults(users) {
         
         if (!content || !currentRoomId) return;
         
+        // Enviar al WebSocket para tiempo real
         socket.emit('send_message', {
             roomId: currentRoomId,
             content,
             type: 'text'
         });
         
+        // También enviar a Symfony para persistencia
+        fetch(`/chat/rooms/${currentRoomId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                senderId: userId,
+                senderName: userName,
+                content: content,
+                type: 'text'
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al enviar el mensaje');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                console.error('Error al guardar el mensaje:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error al enviar el mensaje:', error);
+        });
+        
+        // Limpiar el campo de entrada
         messageInput.value = '';
+        
+        // Opcionalmente, añadir el mensaje inmediatamente a la interfaz 
+        // para mejor experiencia de usuario (opcional si el WebSocket ya lo maneja)
+        const tempMessage = {
+            id: `temp_${Date.now()}`,
+            senderId: userId,
+            senderName: userName,
+            content: content,
+            type: 'text',
+            timestamp: new Date()
+        };
+        
+        addMessageToChat(tempMessage);
     }
     
     // Función para añadir un mensaje al chat

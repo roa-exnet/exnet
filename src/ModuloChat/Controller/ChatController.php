@@ -5,6 +5,7 @@ namespace App\ModuloChat\Controller;
 use App\ModuloChat\Service\ChatService;
 use App\ModuloCore\Entity\User;
 use App\ModuloChat\Entity\Chat;
+use App\ModuloChat\Entity\ChatParticipant;
 use App\ModuloCore\Repository\UserRepository;
 use Monolog\DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,14 +27,25 @@ class ChatController extends AbstractController
     {
         $this->chatService = $chatService;
         $this->entityManager = $entityManager;
-        $this->websocketUrl = 'http://localhost:3033';
+        $this->websocketUrl = 'http://144.91.89.13:3033';
     }
     
     #[Route('/', name: 'index')]
     public function index(): Response
     {
-        $userId = '1';
-        $userName = 'Usuario de Prueba';
+        $user = $this->getUser();
+        
+        if (!$user instanceof User) {
+            if ($this->getParameter('kernel.environment') === 'dev') {
+                $userId = '1';
+                $userName = 'Usuario de Prueba';
+            } else {
+                throw new AccessDeniedException('Debes iniciar sesión para acceder al chat.');
+            }
+        } else {
+            $userId = (string) $user->getId();
+            $userName = $user->getNombre() . ' ' . $user->getApellidos();
+        }
         
         return $this->render('@ModuloChat/chat.html.twig', [
             'userId' => $userId,
@@ -181,6 +193,30 @@ class ChatController extends AbstractController
             return $this->json(['success' => false, 'error' => 'Error al crear la sala: ' . $e->getMessage()], 500);
         }
     }
+
+    private function addParticipantToChat(Chat $chat, string $participantId, string $participantName, string $role = 'member'): void
+    {
+        $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
+        
+        $existingParticipant = $participantRepository->findOneBy([
+            'chat' => $chat,
+            'participantIdentifier' => $participantId
+        ]);
+        
+        if ($existingParticipant) {
+            $existingParticipant->setIsActive(true);
+            $existingParticipant->setRole($role);
+        } else {
+            $participant = new ChatParticipant();
+            $participant->setChat($chat);
+            $participant->setParticipantIdentifier($participantId);
+            $participant->setParticipantName($participantName);
+            $participant->setRole($role);
+            $participant->setIsActive(true);
+            
+            $this->entityManager->persist($participant);
+        }
+    }
     
     #[Route('/rooms/{roomId}/messages', name: 'send_message', methods: ['POST'])]
     public function sendMessage(Request $request, string $roomId): JsonResponse
@@ -263,21 +299,38 @@ class ChatController extends AbstractController
         }
     }
     
-    #[Route('/user/{userId}/rooms', name: 'user_rooms', methods: ['GET'])]
-    public function getUserRooms(string $userId): JsonResponse
+    #[Route('/user/rooms', name: 'user_rooms', methods: ['GET'])]
+    public function getUserRooms(Request $request): JsonResponse
     {
         try {
+            $user = $this->getUser();
+            
+            if (!$user instanceof User) {
+                if ($this->getParameter('kernel.environment') === 'dev') {
+                    $userId = $request->query->get('userId', '1');
+                } else {
+                    return $this->json([
+                        'success' => false,
+                        'error' => 'Usuario no autenticado'
+                    ], 401);
+                }
+            } else {
+                $userId = (string) $user->getId();
+            }
+            
             $rooms = $this->chatService->getUserChats($userId);
             
             $formattedRooms = [];
             foreach ($rooms as $room) {
-                $formattedRooms[] = [
-                    'id' => $room->getId(),
-                    'name' => $room->getName(),
-                    'type' => $room->getType(),
-                    'createdAt' => $room->getCreatedAt()->format('Y-m-d H:i:s'),
-                    'participantsCount' => count($room->getActiveParticipants())
-                ];
+                if ($room->isIsActive()) {
+                    $formattedRooms[] = [
+                        'id' => $room->getId(),
+                        'name' => $room->getName(),
+                        'type' => $room->getType(),
+                        'createdAt' => $room->getCreatedAt()->format('Y-m-d H:i:s'),
+                        'participants' => count($room->getActiveParticipants())
+                    ];
+                }
             }
             
             return $this->json([
@@ -287,7 +340,7 @@ class ChatController extends AbstractController
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
-                'error' => 'Error al obtener las salas del usuario: ' . $e->getMessage()
+                'error' => 'Error al obtener las salas de chat: ' . $e->getMessage()
             ], 500);
         }
     }
