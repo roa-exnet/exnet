@@ -20,7 +20,7 @@ class ChatService
     {
         $this->entityManager = $entityManager;
         // Configuración directa del servidor WebSocket
-        $this->websocketUrl = 'http://144.91.89.13:3033';
+        $this->websocketUrl = 'https://websockettest.exnet.cloud';
         $this->httpClient = HttpClient::create(['timeout' => 10]);
     }
 

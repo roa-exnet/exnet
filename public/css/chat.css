@@ -109,7 +109,10 @@
     display: flex;
     flex-direction: column;
     background-color: var(--chat-bg-white);
-  }
+    position: relative !important; /* Asegura posicionamiento correcto */
+    overflow: hidden; /* Evita desbordamientos */
+}
+
   
   .chat-header {
     padding: 15px;
@@ -122,6 +125,14 @@
     font-size: 1.2rem;
     font-weight: 600;
   }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px 15px 45px 15px; /* Añadir más padding en la parte inferior */
+    display: flex;
+    flex-direction: column;
+}
   
   /* Contenedor de mensajes */
   .chat-messages {
@@ -239,11 +250,37 @@
   /* Indicador de escritura */
   .typing-indicator {
     font-style: italic;
-    color: var(--chat-light-text);
+    color: var(--chat-text-color);
     font-size: 0.9rem;
-    padding: 5px 15px;
-    height: 20px;
-  }
+    padding: 8px 15px;
+    background-color: rgba(245, 245, 245, 0.95);
+    border: 1px solid var(--chat-border-color);
+    border-radius: 16px;
+    margin: 0 auto;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    text-align: center;
+    position: absolute;
+    bottom: 65px; /* Posicionarlo justo encima del área de input */
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 80%;
+    min-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
+.typing-indicator {
+  animation: pulse 1.5s infinite;
+}
   
   /* Modal para crear nuevo chat */
   .modal {

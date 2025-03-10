@@ -67,14 +67,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentRoomId = null;
     let isAuthenticated = false;
     
-    // Mantener un registro de los mensajes enviados para evitar duplicados
     const sentMessageIds = new Set();
     
-    // Eventos de conexión WebSocket
     socket.on('connect', () => {
         console.log('Conectado al servidor WebSocket');
         
-        // Al conectar, autenticamos inmediatamente
         console.log('Enviando autenticación con:', { userId, userName });
         socket.emit('authenticate', { userId, userName });
     });
@@ -83,7 +80,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Autenticado con éxito como:', data);
         isAuthenticated = true;
         
-        // Solo después de autenticarse cargar las salas
         loadUserRooms();
     });
     
@@ -95,16 +91,13 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.on('error', (error) => {
         console.error('Error WebSocket:', error);
         if (error.message && error.message.includes('not authenticated')) {
-            // Reintento de autenticación si hay error de autenticación
             socket.emit('authenticate', { userId, userName });
         }
     });
     
-    // Eventos para mensajes y actualizaciones
     socket.on('message', (message) => {
         console.log('Mensaje recibido del servidor WebSocket:', message);
         if (message.roomId === currentRoomId) {
-            // Verificar si ya hemos procesado este mensaje para evitar duplicados
             if (!sentMessageIds.has(message.id)) {
                 addMessageToChat({
                     senderId: message.senderId,
@@ -114,10 +107,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     timestamp: new Date(message.timestamp)
                 });
                 
-                // Agregar ID a la lista de mensajes procesados
                 sentMessageIds.add(message.id);
                 
-                // Limitar el tamaño del conjunto para evitar fugas de memoria
                 if (sentMessageIds.size > 100) {
                     const iterator = sentMessageIds.values();
                     sentMessageIds.delete(iterator.next().value);
@@ -137,19 +128,16 @@ document.addEventListener('DOMContentLoaded', function() {
         loadUserRooms();
     });
     
-    // Variables para el modal
     const chatModal = document.getElementById('chatModal');
     const btnNewChat = document.getElementById('btnNewChat');
     const closeBtn = document.querySelector('.close');
     
-    // Setup para el autocompletado de usuario
     const userSearch = document.getElementById('userSearch');
     const searchResults = document.getElementById('searchResults');
     const selectedUsers = document.getElementById('selectedUsers');
     const recipientIdsInput = document.getElementById('recipientIds');
     let selectedRecipients = [];
     
-    // Función para buscar usuarios
     let searchTimeout;
     userSearch.addEventListener('input', function() {
         clearTimeout(searchTimeout);
@@ -348,61 +336,68 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function loadUserRooms() {
-        console.log('Cargando salas del usuario...');
-        fetch(`/chat/user/rooms`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error de servidor: ${response.status}`);
+function loadUserRooms() {
+    console.log('Cargando salas del usuario...');
+    fetch(`/chat/user/rooms`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error de servidor: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Salas obtenidas:', data);
+            const chatList = document.querySelector('.chat-list');
+            
+            if (!data.success) {
+                chatList.innerHTML = `<div style="padding: 15px;">Error: ${data.error || 'Error desconocido'}</div>`;
+                return;
+            }
+            
+            if (!data.rooms || data.rooms.length === 0) {
+                chatList.innerHTML = '<div style="padding: 15px;">No tienes chats disponibles</div>';
+                return;
+            }
+            
+            chatList.innerHTML = '';
+            
+            data.rooms.sort((a, b) => {
+                if (a.lastActivity && b.lastActivity) {
+                    return new Date(b.lastActivity) - new Date(a.lastActivity);
                 }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Salas obtenidas:', data);
-                const chatList = document.querySelector('.chat-list');
-                
-                if (!data.success) {
-                    chatList.innerHTML = `<div style="padding: 15px;">Error: ${data.error || 'Error desconocido'}</div>`;
-                    return;
-                }
-                
-                if (!data.rooms || data.rooms.length === 0) {
-                    chatList.innerHTML = '<div style="padding: 15px;">No tienes chats disponibles</div>';
-                    return;
-                }
-                
-                chatList.innerHTML = '';
-                
-                data.rooms.forEach(room => {
-                    const roomElement = document.createElement('div');
-                    roomElement.className = 'chat-list-item';
-                    roomElement.setAttribute('data-room-id', room.id);
-                    roomElement.innerHTML = `
-                        <strong>${room.name}</strong>
-                        <div>
-                            <small>${room.participants} participante(s)</small>
-                        </div>
-                    `;
-                    
-                    roomElement.addEventListener('click', function() {
-                        document.querySelectorAll('.chat-list-item').forEach(el => {
-                            el.classList.remove('active');
-                        });
-                        this.classList.add('active');
-                        
-                        const roomId = this.getAttribute('data-room-id');
-                        loadRoom(roomId);
-                    });
-                    
-                    chatList.appendChild(roomElement);
-                });
-            })
-            .catch(error => {
-                console.error('Error al cargar las salas del usuario:', error);
-                document.querySelector('.chat-list').innerHTML = 
-                    `<div style="padding: 15px; color: red;">Error al cargar las salas: ${error.message}</div>`;
+                return new Date(b.createdAt) - new Date(a.createdAt);
             });
-    }
+            
+            data.rooms.forEach(room => {
+                const roomElement = document.createElement('div');
+                roomElement.className = 'chat-list-item';
+                roomElement.setAttribute('data-room-id', room.id);
+                roomElement.innerHTML = `
+                    <strong>${room.name}</strong>
+                    <div>
+                        <small>${room.participants} participante(s)</small>
+                    </div>
+                `;
+                
+                roomElement.addEventListener('click', function() {
+                    document.querySelectorAll('.chat-list-item').forEach(el => {
+                        el.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    const roomId = this.getAttribute('data-room-id');
+                    loadRoom(roomId);
+                });
+                
+                chatList.appendChild(roomElement);
+            });
+        })
+        .catch(error => {
+            console.error('Error al cargar las salas del usuario:', error);
+            document.querySelector('.chat-list').innerHTML = 
+                `<div style="padding: 15px; color: red;">Error al cargar las salas: ${error.message}</div>`;
+        });
+}
         
 function loadRoom(roomId) {
     if (!isAuthenticated) {
@@ -416,7 +411,6 @@ function loadRoom(roomId) {
     
     console.log(`Cargando sala ${roomId}...`);
     
-    // Si estamos en una sala, salimos
     if (currentRoomId) {
         console.log(`Saliendo de la sala anterior ${currentRoomId}...`);
         socket.emit('leave_room', { roomId: currentRoomId, userId });
@@ -424,11 +418,9 @@ function loadRoom(roomId) {
     
     currentRoomId = roomId;
     
-    // Unirse a la nueva sala con WebSocket
     console.log(`Uniéndose a la sala ${roomId}...`);
     socket.emit('join_room', { roomId, userId });
     
-    // Cargar los datos de la sala desde Symfony
     fetch(`/chat/rooms/${roomId}`)
         .then(response => {
             if (!response.ok) {
@@ -444,23 +436,33 @@ function loadRoom(roomId) {
             }
             
             const chatMain = document.getElementById('chatMain');
+            
+            chatMain.style.position = 'relative';
+            
             chatMain.innerHTML = `
                 <div class="chat-header">
                     <h2>${data.room.name}</h2>
                     <div class="participants-count">${data.room.participants.length} participantes</div>
                 </div>
                 <div class="chat-messages"></div>
-                <div class="typing-indicator" style="display: none;"></div>
                 <div class="chat-input">
                     <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
                     <button id="sendButton">Enviar</button>
                 </div>
             `;
             
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.id = 'typingIndicator';
+            typingIndicator.style.display = 'none';
+            typingIndicator.textContent = 'Alguien está escribiendo...'; 
+            
+            const chatInput = chatMain.querySelector('.chat-input');
+            chatMain.insertBefore(typingIndicator, chatInput);
+            
             const messagesContainer = document.querySelector('.chat-messages');
             
             if (data.messages && data.messages.length > 0) {
-                // Los mensajes ya vienen ordenados desde el servidor (más antiguos primero)
                 console.log(`Mostrando ${data.messages.length} mensajes en orden cronológico`);
                 
                 data.messages.forEach(message => {
@@ -474,7 +476,6 @@ function loadRoom(roomId) {
                     }, false);
                 });
                 
-                // Hacer scroll al último mensaje (más reciente)
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             } else {
                 messagesContainer.innerHTML = '<div class="no-messages">Aún no hay mensajes en este chat.</div>';
@@ -533,29 +534,15 @@ function sendMessage() {
     const content = messageInput.value.trim();
     
     if (!content || !currentRoomId) return;
-    
-    // Mostrar mensaje temporal mientras se envía
-    const tempId = `temp_${Date.now()}`;
-    addMessageToChatOrdered({
-        id: tempId,
-        senderId: userId,
-        senderName: userName,
-        content: content,
-        type: 'text',
-        timestamp: new Date(),
-        isTemporary: true
-    });
-    
+
     console.log('Enviando mensaje al WebSocket:', { roomId: currentRoomId, content, type: 'text' });
     
-    // Enviar al WebSocket para tiempo real
     socket.emit('send_message', {
         roomId: currentRoomId,
         content,
         type: 'text'
     });
     
-    // También enviar a Symfony para persistencia
     fetch(`/chat/rooms/${currentRoomId}/messages`, {
         method: 'POST',
         headers: {
@@ -564,7 +551,6 @@ function sendMessage() {
         body: JSON.stringify({
             content: content,
             type: 'text',
-            // Incluir ID y nombre del remitente para evitar que se use Anonymous
             senderId: userId,
             senderName: userName
         })
@@ -577,24 +563,10 @@ function sendMessage() {
     })
     .then(data => {
         console.log('Respuesta del servidor Symfony:', data);
-        // Reemplazar mensaje temporal si está presente
-        const tempMsg = document.querySelector(`.message[data-id="${tempId}"]`);
-        if (tempMsg && data.success && data.id) {
-            tempMsg.setAttribute('data-id', data.id);
-            tempMsg.classList.remove('message-temporary');
-        }
     })
     .catch(error => {
         console.error('Error al enviar el mensaje a Symfony:', error);
-        // Marcar el mensaje temporal como error
-        const tempMsg = document.querySelector(`.message[data-id="${tempId}"]`);
-        if (tempMsg) {
-            tempMsg.classList.add('message-error');
-            const timestampEl = tempMsg.querySelector('.message-timestamp small');
-            if (timestampEl) {
-                timestampEl.textContent = 'Error al enviar';
-            }
-        }
+        addSystemMessage('Error al enviar el mensaje. Inténtalo de nuevo.');
     });
     
     messageInput.value = '';
@@ -643,7 +615,6 @@ function sendMessage() {
     const messagesContainer = document.querySelector('.chat-messages');
     if (!messagesContainer) return;
     
-    // Verificar si el mensaje ya existe para evitar duplicados
     const existingMessage = document.querySelector(`.message[data-id="${message.id}"]`);
     if (existingMessage) {
         console.log(`Mensaje con ID ${message.id} ya existe, ignorando duplicado`);
@@ -706,17 +677,65 @@ function sendMessage() {
     console.log(`Mensaje mostrado: ID=${message.id || 'sin ID'}, Emisor=${message.senderName}, Contenido=${message.content.substring(0, 20)}...`);
 }
     
-    function updateTypingIndicator(data) {
-        const typingIndicator = document.querySelector('.typing-indicator');
-        if (!typingIndicator) return;
+function updateTypingIndicator(data) {
+    console.log('Actualizando indicador de escritura:', data);
+    
+    let typingIndicator = document.getElementById('typingIndicator');
+    
+    if (!typingIndicator) {
+        console.warn('No se encontró el indicador de escritura, intentando crear uno nuevo');
         
-        if (data.isTyping) {
-            typingIndicator.textContent = `${data.userName} está escribiendo...`;
-            typingIndicator.style.display = 'block';
-        } else {
-            typingIndicator.style.display = 'none';
+        const chatMain = document.getElementById('chatMain');
+        if (!chatMain) {
+            console.error('No se encontró el contenedor del chat');
+            return;
         }
+        
+        typingIndicator = document.createElement('div');
+        typingIndicator.className = 'typing-indicator';
+        typingIndicator.id = 'typingIndicator';
+        typingIndicator.style.display = 'none';
+        
+        const chatInput = chatMain.querySelector('.chat-input');
+        if (chatInput) {
+            chatMain.insertBefore(typingIndicator, chatInput);
+        } else {
+            chatMain.appendChild(typingIndicator);
+        }
+        
+        chatMain.style.position = 'relative';
     }
+    
+    if (data.isTyping) {
+        typingIndicator.textContent = `${data.userName} está escribiendo...`;
+        typingIndicator.style.display = 'block';
+        
+        typingIndicator.style.opacity = '1';
+        typingIndicator.style.visibility = 'visible';
+        
+        console.log('Mostrando indicador:', typingIndicator.textContent);
+    } else {
+        console.log('Ocultando indicador de escritura');
+        
+        setTimeout(() => {
+            if (typingIndicator) {
+                typingIndicator.style.display = 'none';
+            }
+        }, 500);
+    }
+}
+
+function addSystemMessage(content) {
+    const messagesContainer = document.querySelector('.chat-messages');
+    if (!messagesContainer) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message message-system';
+    messageDiv.textContent = content;
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
 });
 </script>
 {% endblock %}

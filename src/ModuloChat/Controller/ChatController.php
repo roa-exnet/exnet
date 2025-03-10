@@ -32,7 +32,7 @@ class ChatController extends AbstractController
     {
         $this->chatService = $chatService;
         $this->entityManager = $entityManager;
-        $this->websocketUrl = 'http://144.91.89.13:3033';
+        $this->websocketUrl = 'https://websockettest.exnet.cloud';
     }
     
     #[Route('/', name: 'index')]
