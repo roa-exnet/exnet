@@ -7,16 +7,21 @@ use App\ModuloCore\Entity\User;
 use App\ModuloChat\Entity\Chat;
 use App\ModuloChat\Entity\ChatParticipant;
 use App\ModuloCore\Repository\UserRepository;
-use Monolog\DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+/**
+ * Controlador para la funcionalidad de chat
+ * Requiere que el usuario esté autenticado para acceder a cualquier endpoint
+ */
 #[Route('/chat', name: 'chat_')]
+#[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
 class ChatController extends AbstractController
 {
     private ChatService $chatService;
@@ -33,19 +38,16 @@ class ChatController extends AbstractController
     #[Route('/', name: 'index')]
     public function index(): Response
     {
+        /** @var User $user */
         $user = $this->getUser();
         
+        // Verificación adicional de seguridad
         if (!$user instanceof User) {
-            if ($this->getParameter('kernel.environment') === 'dev') {
-                $userId = '1';
-                $userName = 'Usuario de Prueba';
-            } else {
-                throw new AccessDeniedException('Debes iniciar sesión para acceder al chat.');
-            }
-        } else {
-            $userId = (string) $user->getId();
-            $userName = $user->getNombre() . ' ' . $user->getApellidos();
+            throw new AccessDeniedException('Debes iniciar sesión para acceder al chat.');
         }
+        
+        $userId = (string) $user->getId();
+        $userName = $user->getNombre() . ' ' . $user->getApellidos();
         
         return $this->render('@ModuloChat/chat.html.twig', [
             'userId' => $userId,
@@ -58,6 +60,9 @@ class ChatController extends AbstractController
     public function getRooms(): JsonResponse
     {
         try {
+            // Verificar que el usuario está autorizado
+            $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+            
             $rooms = $this->chatService->getRooms();
             
             $formattedRooms = [];
@@ -75,6 +80,11 @@ class ChatController extends AbstractController
                 'success' => true,
                 'rooms' => $formattedRooms
             ]);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
@@ -87,21 +97,48 @@ class ChatController extends AbstractController
     public function getRoomDetail(string $roomId): JsonResponse
     {
         try {
+            // Verificar que el usuario está autorizado
+            /** @var User $user */
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw new AccessDeniedException('Usuario no autenticado');
+            }
+            
+            // Verificar que el usuario tiene acceso a esta sala
+            // Nota: Si es la primera vez, podemos agregar automáticamente al usuario
+            if (!$this->chatService->isParticipant($roomId, (string)$user->getId())) {
+                // Opción: Agregar al usuario automáticamente si la sala existe
+                $userId = (string)$user->getId();
+                $userName = $user->getNombre() . ' ' . $user->getApellidos();
+                
+                if ($this->chatService->addParticipantIfRoomExists($roomId, $userId, $userName)) {
+                    // Log para seguimiento
+                    error_log("Usuario {$userId} ({$userName}) agregado automáticamente a sala {$roomId}");
+                } else {
+                    throw new AccessDeniedException('No tienes permiso para acceder a esta sala');
+                }
+            }
+            
+            // Obtener la sala y sus mensajes
             $result = $this->chatService->getRoom($roomId);
             
             if (!$result) {
                 return $this->json([
                     'success' => false,
-                    'error' => 'La sala de chat no existe'
+                    'error' => 'La sala de chat no existe o no se pudo cargar'
                 ], 404);
             }
             
             $chat = $result['chat'];
             $messages = $result['messages'];
             
+            // Registro para diagnóstico
+            error_log("Obtenidos " . count($messages) . " mensajes para sala {$roomId} en el controlador");
+            
+            // Formatear los mensajes para la respuesta JSON
             $formattedMessages = [];
             foreach ($messages as $message) {
-                $formattedMessages[] = [
+                $messageData = [
                     'id' => $message->getId(),
                     'senderId' => $message->getSenderIdentifier(),
                     'senderName' => $message->getSenderName(),
@@ -110,8 +147,16 @@ class ChatController extends AbstractController
                     'sentAt' => $message->getSentAt()->format('Y-m-d H:i:s'),
                     'read' => $message->getReadAt() !== null
                 ];
+                
+                // Para depuración: mostrar algunos detalles del primer mensaje
+                if (count($formattedMessages) === 0) {
+                    error_log("Primer mensaje: ID={$messageData['id']}, sender={$messageData['senderName']}, time={$messageData['sentAt']}");
+                }
+                
+                $formattedMessages[] = $messageData;
             }
             
+            // Obtener participantes activos
             $participants = [];
             foreach ($chat->getParticipants() as $participant) {
                 if ($participant->isIsActive()) {
@@ -124,6 +169,14 @@ class ChatController extends AbstractController
                 }
             }
             
+            // Registrar en el log de actividad
+            $this->logActivity('room_access', [
+                'userId' => $user->getId(),
+                'roomId' => $roomId,
+                'messagesCount' => count($messages),
+                'participantsCount' => count($participants)
+            ]);
+            
             return $this->json([
                 'success' => true,
                 'room' => [
@@ -135,27 +188,54 @@ class ChatController extends AbstractController
                 ],
                 'messages' => $formattedMessages
             ]);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
         } catch (\Exception $e) {
+            error_log('Error detallado al obtener detalles de sala: ' . $e->getMessage());
+            error_log('Traza: ' . $e->getTraceAsString());
+            
             return $this->json([
                 'success' => false,
                 'error' => 'Error al obtener los detalles de la sala: ' . $e->getMessage()
             ], 500);
         }
     }
+
+    private function logActivity(string $action, array $data): void
+{
+    try {
+        error_log(json_encode([
+            'timestamp' => (new \DateTime())->format('Y-m-d H:i:s'),
+            'action' => $action,
+            'data' => $data
+        ]));
+    } catch (\Exception $e) {
+        // Silenciar errores en el logging
+    }
+}
     
     #[Route('/rooms', name: 'create_room', methods: ['POST'])]
     public function createRoom(Request $request): JsonResponse
     {
         try {
+            // Verificar que el usuario está autorizado
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw new AccessDeniedException('Usuario no autenticado');
+            }
+            
             $data = json_decode($request->getContent(), true);
     
-            if (!$data || !isset($data['name'], $data['creatorId'], $data['creatorName'])) {
+            if (!$data || !isset($data['name'])) {
                 return $this->json(['success' => false, 'error' => 'Datos inválidos'], 400);
             }
     
             $name = $data['name'];
-            $creatorId = $data['creatorId'];
-            $creatorName = $data['creatorName'];
+            $creatorId = (string) $user->getId();
+            $creatorName = $user->getNombre() . ' ' . $user->getApellidos();
             $participantIds = $data['participantIds'] ?? [];
     
             // Crear el objeto Chat
@@ -172,8 +252,8 @@ class ChatController extends AbstractController
     
             foreach ($participantIds as $participantId) {
                 if ($participantId != $creatorId) {
-                    $user = $this->entityManager->getRepository(User::class)->find($participantId);
-                    $participantName = $user ? $user->getNombre() . ' ' . $user->getApellidos() : 'Usuario ' . $participantId;
+                    $participantUser = $this->entityManager->getRepository(User::class)->find($participantId);
+                    $participantName = $participantUser ? $participantUser->getNombre() . ' ' . $participantUser->getApellidos() : 'Usuario ' . $participantId;
                     $this->addParticipantToChat($chat, $participantId, $participantName, 'member');
                 }
             }
@@ -189,6 +269,11 @@ class ChatController extends AbstractController
                     'createdAt' => $chat->getCreatedAt()->format('Y-m-d H:i:s'),
                 ]
             ]);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
         } catch (\Exception $e) {
             return $this->json(['success' => false, 'error' => 'Error al crear la sala: ' . $e->getMessage()], 500);
         }
@@ -224,18 +309,20 @@ class ChatController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true);
             
-            if (!isset($data['senderId']) || !isset($data['content'])) {
+            if (!isset($data['content'])) {
                 return $this->json([
                     'success' => false,
-                    'error' => 'Faltan parámetros obligatorios (senderId, content)'
+                    'error' => 'Falta el contenido del mensaje'
                 ], 400);
             }
             
-            $senderId = $data['senderId'];
-            $senderName = $data['senderName'] ?? 'Usuario ' . $senderId;
+            // Usar los valores proporcionados en el cuerpo de la solicitud
+            $senderId = $data['senderId'] ?? $request->query->get('userId', '1');
+            $senderName = $data['senderName'] ?? $request->query->get('userName', 'Usuario' . $senderId);
             $content = $data['content'];
             $messageType = $data['type'] ?? 'text';
             
+            // Llamar al servicio para enviar el mensaje
             $message = $this->chatService->sendMessage($roomId, $senderId, $senderName, $content, $messageType);
             
             if (!$message) {
@@ -268,17 +355,48 @@ class ChatController extends AbstractController
     #[Route('/rooms/{roomId}/participants', name: 'add_participant', methods: ['POST'])]
     public function addParticipant(Request $request, string $roomId): JsonResponse
     {
-        
-        return $this->json([
-            'success' => false,
-            'error' => 'Método no implementado'
-        ], 501);
+        try {
+            // Verificar que el usuario está autorizado
+            /** @var User $user */
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw new AccessDeniedException('Usuario no autenticado');
+            }
+            
+            // Verificar que el usuario es administrador o creador de la sala
+            // Esta lógica debería implementarse en el servicio
+            
+            return $this->json([
+                'success' => false,
+                'error' => 'Método no implementado'
+            ], 501);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
+        }
     }
     
     #[Route('/rooms/{roomId}/participants/{participantId}', name: 'remove_participant', methods: ['DELETE'])]
     public function removeParticipant(string $roomId, string $participantId): JsonResponse
     {
         try {
+            // Verificar que el usuario está autorizado
+            /** @var User $user */
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw new AccessDeniedException('Usuario no autenticado');
+            }
+            
+            // Solo permitir que el usuario elimine su propia participación o sea admin
+            $isAdmin = $this->chatService->isAdmin($roomId, (string)$user->getId());
+            $isSelf = $participantId === (string)$user->getId();
+            
+            if (!$isAdmin && !$isSelf) {
+                throw new AccessDeniedException('No tienes permiso para eliminar a este participante');
+            }
+            
             $success = $this->chatService->removeParticipant($roomId, $participantId);
             
             if (!$success) {
@@ -291,6 +409,11 @@ class ChatController extends AbstractController
             return $this->json([
                 'success' => true
             ]);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
@@ -300,23 +423,17 @@ class ChatController extends AbstractController
     }
     
     #[Route('/user/rooms', name: 'user_rooms', methods: ['GET'])]
-    public function getUserRooms(Request $request): JsonResponse
+    public function getUserRooms(): JsonResponse
     {
         try {
+            // Verificar que el usuario está autorizado
+            /** @var User $user */
             $user = $this->getUser();
-            
             if (!$user instanceof User) {
-                if ($this->getParameter('kernel.environment') === 'dev') {
-                    $userId = $request->query->get('userId', '1');
-                } else {
-                    return $this->json([
-                        'success' => false,
-                        'error' => 'Usuario no autenticado'
-                    ], 401);
-                }
-            } else {
-                $userId = (string) $user->getId();
+                throw new AccessDeniedException('Usuario no autenticado');
             }
+            
+            $userId = (string) $user->getId();
             
             $rooms = $this->chatService->getUserChats($userId);
             
@@ -337,6 +454,11 @@ class ChatController extends AbstractController
                 'success' => true,
                 'rooms' => $formattedRooms
             ]);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
@@ -349,6 +471,18 @@ class ChatController extends AbstractController
     public function markMessageAsRead(string $roomId, string $messageId): JsonResponse
     {
         try {
+            // Verificar que el usuario está autorizado
+            /** @var User $user */
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw new AccessDeniedException('Usuario no autenticado');
+            }
+            
+            // Verificar que el usuario tiene acceso a esta sala
+            if (!$this->chatService->isParticipant($roomId, (string)$user->getId())) {
+                throw new AccessDeniedException('No tienes permiso para acceder a esta sala');
+            }
+            
             $success = $this->chatService->markMessageAsRead($messageId);
             
             if (!$success) {
@@ -361,6 +495,11 @@ class ChatController extends AbstractController
             return $this->json([
                 'success' => true
             ]);
+        } catch (AccessDeniedException $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
@@ -372,16 +511,23 @@ class ChatController extends AbstractController
     #[Route('/api/users/search', name: 'search_users', methods: ['GET'])]
     public function searchUsers(Request $request): JsonResponse
     {
-        $query = $request->query->get('q', '');
-        
-        if (strlen($query) < 2) {
-            return $this->json([
-                'success' => true,
-                'users' => []
-            ]);
-        }
-        
         try {
+            // Verificar que el usuario está autorizado
+            /** @var User $user */
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw new AccessDeniedException('Usuario no autenticado');
+            }
+            
+            $query = $request->query->get('q', '');
+            
+            if (strlen($query) < 2) {
+                return $this->json([
+                    'success' => true,
+                    'users' => []
+                ]);
+            }
+            
             $userRepository = $this->entityManager->getRepository(User::class);
             
             $qb = $userRepository->createQueryBuilder('u');
@@ -396,40 +542,31 @@ class ChatController extends AbstractController
             $results = $qb->getQuery()->getResult();
             
             $users = [];
-            foreach ($results as $user) {
-                $users[] = [
-                    'id' => $user->getId(),
-                    'nombre' => $user->getNombre() . ' ' . $user->getApellidos(),
-                    'email' => $user->getEmail()
-                ];
+            foreach ($results as $searchUser) {
+                // No incluir al usuario actual en los resultados
+                if ($searchUser->getId() !== $user->getId()) {
+                    $users[] = [
+                        'id' => $searchUser->getId(),
+                        'nombre' => $searchUser->getNombre() . ' ' . $searchUser->getApellidos(),
+                        'email' => $searchUser->getEmail()
+                    ];
+                }
             }
             
             return $this->json([
                 'success' => true,
                 'users' => $users
             ]);
-        } catch (\Exception $e) {
-            $mockUsers = $this->getMockUsers($query);
-            $mockUsers = array_values($mockUsers);
-            
+        } catch (AccessDeniedException $e) {
             return $this->json([
-                'success' => true,
-                'users' => $mockUsers,
-                'note' => 'Usando datos simulados debido a un error: ' . $e->getMessage()
-            ]);
+                'success' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage()
+            ], 403);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Error al buscar usuarios: ' . $e->getMessage()
+            ], 500);
         }
-    }
-
-    private function getMockUsers(string $query): array
-    {
-        $mockUsers = [
-            ['id' => 1, 'nombre' => 'Admin Usuario', 'email' => 'admin@example.com'],
-        ];
-        
-        return array_filter($mockUsers, function($user) use ($query) {
-            $query = strtolower($query);
-            return (strpos(strtolower($user['nombre']), $query) !== false) || 
-                  (strpos(strtolower($user['email']), $query) !== false);
-        });
     }
 }

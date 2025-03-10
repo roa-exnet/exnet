@@ -19,179 +19,21 @@ class ChatService
     public function __construct(EntityManagerInterface $entityManager)
     {
         $this->entityManager = $entityManager;
-        // Valor por defecto para evitar errores
+        // Configuración directa del servidor WebSocket
         $this->websocketUrl = 'http://144.91.89.13:3033';
-        $this->httpClient = HttpClient::create();
-    }
-    
-    /**
-     * Configura la URL del WebSocket
-     */
-    public function setWebsocketUrl(string $url): void
-    {
-        $this->websocketUrl = $url;
+        $this->httpClient = HttpClient::create(['timeout' => 10]);
     }
 
     /**
-     * Obtiene todas las salas de chat disponibles
-     * Sincroniza los datos entre el servidor WebSocket y la base de datos
-     */
-    public function getRooms(): array
-    {
-        try {
-            // Obtener salas desde la API WebSocket
-            $response = $this->httpClient->request('GET', $this->websocketUrl . '/rooms');
-            $apiRooms = json_decode($response->getContent(), true);
-            
-            // Sincronizar con la base de datos
-            $this->syncRoomsWithDatabase($apiRooms);
-            
-            // Recuperar salas de la base de datos con información completa
-            $chatRepository = $this->entityManager->getRepository(Chat::class);
-            $rooms = $chatRepository->findBy(['isActive' => true], ['createdAt' => 'DESC']);
-            
-            return $rooms;
-        } catch (\Exception $e) {
-            // En caso de fallo, retornar salas de la base de datos local
-            $chatRepository = $this->entityManager->getRepository(Chat::class);
-            return $chatRepository->findBy(['isActive' => true], ['createdAt' => 'DESC']);
-        }
-    }
-
-    /**
-     * Obtiene los detalles de una sala y sus mensajes
-     */
-    public function getRoom(string $roomId): ?array
-    {
-        try {
-            // Obtener mensajes desde la API WebSocket
-            $response = $this->httpClient->request('GET', $this->websocketUrl . '/rooms/' . $roomId . '/messages');
-            $apiMessages = json_decode($response->getContent(), true);
-            
-            // Sincronizar mensajes con la base de datos
-            $this->syncMessagesWithDatabase($roomId, $apiMessages);
-            
-            // Obtener chat y mensajes de la base de datos
-            $chatRepository = $this->entityManager->getRepository(Chat::class);
-            $chat = $chatRepository->find($roomId);
-            
-            if (!$chat) {
-                // Si no existe en la base de datos, crear nuevo registro
-                $chat = $this->createChatFromApiData($roomId);
-                if (!$chat) {
-                    return null;
-                }
-            }
-            
-            $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
-            $messages = $messageRepository->findBy(['chat' => $chat], ['sentAt' => 'DESC']);
-            
-            return [
-                'chat' => $chat,
-                'messages' => $messages
-            ];
-        } catch (\Exception $e) {
-            // En caso de fallo, retornar datos locales
-            $chatRepository = $this->entityManager->getRepository(Chat::class);
-            $chat = $chatRepository->find($roomId);
-            
-            if (!$chat) {
-                return null;
-            }
-            
-            $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
-            $messages = $messageRepository->findBy(['chat' => $chat], ['sentAt' => 'DESC']);
-            
-            return [
-                'chat' => $chat,
-                'messages' => $messages
-            ];
-        }
-    }
-
-    /**
-     * Crea una nueva sala de chat
-     */
-    public function createRoom(string $name, string $creatorId, string $creatorName, array $participantIds = []): ?Chat
-    {
-        try {
-            // Crear sala en la API WebSocket
-            $response = $this->httpClient->request('POST', $this->websocketUrl . '/rooms', [
-                'json' => [
-                    'name' => $name,
-                    'creatorId' => $creatorId,
-                    'creatorName' => $creatorName,
-                    'participantIds' => $participantIds
-                ]
-            ]);
-            
-            $data = json_decode($response->getContent(), true);
-            
-            if (!isset($data['roomId'])) {
-                return null;
-            }
-            
-            // Crear en la base de datos
-            $chat = new Chat();
-            $chat->setId($data['roomId']);
-            $chat->setName($name);
-            $chat->setType('private');
-            $chat->setIsActive(true);
-            $chat->setCreatedAt(new DateTimeImmutable());
-            
-            $this->entityManager->persist($chat);
-            
-            // Agregar participantes
-            $this->addParticipantToChat($chat, $creatorId, $creatorName, 'creator');
-            
-            foreach ($participantIds as $participantId) {
-                if ($participantId != $creatorId) {
-                    // En un caso real, buscarías el nombre del usuario en la base de datos
-                    $this->addParticipantToChat($chat, $participantId, 'Usuario ' . $participantId, 'member');
-                }
-            }
-            
-            $this->entityManager->flush();
-            
-            return $chat;
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Envía un mensaje a una sala de chat
+     * Envía un mensaje a una sala y lo almacena en la base de datos
      */
     public function sendMessage(string $roomId, string $senderId, string $senderName, string $content, string $messageType = 'text'): ?ChatMessage
     {
         try {
-            // Enviar mensaje a través de la API WebSocket
-            $response = $this->httpClient->request('POST', $this->websocketUrl . '/rooms/' . $roomId . '/messages', [
-                'json' => [
-                    'senderId' => $senderId,
-                    'content' => $content,
-                    'type' => $messageType
-                ]
-            ]);
+            // Primero buscamos la sala en nuestra base de datos
+            $chat = $this->findOrCreateChat($roomId);
             
-            $data = json_decode($response->getContent(), true);
-            
-            if (!isset($data['id'])) {
-                // Si la API falla, aún podemos guardar el mensaje localmente
-                return $this->createMessageLocally($roomId, $senderId, $senderName, $content, $messageType);
-            }
-            
-            // Guardar mensaje en la base de datos
-            $chatRepository = $this->entityManager->getRepository(Chat::class);
-            $chat = $chatRepository->find($roomId);
-            
-            if (!$chat) {
-                $chat = $this->createChatFromApiData($roomId);
-                if (!$chat) {
-                    return null;
-                }
-            }
-            
+            // Luego creamos el mensaje en la base de datos
             $message = new ChatMessage();
             $message->setChat($chat);
             $message->setSenderIdentifier($senderId);
@@ -203,142 +45,29 @@ class ChatService
             $this->entityManager->persist($message);
             $this->entityManager->flush();
             
+            // Si la sala no tiene participante, lo agregamos
+            if (!$this->isParticipant($roomId, $senderId)) {
+                $this->addParticipantToChat($chat, $senderId, $senderName);
+            }
+            
             return $message;
         } catch (\Exception $e) {
-            return $this->createMessageLocally($roomId, $senderId, $senderName, $content, $messageType);
+            // Log del error
+            error_log('Error al guardar mensaje: ' . $e->getMessage());
+            return null;
         }
     }
 
     /**
-     * Registra un mensaje localmente cuando la API falla
+     * Busca una sala por ID o la crea si no existe
      */
-    private function createMessageLocally(string $roomId, string $senderId, string $senderName, string $content, string $messageType): ?ChatMessage
+    private function findOrCreateChat(string $roomId): Chat
     {
         $chatRepository = $this->entityManager->getRepository(Chat::class);
         $chat = $chatRepository->find($roomId);
         
         if (!$chat) {
-            $chat = new Chat();
-            $chat->setId($roomId);
-            $chat->setName('Chat ' . $roomId);
-            $chat->setType('private');
-            $chat->setIsActive(true);
-            $chat->setCreatedAt(new DateTimeImmutable());
-            
-            $this->entityManager->persist($chat);
-        }
-        
-        $message = new ChatMessage();
-        $message->setChat($chat);
-        $message->setSenderIdentifier($senderId);
-        $message->setSenderName($senderName);
-        $message->setContent($content);
-        $message->setMessageType($messageType);
-        $message->setSentAt(new DateTimeImmutable());
-        
-        $this->entityManager->persist($message);
-        $this->entityManager->flush();
-        
-        return $message;
-    }
-
-    /**
-     * Sincroniza las salas del WebSocket con la base de datos
-     */
-    private function syncRoomsWithDatabase(array $apiRooms): void
-    {
-        $chatRepository = $this->entityManager->getRepository(Chat::class);
-        
-        foreach ($apiRooms as $apiRoom) {
-            $roomId = $apiRoom['id'];
-            $chat = $chatRepository->find($roomId);
-            
-            if (!$chat) {
-                // Crear nueva sala en la base de datos
-                $chat = new Chat();
-                $chat->setId($roomId);
-                $chat->setName($apiRoom['name']);
-                $chat->setType('private'); // Asumimos que son privadas
-                $chat->setIsActive(true);
-                $chat->setCreatedAt(new DateTimeImmutable());
-                
-                $this->entityManager->persist($chat);
-            }
-        }
-        
-        $this->entityManager->flush();
-    }
-
-    /**
-     * Sincroniza los mensajes del WebSocket con la base de datos
-     */
-    private function syncMessagesWithDatabase(string $roomId, array $apiMessages): void
-    {
-        $chatRepository = $this->entityManager->getRepository(Chat::class);
-        $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
-        
-        $chat = $chatRepository->find($roomId);
-        
-        if (!$chat) {
-            $chat = $this->createChatFromApiData($roomId);
-            if (!$chat) {
-                return;
-            }
-        }
-        
-        foreach ($apiMessages as $apiMessage) {
-            // Verificar si el mensaje ya existe en la base de datos
-            $existingMessage = $messageRepository->findOneBy([
-                'chat' => $chat,
-                'senderIdentifier' => $apiMessage['senderId'],
-                'content' => $apiMessage['content'],
-                'sentAt' => new DateTimeImmutable($apiMessage['timestamp'])
-            ]);
-            
-            if (!$existingMessage) {
-                // Crear nuevo mensaje en la base de datos
-                $message = new ChatMessage();
-                $message->setChat($chat);
-                $message->setSenderIdentifier($apiMessage['senderId']);
-                $message->setSenderName($apiMessage['senderName']);
-                $message->setContent($apiMessage['content']);
-                $message->setMessageType($apiMessage['type']);
-                $message->setSentAt(new DateTimeImmutable($apiMessage['timestamp']));
-                
-                $this->entityManager->persist($message);
-            }
-        }
-        
-        $this->entityManager->flush();
-    }
-
-    /**
-     * Crea un nuevo chat desde los datos de la API
-     */
-    private function createChatFromApiData(string $roomId): ?Chat
-    {
-        try {
-            // Obtener detalles de la sala desde la API
-            $response = $this->httpClient->request('GET', $this->websocketUrl . '/rooms/' . $roomId);
-            $roomData = json_decode($response->getContent(), true);
-            
-            if (!isset($roomData['name'])) {
-                $roomData = ['name' => 'Chat ' . $roomId];
-            }
-            
-            $chat = new Chat();
-            $chat->setId($roomId);
-            $chat->setName($roomData['name']);
-            $chat->setType('private'); // Asumimos que son privadas
-            $chat->setIsActive(true);
-            $chat->setCreatedAt(new DateTimeImmutable());
-            
-            $this->entityManager->persist($chat);
-            $this->entityManager->flush();
-            
-            return $chat;
-        } catch (\Exception $e) {
-            // Si no podemos obtener datos, crear con información mínima
+            // Si no existe, creamos una nueva sala
             $chat = new Chat();
             $chat->setId($roomId);
             $chat->setName('Chat ' . $roomId);
@@ -348,30 +77,31 @@ class ChatService
             
             $this->entityManager->persist($chat);
             $this->entityManager->flush();
-            
-            return $chat;
         }
+        
+        return $chat;
     }
 
     /**
-     * Agrega un participante a un chat
+     * Añade un participante a un chat si no existe
      */
     private function addParticipantToChat(Chat $chat, string $participantId, string $participantName, string $role = 'member'): void
     {
         $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
         
-        // Verificar si el participante ya existe
         $existingParticipant = $participantRepository->findOneBy([
             'chat' => $chat,
             'participantIdentifier' => $participantId
         ]);
         
         if ($existingParticipant) {
-            // Actualizar si ya existe
+            // Si ya existe, sólo actualizamos estado y rol
             $existingParticipant->setIsActive(true);
-            $existingParticipant->setRole($role);
+            if ($role === 'creator') {
+                $existingParticipant->setRole($role);
+            }
         } else {
-            // Crear nuevo participante
+            // Si no existe, creamos nuevo participante
             $participant = new ChatParticipant();
             $participant->setChat($chat);
             $participant->setParticipantIdentifier($participantId);
@@ -381,175 +111,245 @@ class ChatService
             
             $this->entityManager->persist($participant);
         }
+        
+        $this->entityManager->flush();
     }
 
-    /**
-     * Obtiene todos los chats en los que participa un usuario
-     */
-    public function getUserChats(string $userId): array
-    {
-        $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
-        
-        $participants = $participantRepository->findBy([
-            'participantIdentifier' => $userId,
-            'isActive' => true
-        ]);
-        
-        $chats = [];
-        foreach ($participants as $participant) {
-            $chats[] = $participant->getChat();
-        }
-        
-        return $chats;
-    }
-    
-    /**
-     * Marca un chat como cerrado
-     */
-    public function closeChat(string $roomId): bool
-    {
-        $chatRepository = $this->entityManager->getRepository(Chat::class);
-        $chat = $chatRepository->find($roomId);
-        
-        if (!$chat) {
-            return false;
-        }
-        
-        $chat->close();
-        $this->entityManager->flush();
-        
-        return true;
-    }
-    
-    /**
-     * Marca un participante como inactivo (dejó el chat)
-     */
-    public function removeParticipant(string $roomId, string $participantId): bool
-    {
-        $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
-        $chatRepository = $this->entityManager->getRepository(Chat::class);
-        
-        $chat = $chatRepository->find($roomId);
-        if (!$chat) {
-            return false;
-        }
-        
-        $participant = $participantRepository->findOneBy([
-            'chat' => $chat,
-            'participantIdentifier' => $participantId,
-            'isActive' => true
-        ]);
-        
-        if (!$participant) {
-            return false;
-        }
-        
-        $participant->leave();
-        $this->entityManager->flush();
-        
-        return true;
-    }
-    
-    /**
-     * Marca un mensaje como leído
-     */
-    public function markMessageAsRead(string $messageId): bool
-    {
-        $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
-        $message = $messageRepository->find($messageId);
-        
-        if (!$message) {
-            return false;
-        }
-        
-        $message->markAsRead();
-        $this->entityManager->flush();
-        
-        return true;
-    }
-    
-    /**
-     * Obtiene todos los mensajes no leídos para un usuario
-     */
-    public function getUnreadMessages(string $userId): array
-    {
-        $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
-        $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
-        
-        // Obtener todas las salas en las que participa el usuario
-        $participants = $participantRepository->findBy([
-            'participantIdentifier' => $userId,
-            'isActive' => true
-        ]);
-        
-        $unreadMessages = [];
-        foreach ($participants as $participant) {
-            $chat = $participant->getChat();
-            
-            // Obtener mensajes que no son del usuario y no han sido leídos
-            $messages = $messageRepository->createQueryBuilder('m')
-                ->where('m.chat = :chat')
-                ->andWhere('m.senderIdentifier != :userId')
-                ->andWhere('m.readAt IS NULL')
-                ->setParameter('chat', $chat)
-                ->setParameter('userId', $userId)
-                ->orderBy('m.sentAt', 'DESC')
-                ->getQuery()
-                ->getResult();
-            
-            if (!empty($messages)) {
-                $unreadMessages[$chat->getId()] = [
-                    'chat' => $chat,
-                    'messages' => $messages,
-                    'count' => count($messages)
-                ];
-            }
-        }
-        
-        return $unreadMessages;
-    }
-    
-    /**
-     * Marca todos los mensajes de un chat como leídos para un usuario
-     */
-    public function markAllMessagesAsRead(string $roomId, string $userId): int
-    {
-        $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
-        
-        // Contar mensajes sin leer para actualizar
-        $unreadMessages = $messageRepository->createQueryBuilder('m')
-            ->where('m.chat = :roomId')
-            ->andWhere('m.senderIdentifier != :userId')
-            ->andWhere('m.readAt IS NULL')
-            ->setParameter('roomId', $roomId)
-            ->setParameter('userId', $userId)
-            ->getQuery()
-            ->getResult();
-        
-        // Marcar todos como leídos
-        $now = new DateTimeImmutable();
-        foreach ($unreadMessages as $message) {
-            $message->setReadAt($now);
-        }
-        
-        $this->entityManager->flush();
-        
-        return count($unreadMessages);
-    }
-    
     /**
      * Verifica si un usuario es participante de un chat
      */
     public function isParticipant(string $roomId, string $userId): bool
     {
-        $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
+        try {
+            $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
+            
+            $participant = $participantRepository->findOneBy([
+                'chat' => $roomId,
+                'participantIdentifier' => $userId
+            ]);
+            
+            return $participant !== null;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Verifica si un usuario es administrador de un chat
+     */
+    public function isAdmin(string $roomId, string $userId): bool
+    {
+        try {
+            $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
+            
+            $participant = $participantRepository->findOneBy([
+                'chat' => $roomId,
+                'participantIdentifier' => $userId
+            ]);
+            
+            if (!$participant) {
+                return false;
+            }
+            
+            return in_array($participant->getRole(), ['admin', 'creator']);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene un chat por su ID y sus mensajes
+     */
+    public function getRoom(string $roomId): ?array
+    {
+        try {
+            // Primero buscamos el chat en la base de datos
+            $chatRepository = $this->entityManager->getRepository(Chat::class);
+            $chat = $chatRepository->find($roomId);
+            
+            if (!$chat) {
+                // Si no existe, creamos uno nuevo
+                $chat = $this->findOrCreateChat($roomId);
+            }
+            
+            // Obtenemos los mensajes desde el WebSocket
+            try {
+                $response = $this->httpClient->request('GET', $this->websocketUrl . '/rooms/' . $roomId . '/messages');
+                $apiMessages = json_decode($response->getContent(), true);
+                
+                // Sincronizamos con la base de datos local
+                $this->syncMessagesWithDatabase($roomId, $apiMessages);
+            } catch (\Exception $e) {
+                // Si hay error de conexión con WebSocket, usamos solo los mensajes locales
+                error_log('Error al obtener mensajes del WebSocket: ' . $e->getMessage());
+            }
+            
+            // Obtenemos los mensajes de la base de datos
+            $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
+            $messages = $messageRepository->findBy(['chat' => $chat], ['sentAt' => 'DESC']);
+            
+            return [
+                'chat' => $chat,
+                'messages' => $messages
+            ];
+        } catch (\Exception $e) {
+            error_log('Error al obtener sala: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Sincroniza los mensajes del WebSocket con la base de datos
+     */
+    private function syncMessagesWithDatabase(string $roomId, array $apiMessages): void
+    {
+        $chat = $this->findOrCreateChat($roomId);
+        $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
         
-        $participant = $participantRepository->findOneBy([
-            'chat' => $roomId,
-            'participantIdentifier' => $userId,
-            'isActive' => true
-        ]);
+        foreach ($apiMessages as $apiMessage) {
+            // Solo sincronizar mensajes que no sean del sistema
+            if (isset($apiMessage['senderId']) && $apiMessage['senderId'] !== 'system') {
+                // Verificar si el mensaje ya existe en la base de datos
+                $existingMessage = $messageRepository->findOneBy([
+                    'chat' => $chat,
+                    'senderIdentifier' => $apiMessage['senderId'],
+                    'content' => $apiMessage['content'],
+                    'sentAt' => new DateTimeImmutable($apiMessage['timestamp'])
+                ]);
+                
+                if (!$existingMessage) {
+                    // Crear nuevo mensaje en la base de datos
+                    $message = new ChatMessage();
+                    $message->setChat($chat);
+                    $message->setSenderIdentifier($apiMessage['senderId']);
+                    $message->setSenderName($apiMessage['senderName']);
+                    $message->setContent($apiMessage['content']);
+                    $message->setMessageType($apiMessage['type'] ?? 'text');
+                    $message->setSentAt(new DateTimeImmutable($apiMessage['timestamp']));
+                    
+                    $this->entityManager->persist($message);
+                }
+            }
+        }
         
-        return $participant !== null;
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Obtiene todas las salas de chat a las que pertenece un usuario
+     */
+    public function getUserChats(string $userId): array
+    {
+        try {
+            // También intentamos sincronizar con WebSocket
+            $this->syncRoomsFromWebSocket();
+            
+            $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
+            
+            $participants = $participantRepository->findBy([
+                'participantIdentifier' => $userId,
+                'isActive' => true
+            ]);
+            
+            $chats = [];
+            foreach ($participants as $participant) {
+                $chats[] = $participant->getChat();
+            }
+            
+            return $chats;
+        } catch (\Exception $e) {
+            error_log('Error al obtener chats del usuario: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Sincroniza las salas del WebSocket con la base de datos
+     */
+    private function syncRoomsFromWebSocket(): void
+    {
+        try {
+            $response = $this->httpClient->request('GET', $this->websocketUrl . '/rooms');
+            $apiRooms = json_decode($response->getContent(), true);
+            
+            foreach ($apiRooms as $apiRoom) {
+                $this->findOrCreateChat($apiRoom['id']);
+            }
+        } catch (\Exception $e) {
+            error_log('Error al sincronizar salas desde WebSocket: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtiene todas las salas disponibles
+     */
+    public function getRooms(): array
+    {
+        try {
+            // Sincronizar con WebSocket
+            $this->syncRoomsFromWebSocket();
+            
+            // Obtener todas las salas activas
+            $chatRepository = $this->entityManager->getRepository(Chat::class);
+            return $chatRepository->findBy(['isActive' => true], ['createdAt' => 'DESC']);
+        } catch (\Exception $e) {
+            error_log('Error al obtener salas: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Marca un mensaje como leído
+     */
+    public function markMessageAsRead(string $messageId): bool
+    {
+        try {
+            $messageRepository = $this->entityManager->getRepository(ChatMessage::class);
+            $message = $messageRepository->find($messageId);
+            
+            if (!$message) {
+                return false;
+            }
+            
+            $message->markAsRead();
+            $this->entityManager->flush();
+            
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Elimina un participante de una sala
+     */
+    public function removeParticipant(string $roomId, string $participantId): bool
+    {
+        try {
+            $participantRepository = $this->entityManager->getRepository(ChatParticipant::class);
+            $chatRepository = $this->entityManager->getRepository(Chat::class);
+            
+            $chat = $chatRepository->find($roomId);
+            if (!$chat) {
+                return false;
+            }
+            
+            $participant = $participantRepository->findOneBy([
+                'chat' => $chat,
+                'participantIdentifier' => $participantId,
+                'isActive' => true
+            ]);
+            
+            if (!$participant) {
+                return false;
+            }
+            
+            $participant->leave();
+            $this->entityManager->flush();
+            
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 }
