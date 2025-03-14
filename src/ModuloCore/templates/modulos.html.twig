@@ -15,7 +15,7 @@
                         <h5 class="mt-2">{{ modulo.nombre }}</h5>
                         <p>{{ modulo.descripcion }}</p>
                         <a href="{{ modulo.ruta }}" 
-                           class="{% if modulo.estado == 1 %}exnet-btn-disabled{% else %}exnet-btn-orange{% endif %}">
+                           class="{% if modulo.estado == 1 %}exnet-btn-disabled{% else %}exnet-btn-blue{% endif %}">
                             {% if modulo.estado == 1 %}Instalado{% else %}Añadir{% endif %}
                         </a>
                     </div>

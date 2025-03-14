@@ -17,6 +17,8 @@
         <iframe id="imageIframe" width="100%" height="100%" frameborder="0" style="overflow:hidden; border:none;" onerror="handleImageError()">
             <p>Tu navegador no soporta iframes.</p>
         </iframe>
+        {% elseif isVideo %}
+        <iframe src="{{ path('ver_video', { 'filename': filename, 'path': directory }) }}" width="100%" height="500px" frameborder="0" allowfullscreen></iframe>
         {% else %}
         <!-- Si no es una imagen, mostrar el contenido del archivo de texto -->
         <pre>{{ fileContent }}</pre>
