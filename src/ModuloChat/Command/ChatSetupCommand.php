@@ -2,41 +2,77 @@
 
 namespace App\ModuloChat\Command;
 
+use App\ModuloChat\Entity\Chat;
+use App\ModuloCore\Entity\Modulo;
+use App\ModuloCore\Entity\MenuElement;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
+use Doctrine\ORM\EntityManagerInterface;
 
 #[AsCommand(
     name: 'modulochat:setup',
-    description: 'Configurar el módulo de chat: configurar la base de datos y generar migraciones'
+    description: 'Configurar el módulo de chat: configura configuraciones, base de datos y genera migraciones'
 )]
 class ChatSetupCommand extends Command
 {
+    private EntityManagerInterface $entityManager;
+    
+    public function __construct(EntityManagerInterface $entityManager)
+    {
+        $this->entityManager = $entityManager;
+        parent::__construct();
+    }
+    
     protected function configure(): void
     {
-        $this->setHelp(<<<EOT
-            El comando <info>modulochat:setup</info> realiza los siguientes pasos automáticamente:
+        $this
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la instalación incluso si el módulo ya está instalado')
+            ->addOption('skip-migrations', null, InputOption::VALUE_NONE, 'Omitir la generación y ejecución de migraciones')
+            ->addOption('skip-menu', null, InputOption::VALUE_NONE, 'Omitir la creación de elementos de menú')
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Confirmar automáticamente todas las preguntas')
+            ->setHelp(<<<EOT
+                El comando <info>modulochat:setup</info> realiza los siguientes pasos automáticamente:
 
-            1. Actualiza la configuración de servicios.yaml para incluir el módulo de chat.
-            2. Actualiza la configuración de routes.yaml para incluir las rutas del módulo de chat.
-            3. Actualiza la configuración de twig.yaml para incluir las plantillas del módulo de chat.
-            4. Actualiza la configuración de doctrine.yaml para incluir las entidades del módulo de chat.
-            5. Genera una nueva migración para incluir las entidades del chat.
-            6. Ejecuta la migración para aplicar los cambios en la base de datos.
+                1. Actualiza la configuración de servicios.yaml para incluir el módulo de chat.
+                2. Actualiza la configuración de routes.yaml para incluir las rutas del módulo de chat.
+                3. Actualiza la configuración de twig.yaml para incluir las plantillas del módulo de chat.
+                4. Actualiza la configuración de doctrine.yaml para incluir las entidades del módulo de chat.
+                5. Registra el módulo en la tabla de módulos de la aplicación.
+                6. Crea elementos de menú para acceder al módulo de chat.
+                7. Genera una nueva migración para incluir las entidades del chat.
+                8. Ejecuta la migración para aplicar los cambios en la base de datos.
 
-            Ejemplo de uso:
+                Opciones:
+                  --force, -f             Forzar la instalación incluso si el módulo ya está instalado
+                  --skip-migrations       Omitir la generación y ejecución de migraciones
+                  --skip-menu             Omitir la creación de elementos de menú
+                  --yes, -y               Confirmar automáticamente todas las preguntas
 
-            <info>php bin/console modulochat:setup</info>
-            EOT
-        );
+                Ejemplo de uso:
+
+                <info>php bin/console modulochat:setup</info>
+                <info>php bin/console modulochat:setup --skip-migrations</info>
+                <info>php bin/console modulochat:setup --force</info>
+                <info>php bin/console modulochat:setup --yes</info>
+                EOT
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $io->title('Configuración del Módulo de Chat');
+        
+        // Comprobar si el módulo ya está instalado
+        if (!$input->getOption('force') && $this->isModuleInstalled()) {
+            $io->warning('El Módulo de Chat ya está instalado. Usa --force para reinstalarlo.');
+            return Command::SUCCESS;
+        }
         
         // 1. Actualizar services.yaml
         $this->updateServicesYaml($io);
@@ -50,52 +86,56 @@ class ChatSetupCommand extends Command
         // 4. Actualizar doctrine.yaml
         $this->updateDoctrineYaml($io);
         
-        // Antes de generar la migración, preguntar al usuario
-        if (!$io->confirm('¿Deseas generar y ejecutar la migración de la base de datos ahora?', true)) {
+        // 5. Registrar el módulo en la base de datos
+        $this->registerModule($io);
+        
+        // 6. Crear elementos de menú
+        if (!$input->getOption('skip-menu')) {
+            $this->createMenuItems($io);
+        }
+        
+        // Omitir migraciones si se solicita
+        if ($input->getOption('skip-migrations')) {
+            $io->note('Las migraciones han sido omitidas según los parámetros de entrada.');
+            $io->success('Configuración del Módulo de Chat completada exitosamente (sin migraciones).');
+            return Command::SUCCESS;
+        }
+        
+        // Confirmación para generar migraciones
+        if (!$input->getOption('yes') && !$io->confirm('¿Deseas generar y ejecutar la migración de la base de datos ahora?', true)) {
             $io->note('Operaciones de base de datos omitidas. Puedes ejecutarlas manualmente más tarde.');
             $io->success('Configuración de archivos completada.');
             return Command::SUCCESS;
         }
         
-        // 5. Generar migración
-        $io->section('Generando migración...');
-        $process = new Process(['php', 'bin/console', 'make:migration']);
-        $process->setTimeout(120); // 2 minutos de timeout
-        $process->run(function ($type, $buffer) use ($io) {
-            $io->write($buffer);
-        });
-        
-        if (!$process->isSuccessful()) {
-            $io->error('Error al generar la migración. Puedes intentarlo manualmente más tarde.');
+        // 7. Generar migración
+        $migrationSuccess = $this->generateMigration($io);
+        if (!$migrationSuccess) {
             return Command::FAILURE;
         }
         
-        $io->success('Migración generada para las entidades del chat.');
-        
-        // Confirmar antes de ejecutar la migración
-        if (!$io->confirm('¿Deseas ejecutar la migración ahora?', true)) {
-            $io->note('Migración no ejecutada. Puedes ejecutarla manualmente más tarde.');
-            return Command::SUCCESS;
-        }
-        
-        // 6. Ejecutar migración
-        $io->section('Ejecutando migración...');
-        $process = new Process(['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction']);
-        $process->setTimeout(300); // 5 minutos de timeout
-        $process->run(function ($type, $buffer) use ($io) {
-            $io->write($buffer);
-        });
-        
-        if (!$process->isSuccessful()) {
-            $io->error('Error al ejecutar la migración. Puedes intentarlo manualmente más tarde.');
+        // 8. Ejecutar migración
+        $executionSuccess = $this->executeMigration($input, $io);
+        if (!$executionSuccess) {
             return Command::FAILURE;
         }
         
-        $io->success('Migración ejecutada. Las tablas del chat han sido creadas en la base de datos.');
-        $io->success('¡Módulo de chat configurado exitosamente!');
+        $io->success('¡Módulo de Chat configurado exitosamente!');
         $io->note('Puedes acceder al chat en la ruta /chat');
         
         return Command::SUCCESS;
+    }
+    
+    private function isModuleInstalled(): bool
+    {
+        try {
+            $moduloRepository = $this->entityManager->getRepository(Modulo::class);
+            $chatModule = $moduloRepository->findOneBy(['nombre' => 'Chat']);
+            
+            return $chatModule !== null && $chatModule->isEstado();
+        } catch (\Exception $e) {
+            return false;
+        }
     }
     
     private function updateServicesYaml(SymfonyStyle $io): void
@@ -104,8 +144,27 @@ class ChatSetupCommand extends Command
         $servicesContent = file_get_contents($servicesYamlPath);
         
         // Verificar si la configuración ya existe
-        if (strpos($servicesContent, 'App\ModuloChat\Controller') !== false) {
+        if (strpos($servicesContent, 'App\ModuloChat\Controller') !== false && 
+            strpos($servicesContent, '# DESACTIVADO') === false) {
             $io->note('La configuración de servicios ya incluye el módulo de chat.');
+            return;
+        }
+        
+        // Si está desactivado, reactivarlo
+        if (strpos($servicesContent, 'App\ModuloChat\Controller') !== false && 
+            strpos($servicesContent, '# DESACTIVADO') !== false) {
+            $servicesContent = str_replace(
+                "#START -----------------------------------------------------  ModuloChat (DESACTIVADO) --------------------------------------------------------------------------",
+                "#START -----------------------------------------------------  ModuloChat --------------------------------------------------------------------------",
+                $servicesContent
+            );
+            
+            // Descomentar las líneas
+            $pattern = "/#(\s+App\\\\ModuloChat\\\\)/";
+            $servicesContent = preg_replace($pattern, "$1", $servicesContent);
+            
+            file_put_contents($servicesYamlPath, $servicesContent);
+            $io->success('El módulo de chat ha sido reactivado en services.yaml.');
             return;
         }
         
@@ -150,6 +209,10 @@ class ChatSetupCommand extends Command
         resource: '../src/ModuloChat/Controller'
         tags: ['controller.service_arguments']
         
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
+        tags: ['console.command']
+        
     App\ModuloChat\Service\:
         resource: '../src/ModuloChat/Service/'
         autowire: true
@@ -164,9 +227,34 @@ EOT;
         $routesYamlPath = 'config/routes.yaml';
         $routesContent = file_get_contents($routesYamlPath);
         
-        // Verificar si la configuración ya existe
-        if (strpos($routesContent, 'App\ModuloChat\Controller') !== false) {
+        // Verificar si la configuración ya existe y no está comentada
+        if (strpos($routesContent, 'App\ModuloChat\Controller') !== false && 
+            strpos($routesContent, '# modulo_chat_controllers') === false) {
             $io->note('La configuración de rutas ya incluye el módulo de chat.');
+            return;
+        }
+        
+        // Si está comentado, descomentarlo
+        if (strpos($routesContent, '# modulo_chat_controllers') !== false) {
+            $routesContent = str_replace(
+                [
+                    "# modulo_chat_controllers: DESACTIVADO", 
+                    "# resource:", 
+                    "#     path: ../src/ModuloChat/Controller/", 
+                    "#     namespace: App\ModuloChat\Controller", 
+                    "# type: attribute"
+                ],
+                [
+                    "modulo_chat_controllers:", 
+                    "    resource:", 
+                    "        path: ../src/ModuloChat/Controller/", 
+                    "        namespace: App\ModuloChat\Controller", 
+                    "    type: attribute"
+                ],
+                $routesContent
+            );
+            file_put_contents($routesYamlPath, $routesContent);
+            $io->success('Las rutas del módulo de chat han sido descomentadas.');
             return;
         }
         
@@ -216,6 +304,7 @@ EOT;
     {
         return <<<EOT
 
+
 modulo_chat_controllers:
     resource:
         path: ../src/ModuloChat/Controller/
@@ -229,9 +318,21 @@ EOT;
         $twigYamlPath = 'config/packages/twig.yaml';
         $twigContent = file_get_contents($twigYamlPath);
         
-        // Verificar si la configuración ya existe
-        if (strpos($twigContent, 'ModuloChat/templates') !== false) {
+        // Verificar si la configuración ya existe y no está comentada
+        if (strpos($twigContent, "ModuloChat/templates': ModuloChat") !== false) {
             $io->note('La configuración de Twig ya incluye las plantillas del módulo de chat.');
+            return;
+        }
+        
+        // Si está comentada, descomentarla
+        if (strpos($twigContent, "# '%kernel.project_dir%/src/ModuloChat/templates': ~ # DESACTIVADO") !== false) {
+            $twigContent = str_replace(
+                "# '%kernel.project_dir%/src/ModuloChat/templates': ~ # DESACTIVADO",
+                "'%kernel.project_dir%/src/ModuloChat/templates': ModuloChat",
+                $twigContent
+            );
+            file_put_contents($twigYamlPath, $twigContent);
+            $io->success('Las plantillas Twig del módulo de chat han sido descomentadas.');
             return;
         }
         
@@ -260,7 +361,7 @@ EOT;
             // Insertar justo después de 'paths:'
             $newContent = preg_replace(
                 '/(paths:)/i',
-                "$1\n        '%kernel.project_dir%/src/ModuloChat/templates': ~",
+                "$1\n        '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat",
                 $twigContent
             );
             
@@ -274,7 +375,7 @@ EOT;
         }
         
         // Insertar después del punto encontrado
-        $chatConfig = "\n        '%kernel.project_dir%/src/ModuloChat/templates': ~";
+        $chatConfig = "\n        '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat";
         $newContent = str_replace($insertPoint, $insertPoint . $chatConfig, $twigContent);
         
         if ($newContent !== $twigContent) {
@@ -291,71 +392,170 @@ EOT;
         $doctrineContent = file_get_contents($doctrineYamlPath);
         
         // Verificar si la configuración ya existe
-        if (strpos($doctrineContent, 'ModuloChat') !== false) {
+        if (strpos($doctrineContent, 'ModuloChat:') !== false) {
             $io->note('La configuración de Doctrine ya incluye las entidades del módulo de chat.');
             return;
         }
         
-        // Buscar patrones de puntos de inserción seguros
-        $patterns = [
-            'ModuloExplorador:(\s+)type: attribute',
-            'ModuloCore:(\s+)type: attribute'
-        ];
+        // Extraer la configuración actual para entender la estructura
+        $pattern = '/mappings:\s*\n(.*?)(?:\n\s*\w+:|$)/s';
         
-        $insertPattern = null;
-        $matches = [];
-        
-        foreach ($patterns as $pattern) {
-            if (preg_match('/' . $pattern . '/s', $doctrineContent, $matchResult)) {
-                $insertPattern = $pattern;
-                $matches = $matchResult;
-                break;
-            }
-        }
-        
-        if ($insertPattern === null) {
-            $io->warning('No se pudo encontrar un punto de inserción seguro en doctrine.yaml.');
-            if (!$io->confirm('¿Quieres continuar igualmente?', false)) {
-                $io->note('Operación cancelada.');
-                return;
-            }
-            
-            if (preg_match('/mappings:(.*?)(\n\s+\w+:|$)/s', $doctrineContent, $mappingsMatch)) {
-                $insertPos = strpos($doctrineContent, $mappingsMatch[0]) + strlen($mappingsMatch[0]) - strlen($mappingsMatch[2]);
-                $chatConfig = $this->getChatDoctrineConfig(str_repeat(' ', 12)); // 12 espacios es la indentación estándar
-                
-                $newContent = substr($doctrineContent, 0, $insertPos) . $chatConfig . substr($doctrineContent, $insertPos);
-                file_put_contents($doctrineYamlPath, $newContent);
-                $io->success('doctrine.yaml actualizado con las entidades del módulo de chat.');
-                return;
-            }
-            
-            $io->error('No se pudo actualizar doctrine.yaml. La estructura del archivo no es compatible.');
+        if (!preg_match($pattern, $doctrineContent, $mappingsMatch)) {
+            $io->error('No se pudo encontrar la sección "mappings" en doctrine.yaml');
             return;
         }
         
-        $indentation = $matches[1] ?? str_repeat(' ', 12);
+        // Determinar la indentación correcta basada en la estructura existente
+        $mappingsIndentation = '';
+        $moduleIndentation = '';
         
-        $chatConfig = $this->getChatDoctrineConfig($indentation);
+        if (preg_match('/(\s+)ModuloCore:/m', $doctrineContent, $indentMatch)) {
+            $moduleIndentation = $indentMatch[1];
+            // La indentación de 'mappings:' debe ser un nivel menos
+            $mappingsIndentation = substr($moduleIndentation, 0, -4);
+        } else {
+            // Valores por defecto si no podemos determinar la indentación
+            $moduleIndentation = '            '; // 12 espacios
+            $mappingsIndentation = '        '; // 8 espacios
+        }
         
-        $fullModulePattern = '/(' . $insertPattern . '.*?alias: \w+)/s';
+        // Crear la configuración del módulo Chat con la indentación correcta
+        $chatConfig = "\n{$moduleIndentation}ModuloChat:
+{$moduleIndentation}    type: attribute
+{$moduleIndentation}    is_bundle: false
+{$moduleIndentation}    dir: '%kernel.project_dir%/src/ModuloChat/Entity'
+{$moduleIndentation}    prefix: 'App\\ModuloChat\\Entity'
+{$moduleIndentation}    alias: ModuloChat";
         
-        if (preg_match($fullModulePattern, $doctrineContent, $moduleMatches)) {
-            $newContent = str_replace($moduleMatches[1], $moduleMatches[1] . "\n\n" . $chatConfig, $doctrineContent);
+        // Encontrar dónde insertar el nuevo módulo
+        $lastModulePattern = '/(ModuloExplorador:.*?alias: ModuloExplorador)/s';
+        
+        if (preg_match($lastModulePattern, $doctrineContent, $lastModuleMatch)) {
+            // Insertar después del último módulo
+            $newContent = str_replace($lastModuleMatch[1], $lastModuleMatch[1] . $chatConfig, $doctrineContent);
             file_put_contents($doctrineYamlPath, $newContent);
             $io->success('doctrine.yaml actualizado con las entidades del módulo de chat.');
         } else {
-            $io->error('No se pudo actualizar doctrine.yaml. Verifica el formato del archivo.');
+            // Si no encontramos un patrón específico, intentar agregar al final de la sección mappings
+            $mappingsSection = "mappings:";
+            $newMappingsSection = "mappings:" . $chatConfig;
+            
+            if (strpos($doctrineContent, $mappingsSection) !== false) {
+                $newContent = str_replace($mappingsSection, $newMappingsSection, $doctrineContent);
+                file_put_contents($doctrineYamlPath, $newContent);
+                $io->success('doctrine.yaml actualizado con las entidades del módulo de chat al final de la sección mappings.');
+            } else {
+                $io->error('No se pudo actualizar doctrine.yaml. No se encontró un punto de inserción adecuado.');
+            }
         }
     }
     
-    private function getChatDoctrineConfig(string $indentation): string
+    private function registerModule(SymfonyStyle $io): void
     {
-        return "{$indentation}ModuloChat:
-{$indentation}    type: attribute
-{$indentation}    is_bundle: false
-{$indentation}    dir: '%kernel.project_dir%/src/ModuloChat/Entity'
-{$indentation}    prefix: 'App\ModuloChat\Entity'
-{$indentation}    alias: ModuloChat";
+        try {
+            $moduloRepository = $this->entityManager->getRepository(Modulo::class);
+            $chatModule = $moduloRepository->findOneBy(['nombre' => 'Chat']);
+            
+            if ($chatModule) {
+                // Si el módulo ya existe, lo activamos
+                $chatModule->setEstado(true);
+                $io->note('El módulo Chat ya existe en la base de datos. Se ha activado.');
+            } else {
+                // Si no existe, lo creamos
+                $modulo = new Modulo();
+                $modulo->setNombre('Chat');
+                $modulo->setDescripcion('Módulo de chat en tiempo real para la comunicación entre usuarios');
+                $modulo->setIcon('fas fa-comments');
+                $modulo->setRuta('/chat');
+                $modulo->setEstado(true);
+                $modulo->setInstallDate(new \DateTimeImmutable());
+                
+                $this->entityManager->persist($modulo);
+                $io->success('Se ha registrado el módulo Chat en la base de datos.');
+            }
+            
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $io->error('Error al registrar el módulo en la base de datos: ' . $e->getMessage());
+            $io->note('Puedes continuar con la instalación y añadir el módulo manualmente más tarde.');
+        }
+    }
+    
+    private function createMenuItems(SymfonyStyle $io): void
+    {
+        try {
+            $moduleRepository = $this->entityManager->getRepository(Modulo::class);
+            $menuRepository = $this->entityManager->getRepository(MenuElement::class);
+            
+            $chatModule = $moduleRepository->findOneBy(['nombre' => 'Chat']);
+            if (!$chatModule) {
+                $io->warning('No se encuentra el módulo Chat en la base de datos. No se pueden crear elementos de menú.');
+                return;
+            }
+            
+            $existingMenuItem = $menuRepository->findOneBy(['nombre' => 'Chat']);
+            if ($existingMenuItem) {
+                $existingMenuItem->setEnabled(true);
+                $io->note('El elemento de menú para Chat ya existe. Se ha activado.');
+            } else {
+                $menuItem = new MenuElement();
+                $menuItem->setNombre('Chat');
+                $menuItem->setIcon('fas fa-comments');
+                $menuItem->setType('menu');
+                $menuItem->setParentId(0); // Menú principal
+                $menuItem->setRuta('/chat');
+                $menuItem->setEnabled(true);
+                $menuItem->addModulo($chatModule);
+                
+                $this->entityManager->persist($menuItem);
+                $io->success('Se ha creado el elemento de menú para el módulo Chat.');
+            }
+            
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $io->error('Error al crear elementos de menú: ' . $e->getMessage());
+            $io->note('Puedes crear los elementos de menú manualmente más tarde.');
+        }
+    }
+    
+    private function generateMigration(SymfonyStyle $io): bool
+    {
+        $io->section('Generando migración...');
+        $process = new Process(['php', 'bin/console', 'make:migration']);
+        $process->setTimeout(120); // 2 minutos de timeout
+        $process->run(function ($type, $buffer) use ($io) {
+            $io->write($buffer);
+        });
+        
+        if (!$process->isSuccessful()) {
+            $io->error('Error al generar la migración. Puedes intentarlo manualmente más tarde.');
+            return false;
+        }
+        
+        $io->success('Migración generada para las entidades del chat.');
+        return true;
+    }
+    
+    private function executeMigration(InputInterface $input, SymfonyStyle $io): bool
+    {
+        if (!$input->getOption('yes') && !$io->confirm('¿Deseas ejecutar la migración ahora?', true)) {
+            $io->note('Migración no ejecutada. Puedes ejecutarla manualmente más tarde.');
+            return true;
+        }
+        
+        $io->section('Ejecutando migración...');
+        $process = new Process(['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction']);
+        $process->setTimeout(300); // 5 minutos de timeout
+        $process->run(function ($type, $buffer) use ($io) {
+            $io->write($buffer);
+        });
+        
+        if (!$process->isSuccessful()) {
+            $io->error('Error al ejecutar la migración. Puedes intentarlo manualmente más tarde.');
+            return false;
+        }
+        
+        $io->success('Migración ejecutada. Las tablas del chat han sido creadas en la base de datos.');
+        return true;
     }
 }

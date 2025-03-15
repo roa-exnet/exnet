@@ -4,22 +4,13 @@ modulo_core_controllers:
         namespace: App\ModuloCore\Controller
     type: attribute
 
-modulo_Explorador_controllers:
-    resource:
-        path: ../src/ModuloExplorador/Controller/
-        namespace: App\ModuloExplorador\Controller
-    type: attribute
-
-
-modulo_Chat_controllers:
+modulo_chat_controllers:
     resource:
         path: ../src/ModuloChat/Controller/
         namespace: App\ModuloChat\Controller
     type: attribute
-
-
-# modulo_test_controllers:
-#     resource:
-#         path: ../src/ModuloTest/Controller/
-#         namespace: App\ModuloTest\Controller
-#     type: attribute
+modulo_explorador_controllers:
+    resource:
+        path: ../src/ModuloExplorador/Controller/
+        namespace: App\ModuloExplorador\Controller
+    type: attribute

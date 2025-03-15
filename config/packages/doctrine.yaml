@@ -35,12 +35,16 @@ doctrine:
                 alias: ModuloExplorador
 
             ModuloChat:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/ModuloChat/Entity'
-                prefix: 'App\ModuloChat\Entity'
-                alias: ModuloChat
 
+                type: attribute
+
+                is_bundle: false
+
+                dir: '%kernel.project_dir%/src/ModuloChat/Entity'
+
+                prefix: 'App\ModuloChat\Entity'
+
+                alias: ModuloChat
 
             # ModuloTest:
             #     type: attribute

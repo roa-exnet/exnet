@@ -30,19 +30,18 @@ services:
         tags: ['kernel.event_subscriber']
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
-    App\ModuloChat\Controller\:
-        resource: '../src/ModuloChat/Controller'
-        tags: ['controller.service_arguments']
+    #START -----------------------------------------------------  ModuloChat (DESACTIVADO) -------------------------------------------------------------------------- 
+    #App\ModuloChat\Controller\:
+        #resource: '../src/ModuloChat/Controller'
+        #tags: ['controller.service_arguments']
         
-    App\ModuloChat\Command\:
-        resource: '../src/ModuloChat/Command'
-        tags: ['console.command']
+    #App\ModuloChat\Command\:
+        #resource: '../src/ModuloChat/Command'
+        #tags: ['console.command']
         
-    App\ModuloChat\Service\:
-        resource: '../src/ModuloChat/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloChat ---------------------------------------------------------------------------        
-    
+    #App\ModuloChat\Service\:
+        #resource: '../src/ModuloChat/Service/'
+        #autowire: true
+        #autoconfigure: true
+        #public: true
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
