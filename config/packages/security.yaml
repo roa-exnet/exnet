@@ -8,8 +8,20 @@ security:
             entity:
                 class: App\ModuloCore\Entity\User
                 property: email
+
+        keycloak_user_provider:
+            id: App\ModuloCore\Security\KeycloakUserProvider
     
     firewalls:
+
+        keycloak:
+            pattern: ^/kc
+            # stateless: true
+            provider: keycloak_user_provider
+            custom_authenticators:
+                - App\ModuloCore\Security\KeycloakAuthenticator
+            entry_point: App\ModuloCore\Security\KeycloakAuthenticator
+
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
@@ -36,7 +48,8 @@ security:
                 # target: app_any_route
 
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/kc, roles: IS_AUTHENTICATED_FULLY }
+        # - { path: ^/kc, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         # - { path: ^/profile, roles: ROLE_USER }
 
 when@test:

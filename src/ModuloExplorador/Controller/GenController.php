@@ -1,7 +1,7 @@
 <?php
 
 namespace App\ModuloExplorador\Controller;
-
+use App\ModuloCore\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -12,6 +12,8 @@ use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+
 
 
 
@@ -19,18 +21,37 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 class GenController extends AbstractController
 {
-    #[Route('/gen', name: 'app_gen')]
+    #[Route('/explorador', name: 'explorer_')]
+    #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
+
+    #[Route('/', name: 'index')]
     public function index(): Response
     {
-        return $this->render('gen/index.html.twig', [
-            'controller_name' => 'GenController',
-        ]);
+        /** @var User $user */
+        $user = $this->getUser();
+        
+        // Verificación adicional de seguridad
+        if (!$user instanceof User) {
+            throw new AccessDeniedException('Debes iniciar sesión para acceder al explorador de archivos.');
+        }
+        
+        $userId = (string) $user->getId();
+        $userName = $user->getNombre() . ' ' . $user->getApellidos();
+        
+        /*return $this->render('gen/index.html.twig', [
+            'userId' => $userId,
+            'userName' => $userName,
+        ]);*/
+        return $this->redirectToRoute('explorer');
     }
     #[Route('/archivos', name: 'explorer',methods:['GET','POST'])]
     public function explorer(Request $request): Response {
         $lastDir='/root/explorador';
         $path = $request->query->get('path', '/root/explorador');
-    
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw new AccessDeniedException('Usuario no autenticado');
+        }
 
         $directoryPath = $request->request->get('path', '/root/explorador');
     
@@ -83,7 +104,10 @@ public function abrirArchivo(Request $request): Response
 {
     $directoryPath = $request->request->get('path');
     $filename = $request->request->get('filename');
-
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     if (file_exists($directoryPath . '/' . $filename)) {
         $filePath = $directoryPath . '/' . $filename;
 
@@ -129,12 +153,16 @@ public function abrirArchivo(Request $request): Response
     }
 }
 
-#[Route('/ver_video/{filename}', name: 'ver_video')]
-public function verVideo(string $filename, Request $request): Response
+#[Route('/ver_video', name: 'ver_video', methods: ['GET', 'POST'])]
+public function verVideo(Request $request): Response
 {
     $directoryPath = $request->query->get('path');
+    $filename=$request->query->get('filename');
     $filePath = $directoryPath . '/' . $filename;
-
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     if (!file_exists($filePath)) {
         throw $this->createNotFoundException('El archivo de video no existe.');
     }
@@ -152,12 +180,16 @@ public function verVideo(string $filename, Request $request): Response
         return $this->file($filePath);
     }
 
-    #[Route('/imagenes/{filename}', name:'ver_imagen', methods:['POST'])]
-public function verImagen(Request $request, string $filename): Response
+    #[Route('/imagenes', name:'ver_imagen', methods:['POST'])]
+public function verImagen(Request $request): Response
 {
     // Obtener el directorio desde el cuerpo de la solicitud (POST)
     $directoryPath = $request->request->get('path');  // Recupera 'directory' de los datos POST
-
+    $filename=$request->request->get('filename');
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     // Verificar que el directorio existe y es válido
     if (!$directoryPath) {
         throw new \Exception('El parámetro "directory" no está presente en la solicitud.');
@@ -165,7 +197,7 @@ public function verImagen(Request $request, string $filename): Response
 
     // Construir el path completo de la imagen
     $filePath = $directoryPath . '/' . $filename;
-
+    //dd($filename);
     // Verificar si el archivo existe
     if (!file_exists($filePath)) {
         throw new FileNotFoundException('La imagen no existe');
@@ -193,8 +225,11 @@ public function crearCarpeta(Request $request): RedirectResponse
     $folderName = $request->request->get('folder_name');
     
     // Obtener la ruta del directorio actual desde el formulario
+    $user = $this->getUser();
     $directoryPath = $request->request->get('path');
-
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     // Validar si el directorio y el nombre de la carpeta son válidos
     if (empty($folderName) || empty($directoryPath)) {
         $this->addFlash('error', 'Faltan datos para crear la carpeta.');
@@ -223,7 +258,10 @@ public function crearCarpeta(Request $request): RedirectResponse
 public function eliminarCarpeta(Request $request): RedirectResponse
 {
     $directoryPath = $request->request->get('path');
-
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     if (empty($directoryPath) || !is_dir($directoryPath)) {
         $this->addFlash('error', 'La carpeta no existe o la ruta es inválida.');
         return $this->redirectToRoute('explorer', ['path' => dirname($directoryPath)]);
@@ -245,7 +283,10 @@ public function eliminarCarpeta(Request $request): RedirectResponse
 public function eliminarArchivo(Request $request): RedirectResponse
 {
     $filePath = $request->request->get('path') . '/' . $request->request->get('filename');
-
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     if (empty($filePath) || !file_exists($filePath)) {
         $this->addFlash('error', 'El archivo no existe o la ruta es inválida.');
         return $this->redirectToRoute('explorer', ['path' => dirname($filePath)]);
@@ -269,6 +310,10 @@ public function subirArchivo(Request $request): RedirectResponse
     // Obtener el directorio de destino desde el formulario
     $directoryPath = $request->request->get('path');
     $file = $request->files->get('file');
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     //dd($file);
     // Comprobar si se ha subido un archivo
     if ($file) {
@@ -302,7 +347,10 @@ public function subirCarpeta(Request $request): RedirectResponse
     $directoryPath = $request->request->get('path');
     $folderName = $request->request->get('folder_name'); // Obtener el nombre de la carpeta
     $files = $request->files->get('folder'); // Recibe todos los archivos de la carpeta seleccionada
-
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        throw new AccessDeniedException('Usuario no autenticado');
+    }
     // Agregar depuración para verificar que recibimos el valor de folder_name correctamente
     dump($folderName); // Para ver si recibimos el nombre correctamente
     

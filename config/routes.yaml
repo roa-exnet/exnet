@@ -8,7 +8,7 @@ modulo_chat_controllers:
     resource:
         path: ../src/ModuloChat/Controller/
         namespace: App\ModuloChat\Controller
-    type: attribute
+    type: attribute    
 modulo_explorador_controllers:
     resource:
         path: ../src/ModuloExplorador/Controller/

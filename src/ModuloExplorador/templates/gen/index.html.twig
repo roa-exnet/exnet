@@ -1,12 +1,18 @@
 {# templates/directory/index.html.twig #}
+{% extends 'base.html.twig' %}
+{% block title %}Explorador{% endblock %}
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
+{% block head %}
+{{ parent() }}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contenido del Directorio</title>
-    <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/general.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/titles.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/explorer.css') }}">
     <script>
     function promptFolderName() {
         let folderName = prompt("Ingrese el nombre de la nueva carpeta:");
@@ -42,14 +48,16 @@
 
     
 </script>
-</head>
-<body>
+{% endblock %}
+{% block body %}
+{% set backgrounds = ['bg.jpg', 'bg2.jpg', 'bg3.jpg']|shuffle %}
+{% set random_bg = backgrounds[0] %}
 <h1>Explorador de Archivos</h1>
 
-<p>Contador de Archivos: {{ file_count }}</p>
+<!--<p>Contador de Archivos: {{ file_count }}</p>
 <p>Contador de Directorios: {{ dir_count }}</p>
 
-<p>Ruta actual: {{ directory }}</p>
+<p>Ruta actual: {{ directory }}</p>-->
 
 <!-- Mostrar el formulario para crear una carpeta -->
 <ul class="list-group horizontal-list">
@@ -97,7 +105,7 @@
 
 <!-- Mostrar directorios como botones -->
 <!-- Mostrar directorios como botones -->
-<div class="container">
+<div class="exnet-regular-container">
     <h3>Contenido de la carpeta:</h3>
 
     <ul class="list-group horizontal-list">
@@ -159,5 +167,5 @@
         {% endfor %}
     </ul>
 </div>
-</body>
-</html>
+{% endblock %}
+

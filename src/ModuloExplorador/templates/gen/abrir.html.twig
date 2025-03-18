@@ -1,12 +1,19 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
+{% extends 'base.html.twig' %}
+{% block title %}Archivo{% endblock %}
+{% block head %}
+{{ parent() }}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contenido del Archivo</title>
     <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
-</head>
-<body>
+    <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/general.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/titles.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/explorer.css') }}">
+{% endblock %}
+
 {% block body %}
     <h1>Contenido del archivo: {{ filename }}</h1>
     <p>Ruta: {{ directory }}</p>
@@ -51,10 +58,10 @@
     </ul>
 
     <!-- Botón para cargar la imagen -->
-    <button id="reloadButton" onclick="cargarImagen()" disabled>
+    <button id="reloadButton" onclick="cargarImagen()" hidden>
         Cargar Imagen
     </button>
-{% endblock %}
+
 
 <script>
     // Función para cargar la imagen
@@ -62,12 +69,14 @@
         var filename = "{{ filename }}";
         var directory = "{{ directory }}";
         
-        fetch("{{ path('ver_imagen', {'filename': filename}) }}", {
+        // Hacer la solicitud POST
+        fetch("{{ path('ver_imagen') }}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: new URLSearchParams({
+                'filename': filename,
                 'path': directory
             })
         })
@@ -83,6 +92,7 @@
             document.getElementById('reloadButton').disabled = false;
         });
     }
+    
 
     // Función que maneja el error al cargar la imagen en el iframe
     function handleImageError() {
@@ -93,6 +103,5 @@
     // Ejecutar la función de carga de imagen al cargar la página
     document.addEventListener('DOMContentLoaded', cargarImagen);
 </script>
+{% endblock %}
 
-</body>
-</html>

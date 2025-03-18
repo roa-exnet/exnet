@@ -28,6 +28,20 @@ services:
     
     App\ModuloCore\EventSubscriber\MenuSubscriber:
         tags: ['kernel.event_subscriber']
+        
+    App\ModuloCore\Security\KeycloakAuthenticator:
+        arguments:
+            $realmUrl: '%env(KEYCLOAK_REALM_URL)%'
+            
+    App\ModuloCore\Service\KeycloakTokenService:
+        arguments:
+            $httpClient: '@http_client'
+            $realmUrl: '%env(KEYCLOAK_REALM_URL)%'
+            $clientId: '%env(KEYCLOAK_CLIENT_ID)%'
+            $clientSecret: '%env(KEYCLOAK_CLIENT_SECRET)%'
+            $username: '%env(KEYCLOAK_USERNAME)%'
+            $password: '%env(KEYCLOAK_PASSWORD)%'
+
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloChat (DESACTIVADO) -------------------------------------------------------------------------- 
