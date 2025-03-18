@@ -968,6 +968,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                 });
                 
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    console.error("La respuesta no es JSON:", await response.text());
+                    throw new Error("Respuesta inesperada del servidor. Verifica la consola para más detalles.");
+                }
+                
                 const data = await response.json();
                 
                 if (!data.success) {
