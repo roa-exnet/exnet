@@ -4,23 +4,32 @@ namespace App\ModuloCore\Controller;
 
 use App\ModuloCore\Entity\User;
 use App\ModuloCore\Form\RegistrationFormType;
+use App\ModuloCore\Service\IpAuthService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Http\Authentication\UserAuthenticatorInterface;
-use Symfony\Component\Security\Http\Authenticator\FormLoginAuthenticator;
 
 class RegistrationController extends AbstractController
 {
+    private EntityManagerInterface $entityManager;
+    private UserPasswordHasherInterface $passwordHasher;
+    private IpAuthService $ipAuthService;
+
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher,
+        IpAuthService $ipAuthService
+    ) {
+        $this->entityManager = $entityManager;
+        $this->passwordHasher = $passwordHasher;
+        $this->ipAuthService = $ipAuthService;
+    }
+
     #[Route('/register', name: 'app_register')]
-    public function register(
-        Request $request, 
-        UserPasswordHasherInterface $userPasswordHasher, 
-        EntityManagerInterface $entityManager
-    ): Response
+    public function register(Request $request): Response
     {
         if ($this->getUser()) {
             return $this->redirectToRoute('landing');
@@ -32,22 +41,115 @@ class RegistrationController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $user->setPassword(
-                $userPasswordHasher->hashPassword(
+                $this->passwordHasher->hashPassword(
                     $user,
                     $form->get('plainPassword')->getData()
                 )
             );
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            $this->entityManager->persist($user);
+            
+            $this->ipAuthService->registerUserIp($user);
+            
+            $this->entityManager->flush();
 
             $this->addFlash('success', '¡Tu cuenta ha sido creada! Ahora puedes iniciar sesión.');
+
+            $redirect = $request->query->get('redirect');
+            if ($redirect) {
+                return $this->redirect($redirect);
+            }
 
             return $this->redirectToRoute('app_login');
         }
 
         return $this->render('registration/register.html.twig', [
             'registrationForm' => $form,
+            'currentIp' => $this->ipAuthService->getCurrentIp()
+        ]);
+    }
+
+    #[Route('/register-ip', name: 'app_register_ip')]
+    public function registerIp(Request $request): Response
+    {
+        if ($this->ipAuthService->isIpRegistered()) {
+            $redirect = $request->query->get('redirect');
+            if ($redirect) {
+                return $this->redirect($redirect);
+            }
+            return $this->redirectToRoute('landing');
+        }
+        
+        $currentIp = $this->ipAuthService->getCurrentIp();
+        
+        if ($request->isMethod('POST')) {
+            $email = $request->request->get('email');
+            $nombre = $request->request->get('nombre');
+            $apellidos = $request->request->get('apellidos');
+            
+            $errors = [];
+            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Email inválido';
+            }
+            if (empty($nombre)) {
+                $errors[] = 'El nombre es requerido';
+            }
+            if (empty($apellidos)) {
+                $errors[] = 'Los apellidos son requeridos';
+            }
+            
+            if (empty($errors)) {
+                $userRepository = $this->entityManager->getRepository(User::class);
+                
+                $existingUser = $userRepository->findOneBy(['email' => $email]);
+                
+                if ($existingUser) {
+                    $this->ipAuthService->registerUserIp($existingUser);
+                    
+                    $redirectUrl = $request->query->get('redirect');
+                    if ($redirectUrl) {
+                        return $this->redirect($redirectUrl);
+                    } else {
+                        return $this->redirectToRoute('landing');
+                    }
+                } else {
+                    $user = new User();
+                    $user->setEmail($email);
+                    $user->setNombre($nombre);
+                    $user->setApellidos($apellidos);
+                    $user->setRoles(['ROLE_USER']);
+                    $user->setPassword($this->passwordHasher->hashPassword(
+                        $user,
+                        uniqid()
+                    ));
+                    $user->setCreatedAt(new \DateTimeImmutable());
+                    $user->setIsActive(true);
+                    
+                    $user->setIpAddress($currentIp);
+                    
+                    $this->entityManager->persist($user);
+                    $this->entityManager->flush();
+                    
+                    $redirectUrl = $request->query->get('redirect');
+                    if ($redirectUrl) {
+                        return $this->redirect($redirectUrl);
+                    } else {
+                        return $this->redirectToRoute('landing');
+                    }
+                }
+            }
+            
+            return $this->render('registration/register_ip.html.twig', [
+                'currentIp' => $currentIp,
+                'errors' => $errors,
+                'email' => $email,
+                'nombre' => $nombre,
+                'apellidos' => $apellidos
+            ]);
+        }
+        
+        return $this->render('registration/register_ip.html.twig', [
+            'currentIp' => $currentIp
         ]);
     }
 }

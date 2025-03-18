@@ -45,6 +45,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?bool $is_active = null;
 
+    #[ORM\Column(length: 45, nullable: true)]
+    private ?string $ip_address = null;
+
     public function __construct()
     {
         $this->created_at = new \DateTimeImmutable();
@@ -175,6 +178,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsActive(bool $is_active): static
     {
         $this->is_active = $is_active;
+
+        return $this;
+    }
+
+    public function getIpAddress(): ?string
+    {
+        return $this->ip_address;
+    }
+
+    public function setIpAddress(?string $ip_address): static
+    {
+        $this->ip_address = $ip_address;
 
         return $this;
     }

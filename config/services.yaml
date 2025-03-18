@@ -42,6 +42,10 @@ services:
             $username: '%env(KEYCLOAK_USERNAME)%'
             $password: '%env(KEYCLOAK_PASSWORD)%'
 
+    App\ModuloCore\Service\IpAuthService:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $requestStack: '@request_stack'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloChat (DESACTIVADO) -------------------------------------------------------------------------- 
