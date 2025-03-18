@@ -107,6 +107,7 @@ class KeycloakAuthenticator extends AbstractAuthenticator implements Authenticat
     public function start(Request $request, AuthenticationException $authException = null): RedirectResponse|JsonResponse
     {
         $firewall = $request->attributes->get('_firewall_context');
+        dd($firewall);
         return new JsonResponse(['error' => 'Acceso no autorizado'], 401);
     }
     

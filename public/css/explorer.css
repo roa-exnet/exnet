@@ -43,14 +43,12 @@ iframe {
     border: none;
     object-fit: contain; /* Mantener la proporción de la imagen */
 }
-.file-content {
+/*.file-content {
     width: 80%;
-    height: 80vh; /* Ocupa el 80% de la altura del navegador */
+    height: 80vh; 
     display: flex;
-    /*justify-content: center;
-    align-items: center;*/
     padding: 20px;
-}
+}*/
 .item-container {
     position: relative;
     display: inline-block;
@@ -58,4 +56,21 @@ iframe {
 h1{
     color: white;
     text-shadow: 2px 2px #000000;
+}
+
+.file-content {
+    width: 80%;
+    height: 80vh; 
+    display: flex;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+    color: white;
+    user-select: none;
+
 }

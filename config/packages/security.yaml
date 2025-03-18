@@ -16,7 +16,7 @@ security:
 
         keycloak:
             pattern: ^/kc
-            # stateless: true
+            stateless: true
             provider: keycloak_user_provider
             custom_authenticators:
                 - App\ModuloCore\Security\KeycloakAuthenticator
