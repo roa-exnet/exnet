@@ -1,28 +1,158 @@
-@font-face {
-    font-family: 'Exo';
-    src: url('../fonts/Exo-VariableFont_wght.ttf') format('truetype');
-    font-weight: 100 900;
-    font-style: normal;
-}
-
 :root {
-    --font-primary: 'Exo', sans-serif;
+    --exnet-primary: #3498db;
+    --exnet-secondary: #2c3e50;
+    --exnet-accent: #f39c12;
+    --exnet-light: #ecf0f1;
+    --exnet-dark: #1a2530;
+    --exnet-text: #333333;
+    --exnet-text-light: #ffffff;
+    --exnet-success: #2ecc71;
+    --exnet-danger: #e74c3c;
+    --exnet-warning: #f1c40f;
+    --exnet-info: #3498db;
+    --exnet-shadow: rgba(0, 0, 0, 0.1);
+    --exnet-border-radius: 8px;
+    --exnet-transition: all 0.3s ease;
 }
 
 body {
-    font-family: var(--font-primary);
-    user-select: none;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--exnet-text);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+body {
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.65);
+    z-index: -1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--exnet-text-light);
+    font-weight: 600;
+}
+
+p {
+    color: var(--exnet-text-light);
+    line-height: 1.6;
+}
+
+a {
+    color: var(--exnet-primary);
+    text-decoration: none;
+    transition: var(--exnet-transition);
+}
+
+a:hover {
+    color: #2980b9;
+    text-decoration: none;
+}
+
+.text-primary {
+    color: var(--exnet-primary) !important;
+}
+
+.text-secondary {
+    color: var(--exnet-secondary) !important;
+}
+
+.text-accent {
+    color: var(--exnet-accent) !important;
+}
+
+.text-light {
+    color: var(--exnet-text-light) !important;
+}
+
+.bg-primary {
+    background-color: var(--exnet-primary) !important;
+}
+
+.bg-secondary {
+    background-color: var(--exnet-secondary) !important;
+}
+
+.bg-transparent-dark {
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+}
+
+.flex-grow-1 {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 60px;
+}
+
+.exnet-alert {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--exnet-border-radius);
+    border: 1px solid transparent;
+}
+
+.exnet-alert-success {
+    background-color: rgba(46, 204, 113, 0.1);
+    border-color: var(--exnet-success);
+    color: #27ae60;
+}
+
+.exnet-alert-danger {
+    background-color: rgba(231, 76, 60, 0.1);
+    border-color: var(--exnet-danger);
+    color: #c0392b;
+}
+
+.exnet-alert-warning {
+    background-color: rgba(241, 196, 15, 0.1);
+    border-color: var(--exnet-warning);
+    color: #d35400;
+}
+
+.exnet-alert-info {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-color: var(--exnet-info);
+    color: #2980b9;
 }
 
 .exnet-footer {
+    background-color: rgba(44, 62, 80, 0.8);
+    backdrop-filter: blur(5px);
+    color: var(--exnet-text-light);
+    padding: 1rem 0;
+    margin-top: auto;
     width: 100%;
-    padding: 15px;
-    color: white;
-    background: rgba(0, 0, 0, 0.3);
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    text-align: center;
-    font-size: 0.9rem;
-    user-select: none;
+}
+
+.exnet-footer a {
+    color: var(--exnet-accent);
+}
+
+.exnet-footer a:hover {
+    color: var(--exnet-primary);
+    text-decoration: underline;
+}
+
+.vh-centered {
+    min-height: calc(100vh - 160px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

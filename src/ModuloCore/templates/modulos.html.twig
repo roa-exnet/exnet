@@ -3,27 +3,33 @@
 {% block title %}Añadir Módulos{% endblock %}
 
 {% block body %}
-    <div class="container mt-4">
-        <div class="row">
+    <div class="exnet-container-transparent">
+        <h2 class="exnet-section-title">Módulos Disponibles</h2>
+        <p class="mb-4">Personaliza tu experiencia en Exnet añadiendo los módulos que necesites.</p>
+        
+        <div class="modulos-grid">
             {% for modulo in modulos %}
-                <div class="col-md-6 mb-4">
-                    <div class="exnet-card position-relative">
+                <div class="exnet-card position-relative">
+                    {% if modulo.estado == 1 %}
+                        <span class="exnet-ribbon">Instalado</span>
+                    {% endif %}
+                    <i class="{{ modulo.icon }} fa-3x"></i>
+                    <h5 class="mt-2">{{ modulo.nombre }}</h5>
+                    <p>{{ modulo.descripcion }}</p>
+                    <a href="{{ modulo.ruta }}" 
+                       class="exnet-btn {% if modulo.estado == 1 %}exnet-btn-disabled{% else %}exnet-btn-blue{% endif %}">
                         {% if modulo.estado == 1 %}
-                            <span class="exnet-ribbon">Instalado</span>
+                            <i class="fas fa-check me-2"></i>Instalado
+                        {% else %}
+                            <i class="fas fa-plus me-2"></i>Añadir
                         {% endif %}
-                        <i class="{{ modulo.icon }} fa-3x"></i>
-                        <h5 class="mt-2">{{ modulo.nombre }}</h5>
-                        <p>{{ modulo.descripcion }}</p>
-                        <a href="{{ modulo.ruta }}" 
-                           class="{% if modulo.estado == 1 %}exnet-btn-disabled{% else %}exnet-btn-blue{% endif %}">
-                            {% if modulo.estado == 1 %}Instalado{% else %}Añadir{% endif %}
-                        </a>
-                    </div>
+                    </a>
                 </div>
-
-                {% if loop.index is even %}
-                    </div><div class="row">
-                {% endif %}
+            {% else %}
+                <div class="exnet-alert exnet-alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay módulos disponibles actualmente.
+                </div>
             {% endfor %}
         </div>
     </div>

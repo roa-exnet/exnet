@@ -1,24 +1,33 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Landing Page{% endblock %}
+{% block title %}Exnet - Tu propio internet{% endblock %}
 
 {% block head %}
     {{ parent() }}
 {% endblock %}
 
 {% block body %}
-    <div class="container d-flex justify-content-center align-items-center vh-100">
-        <div class="exnet-container-transparent text-center p-4">
-            <h1 class="exnet-main-title" style="user-select:none;">Exnet - Tu propio internet</h1>
-            <p style="color: white;">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam eget felis id libero laoreet tristique.
-                Donec facilisis nulla at tellus suscipit, ut tempus nulla malesuada. Suspendisse potenti. 
-                Integer sagittis libero in ligula vulputate, in ultrices justo fermentum.
-            </p>
+    <div class="container vh-centered">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="exnet-container-transparent text-center p-4">
+                    <h1 class="exnet-main-title exnet-centered-title" style="user-select:none;">Exnet - Tu propio internet</h1>
+                    <p>
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam eget felis id libero laoreet tristique.
+                        Donec facilisis nulla at tellus suscipit, ut tempus nulla malesuada. Suspendisse potenti. 
+                        Integer sagittis libero in ligula vulputate, in ultrices justo fermentum.
+                    </p>
+                    
+                    <div class="mt-4 d-flex justify-content-center flex-wrap gap-3">
+                        <a href="/modulos" class="exnet-btn exnet-btn-blue">
+                            <i class="fas fa-puzzle-piece me-2"></i> Explorar Módulos
+                        </a>
+                        <a href="https://docs.exnet.cloud/" class="exnet-btn exnet-btn-outline-light">
+                            <i class="fa-solid fa-lightbulb"></i> Tutoriales
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
-    <footer class="exnet-footer text-center">
-        <p>&copy; 2025 Exnet. By ROA.</p>
-    </footer>
 {% endblock %}

@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>{% block title %}ROA - Exnet{% endblock %}</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     
@@ -14,7 +15,6 @@
         <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
         <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
         <link rel="stylesheet" href="{{ asset('css/responsive.css') }}">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     {% endblock %}
 </head>
 <body>
@@ -25,43 +25,96 @@
         body {
             background: url("{{ asset('images/' ~ random_bg) }}") no-repeat center center fixed;
             background-size: cover;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
         }
     </style>
 
-    {% block navbar %}
-        <nav class="exnet-navbar d-flex align-items-center">
-            <div class="container d-flex justify-content-between align-items-center">
-                <h1 class="exnet-navbar-title">Exnet</h1>
-                <div class="d-flex">
-                    {% for menu in menus %}
-                        <a href="{{ menu.ruta ?: '#' }}" class="nav-item">
-                            <i class="{{ menu.icon }}"></i>
-                            <span>{{ menu.nombre }}</span>
-                        </a>
-                    {% endfor %}
-                </div>
+{% block navbar %}
+<nav class="exnet-navbar d-block d-lg-none" style="position: fixed; top: 15px; left: 15px; z-index: 9999; display: block;">
+    <button id="menuToggle" style="background: rgba(44, 62, 80, 0.8); color: white; border: none; width: 45px; height: 45px; border-radius: 5px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+        <i class="fas fa-bars"></i>
+    </button>
+</nav>
+    
+    <div id="sideMenu" style="position: fixed; top: 0; left: -280px; width: 280px; height: 100vh; background-color: #2c3e50; z-index: 10000; transition: left 0.3s ease; box-shadow: 0 0 15px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <h2 style="color: white; margin: 0; font-size: 1.8rem;">Exnet</h2>
+            <button id="closeMenu" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div style="padding: 20px;">
+            {% for menu in menus %}
+                <a href="{{ menu.ruta ?: '#' }}" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <i class="{{ menu.icon }}" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>{{ menu.nombre }}</span>
+                </a>
+            {% endfor %}
+            
+            {% if menus is empty %}
+                <a href="/" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <i class="fas fa-home" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>Inicio</span>
+                </a>
+                <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <i class="fas fa-puzzle-piece" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>Módulos</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <nav class="d-none d-lg-block" style="position: fixed; top: 0; left: 0; width: 100%; background-color: rgba(44, 62, 80, 0.9); z-index: 9999; padding: 0.75rem 0; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a href="/" style="text-decoration: none;">
+                <h1 style="color: white; margin: 0; font-size: 1.75rem;">Exnet</h1>
+            </a>
+            <div>
+                {% for menu in menus %}
+                    <a href="{{ menu.ruta ?: '#' }}" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                        <i class="{{ menu.icon }}" style="margin-right: 5px;"></i>
+                        <span>{{ menu.nombre }}</span>
+                    </a>
+                {% endfor %}
+                
+                {% if menus is empty %}
+                    <a href="/" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                        <i class="fas fa-home" style="margin-right: 5px;"></i>
+                        <span>Inicio</span>
+                    </a>
+                    <a href="/modulos" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                        <i class="fas fa-puzzle-piece" style="margin-right: 5px;"></i>
+                        <span>Módulos</span>
+                    </a>
+                {% endif %}
             </div>
-        </nav>
-    {% endblock %}
-
+        </div>
+    </nav>
+    
+{% endblock %}
 
     <div class="flex-grow-1">
-        <main class="container mt-4">
+        <main class="container mt-5 pt-4">
             {% block body %}{% endblock %}
         </main>
     </div>
 
-</body>
+    {% block footer %}
+    <footer class="exnet-footer text-center">
+        <div class="container">
+            <p class="mb-0">&copy; 2025 Exnet. By ROA.</p>
+        </div>
+    </footer>
+    {% endblock %}
 
+    <!-- Scripts -->
     {% block imports %}
         <script src="{{ asset('bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-        {# <script type="module" src="{{asset('js/ModuloCoreJs/view/...)}}"></script> #}
-        {# <script src="{{ asset('js/navbar.js') }}"></script> #}
-        
+        <script src="{{ asset('js/ModuloCoreJs/Other/navbar.js') }}"></script>
     {% endblock %}
+</body>
 </html>

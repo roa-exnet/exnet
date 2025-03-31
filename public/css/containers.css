@@ -1,95 +1,113 @@
+.exnet-container {
+    background-color: white;
+    border-radius: var(--exnet-border-radius);
+    box-shadow: 0 4px 8px var(--exnet-shadow);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    transition: var(--exnet-transition);
+}
+
+.exnet-container:hover {
+    box-shadow: 0 6px 12px var(--exnet-shadow);
+}
+
 .exnet-container-transparent {
-    background: rgba(0, 0, 0, 0.6);
-    padding: 20px;
-    border-radius: 10px;
-    backdrop-filter: blur(5px);
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s ease-in-out;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: var(--exnet-border-radius);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--exnet-text-light);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: var(--exnet-transition);
 }
 
 .exnet-container-transparent:hover {
-    transform: scale(1.02);
+    background-color: rgba(0, 0, 0, 0.7);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* Brillo más fino */
-.exnet-container-transparent::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(120deg, transparent 45%, #e6b87eb7 50%, transparent 55%);
-    transform: skewX(-10deg);
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
-}
-
-/* Activar el brillo en hover */
-.exnet-container-transparent:hover::before {
-    opacity: 1;
-    left: 100%;
-    animation: shine-move 0.8s ease-out;
-}
-
-/* Animación del brillo */
-@keyframes shine-move {
-    0% {
-        left: -100%;
-    }
-    100% {
-        left: 100%;
-    }
-}
-
-
-.exnet-regular-container {
-    background: rgba(0, 0, 0, 0.6);
-    padding: 20px;
-    border-radius: 10px;
-    backdrop-filter: blur(5px);
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s ease-in-out;
-    color: white;
-    user-select: none;
-
-}
-
-
-/*------------------------CARDS---------------------------------*/
 .exnet-card {
-    background: rgba(0, 0, 0, 0.6);
-    padding: 20px;
-    border-radius: 10px;
-    backdrop-filter: blur(5px);
+    background-color: white;
+    border-radius: var(--exnet-border-radius);
+    box-shadow: 0 4px 6px var(--exnet-shadow);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: var(--exnet-transition);
+    border: none;
     position: relative;
     overflow: hidden;
-    transition: transform 0.3s ease-in-out;
-    color: white;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .exnet-card:hover {
-    transform: scale(1.03);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px var(--exnet-shadow);
+}
+
+.exnet-card-dark {
+    background-color: var(--exnet-secondary);
+    color: var(--exnet-text-light);
+}
+
+.exnet-card-header {
+    background-color: var(--exnet-primary);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: var(--exnet-border-radius) var(--exnet-border-radius) 0 0;
+    font-weight: 600;
+}
+
+.exnet-card-body {
+    padding: 1.5rem;
+}
+
+.exnet-card i {
+    color: var(--exnet-primary);
+    margin-bottom: 0.75rem;
+}
+
+.exnet-card-dark i {
+    color: var(--exnet-accent);
 }
 
 .exnet-ribbon {
     position: absolute;
-    top: 25px;
-    right: -35px;
-    background: #e68a00; /* Naranja */
+    top: 0;
+    right: 0;
+    background-color: var(--exnet-success);
     color: white;
-    padding: 5px 15px;
-    font-size: 12px;
-    font-weight: bold;
-    text-transform: uppercase;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-    transform: rotate(45deg);
-    min-width: 145px;
+    padding: 0.25rem 1rem;
+    transform: rotate(45deg) translate(22%, -20%);
+    transform-origin: top right;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 1;
 }
 
+.modulos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
 
-/*^--------------------- END OF CARDS ------------------------*/
+.exnet-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.25rem solid rgba(52, 152, 219, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--exnet-primary);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.vh-centered {
+    min-height: calc(100vh - 150px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

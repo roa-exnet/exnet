@@ -1,177 +1,155 @@
-
-/* -----------BOTONES ------------------*/
-.exnet-btn-orange {
-    display: inline-block;
-    padding: 10px 18px;
-    background: #c77800; /* Naranja oscuro */
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: background 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+.exnet-btn {
+    padding: 0.6rem 1.5rem;
+    border-radius: var(--exnet-border-radius);
+    font-weight: 500;
+    text-align: center;
+    transition: var(--exnet-transition);
     border: none;
-    font-weight: bold;
     cursor: pointer;
-}
-
-.exnet-btn-orange:hover {
-    background: #e68a00; /* Tono más claro */
-    box-shadow: 0 0 10px rgba(230, 138, 0, 0.6); /* Iluminación sutil */
+    display: inline-block;
+    text-decoration: none;
+    font-size: 0.95rem;
+    line-height: 1.5;
 }
 
 .exnet-btn-blue {
-    display: inline-block;
-    padding: 10px 18px;
-    background: #0074c7; /* Azul oscuro */
+    background-color: var(--exnet-primary);
     color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: background 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
 }
 
 .exnet-btn-blue:hover {
-    background: #008ae6; /* Tono más claro */
-    box-shadow: 0 0 10px rgba(0, 138, 230, 0.6); /* Iluminación sutil */
+    background-color: #2980b9;
+    color: white;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+    transform: translateY(-2px);
 }
 
-/*-------------DISABLED---------*/
+.exnet-btn-dark {
+    background-color: var(--exnet-secondary);
+    color: white;
+}
+
+.exnet-btn-dark:hover {
+    background-color: #1a2530;
+    color: white;
+    box-shadow: 0 4px 8px rgba(44, 62, 80, 0.3);
+    transform: translateY(-2px);
+}
+
+.exnet-btn-outline {
+    background-color: transparent;
+    border: 2px solid var(--exnet-primary);
+    color: var(--exnet-primary);
+}
+
+.exnet-btn-outline:hover {
+    background-color: var(--exnet-primary);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.exnet-btn-outline-light {
+    background-color: transparent;
+    border: 2px solid var(--exnet-text-light);
+    color: var(--exnet-text-light);
+}
+
+.exnet-btn-outline-light:hover {
+    background-color: var(--exnet-text-light);
+    color: var(--exnet-secondary);
+    transform: translateY(-2px);
+}
+
+.exnet-btn-success {
+    background-color: var(--exnet-success);
+    color: white;
+}
+
+.exnet-btn-success:hover {
+    background-color: #27ae60;
+    color: white;
+    box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
+    transform: translateY(-2px);
+}
+
+.exnet-btn-danger {
+    background-color: var(--exnet-danger);
+    color: white;
+}
+
+.exnet-btn-danger:hover {
+    background-color: #c0392b;
+    color: white;
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+    transform: translateY(-2px);
+}
+
+.exnet-btn-warning {
+    background-color: var(--exnet-warning);
+    color: var(--exnet-text);
+}
+
+.exnet-btn-warning:hover {
+    background-color: #f39c12;
+    color: var(--exnet-text);
+    box-shadow: 0 4px 8px rgba(241, 196, 15, 0.3);
+    transform: translateY(-2px);
+}
 
 .exnet-btn-disabled {
-    display: inline-block;
-    padding: 10px 18px;
-    background: #6c757d; /* Gris */
+    background-color: #95a5a6;
     color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-weight: bold;
     cursor: not-allowed;
-    border: none;
-    opacity: 0.6;
-    pointer-events: none; /* Desactiva clics */
-}
-/*-------------------Botones Archivos-------------------*/
-.dir {
-    display: inline-block;
-    text-align: center;
-    background-color: #c77800; /* Color de fondo de los botones */
-    color: #ffffff; /* Color de texto blanco */
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    width: 150px;
-    height: 150px;
-    margin: 10px;
-    transition: background-color 0.3s ease;
-    box-sizing: border-box;
+    opacity: 0.8;
 }
 
-.dir:hover {
-    background-color: #e68a00; /* Color al pasar el ratón por encima */
-    box-shadow: 0 0 10px rgba(230, 138, 0, 0.6);
+.exnet-btn-disabled:hover {
+    box-shadow: none;
+    transform: none;
 }
-.back{
-    display: inline-block;
-    text-align: center;
-    background-color: rgb(36, 123, 204);
-    color: #ffffff; 
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    width: 100px;
-    height: 100px;
-    margin: 10px;
-    transition: background-color 0.3s ease;
-    box-sizing: border-box;
+
+.exnet-btn-sm {
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
 }
-.archivo{
-    display: inline-block;
-    text-align: center;
-    background-color: #0074c7;
-    color: #ffffff; 
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    width: 150px;
-    height: 150px;
-    margin: 10px;
-    transition: background-color 0.3s ease;
-    box-sizing: border-box;
+
+.exnet-btn-lg {
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
 }
-.archivo:hover {
-    background-color: #008ae6; /* Color al pasar el ratón por encima */
-    box-shadow: 0 0 10px rgba(0, 138, 230, 0.6);
+
+.exnet-btn-block {
+    display: block;
+    width: 100%;
 }
-/* Estilo para las imágenes dentro de los botones */
-.btn-icon {
-    width: 50px;
-    height: 50px;
-    margin-bottom: 10px;
-}
-.btn-content {
-    display: flex;
-    flex-direction: column;
+
+.exnet-btn-icon {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    text-align: center;
-}
-.btn-icono{
-    width: 100%;
-    height: 100%;
-    margin-bottom: 1px;
-}
-.item-container:hover .btn-delete {
-    display: inline-block;
-}
-.btn-delete {
-    display: none;
-    background-color: rgba(255, 0, 0, 0); /* Totalmente transparente */
-    color: white;
-    border: none;
-    padding: 5px;
-    cursor: pointer;
-    font-size: 12px;
-    border-radius: 5px;
-    position: absolute;
-    top: 10px;  /* Esquina superior */
-    right: 10px; /* Esquina derecha */
-    transition: background-color 0.3s ease; /* Efecto de transición suave */
-}
-.btn-delete:hover {
-    background-color: rgba(255, 0, 0, 0.7); /* Rojo con opacidad del 70% */
-}
-.btn-upload {
-    background-color: #03dac6;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 16px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
+    gap: 0.5rem;
 }
 
-.btn-upload:hover {
-    background-color: #018786;
-}
-.btn-create-folder, .btn-upload-file {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    text-align: center;
+.exnet-btn-icon i {
+    font-size: 1rem;
 }
 
-.btn-create-folder:hover, .btn-upload-file:hover {
-    background-color: #0056b3;
+.exnet-btn-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+@media (max-width: 576px) {
+    .exnet-btn {
+        padding: 0.5rem 1.25rem;
+    }
+    
+    .exnet-btn-lg {
+        padding: 0.6rem 1.5rem;
+        font-size: 1rem;
+    }
+    
+    .exnet-btn-group {
+        flex-direction: column;
+    }
 }
