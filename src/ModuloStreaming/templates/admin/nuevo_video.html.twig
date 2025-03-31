@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo Video - Admin Streaming - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .form-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+        }
+        .form-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            margin-bottom: 5px;
+            display: block;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+        }
+        .form-select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+        }
+        .form-check-input {
+            margin-right: 5px;
+        }
+        .btn-submit {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .episode-fields {
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Nuevo Video</h1>
+        <div>
+            <a href="{{ path('streaming_admin') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form method="post" action="{{ path('streaming_admin_nuevo_video') }}">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="titulo" class="form-label">Título *</label>
+                        <input type="text" id="titulo" name="titulo" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="tipo" class="form-label">Tipo *</label>
+                        <select id="tipo" name="tipo" class="form-select" required onchange="toggleEpisodeFields()">
+                            <option value="pelicula">Película</option>
+                            <option value="serie">Serie</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="categoria" class="form-label">Categoría</label>
+                        <select id="categoria" name="categoria" class="form-select">
+                            <option value="">Sin categoría</option>
+                            {% for categoria in categorias %}
+                                <option value="{{ categoria.id }}">{{ categoria.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="anio" class="form-label">Año</label>
+                        <input type="number" id="anio" name="anio" class="form-control" min="1900" max="{{ "now"|date("Y") }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="esPublico" class="form-check-label mt-4">
+                            <input type="checkbox" id="esPublico" name="esPublico" class="form-check-input" checked>
+                            Público (visible para todos los usuarios)
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="episodeFields" class="episode-fields" style="display: none;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="temporada" class="form-label">Temporada</label>
+                            <input type="number" id="temporada" name="temporada" class="form-control" min="1">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="episodio" class="form-label">Episodio</label>
+                            <input type="number" id="episodio" name="episodio" class="form-control" min="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group mt-3">
+                <label for="descripcion" class="form-label">Descripción</label>
+                <textarea id="descripcion" name="descripcion" class="form-control"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="url" class="form-label">URL del Video</label>
+                <input type="url" id="url" name="url" class="form-control" placeholder="https://example.com/video.mp4">
+                <small class="text-muted">Enlace al archivo de video MP4, o a un servicio de streaming.</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="imagen" class="form-label">URL de la Imagen</label>
+                <input type="url" id="imagen" name="imagen" class="form-control" placeholder="https://example.com/imagen.jpg">
+                <small class="text-muted">Enlace a una imagen de portada o thumbnail.</small>
+            </div>
+            
+            <div class="mt-4 text-end">
+                <a href="{{ path('streaming_admin') }}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-submit">Guardar Video</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleEpisodeFields() {
+        const tipoSelect = document.getElementById('tipo');
+        const episodeFields = document.getElementById('episodeFields');
+        
+        if (tipoSelect.value === 'serie') {
+            episodeFields.style.display = 'block';
+        } else {
+            episodeFields.style.display = 'none';
+        }
+    }
+    
+    // Ejecutar al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleEpisodeFields();
+    });
+</script>
+{% endblock %}

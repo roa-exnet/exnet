@@ -1,0 +1,202 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ver Transmisión - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/streaming.css') }}">
+    <script src="{{ asset('js/ModuloStreaming/streaming-client.js') }}"></script>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title mb-0">Ver Transmisión</h1>
+        <a href="{{ path('streaming_index') }}" class="exnet-btn-small">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="video-container mb-4">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div id="streamStatus" class="stream-status">Conectando...</div>
+            </div>
+            
+            <div class="stream-info mb-4">
+                <h2 id="streamTitle" class="exnet-subtitle">Cargando información...</h2>
+                <p id="streamerName" class="text-white">Esperando al anfitrión...</p>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="chat-container">
+                <h3 class="exnet-subtitle">Chat en vivo</h3>
+                <div id="chatMessages" class="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chatMessageInput" class="form-control" 
+                           placeholder="Escribe un mensaje...">
+                    <button id="btnSendMessage" class="exnet-btn-blue mt-2">Enviar</button>
+                </div>
+            </div>
+            
+            <div class="viewers-container mt-4">
+                <h3 class="exnet-subtitle">Espectadores</h3>
+                <div id="viewersList" class="viewers-list">
+                    <p class="text-white text-center">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuración
+    const wsServerUrl = "{{ wsServerUrl }}";
+    const roomId = "{{ roomId }}";
+    const userId = "{{ user.id }}";
+    const userName = "{{ user.nombre }} {{ user.apellidos }}";
+    
+    let streamingClient = null;
+    let mediaSource = null;
+    let mediaBuffer = null;
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Referencias a elementos del DOM
+        const remoteVideo = document.getElementById('remoteVideo');
+        const streamStatus = document.getElementById('streamStatus');
+        const streamTitle = document.getElementById('streamTitle');
+        const streamerName = document.getElementById('streamerName');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatMessageInput = document.getElementById('chatMessageInput');
+        const btnSendMessage = document.getElementById('btnSendMessage');
+        const viewersList = document.getElementById('viewersList');
+        
+        // Inicializar cliente de streaming
+        streamingClient = new StreamingClient(wsServerUrl, {
+            clientId: `viewer_${userId}`,
+            autoReconnect: true,
+            onConnect: () => {
+                console.log('Conectado al servidor de streaming');
+                updateStreamStatus('Conectado al servidor', 'success');
+                
+                // Unirse a la sala como espectador
+                streamingClient.send({
+                    type: 'join-room',
+                    roomId: roomId,
+                    role: 'viewer',
+                    userName: userName
+                });
+            },
+            onDisconnect: () => {
+                console.log('Desconectado del servidor de streaming');
+                updateStreamStatus('Desconectado del servidor', 'error');
+            },
+            onMessage: (message) => {
+                console.log('Mensaje recibido:', message);
+                
+                // Manejar diferentes tipos de mensajes
+                switch(message.type) {
+                    case 'chat':
+                        addChatMessage(message.sender, message.message);
+                        break;
+                    case 'stream-started':
+                        updateStreamInfo(message.streamTitle, message.streamerName);
+                        updateStreamStatus('Transmisión en vivo', 'success');
+                        break;
+                    case 'stream-stopped':
+                        updateStreamStatus('La transmisión ha finalizado', 'warning');
+                        break;
+                    case 'stream-data':
+                        // En una implementación completa, aquí procesarías los datos de video recibidos
+                        // handleStreamData(message.data);
+                        break;
+                    case 'viewer-joined':
+                        updateViewersList(message.viewers);
+                        addChatMessage('Sistema', `${message.userName} se unió a la transmisión`);
+                        break;
+                    case 'viewer-left':
+                        updateViewersList(message.viewers);
+                        addChatMessage('Sistema', `${message.userName} abandonó la transmisión`);
+                        break;
+                    case 'room-info':
+                        updateStreamInfo(message.streamTitle, message.streamerName);
+                        updateViewersList(message.viewers);
+                        break;
+                }
+            },
+            onError: (error) => {
+                console.error('Error en el cliente de streaming:', error);
+                updateStreamStatus('Error de conexión', 'error');
+            }
+        });
+        
+        // Conectar al servidor
+        streamingClient.connect();
+        
+        // Eventos de los botones
+        btnSendMessage.addEventListener('click', () => {
+            sendChatMessage();
+        });
+        
+        chatMessageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+        
+        // Funciones auxiliares
+        function updateStreamStatus(message, status) {
+            streamStatus.textContent = message;
+            streamStatus.className = 'stream-status';
+            streamStatus.classList.add(`status-${status}`);
+        }
+        
+        function updateStreamInfo(title, broadcaster) {
+            streamTitle.textContent = title || 'Sin título';
+            streamerName.textContent = broadcaster ? `Transmitido por: ${broadcaster}` : 'Anfitrión desconocido';
+        }
+        
+        function sendChatMessage() {
+            const message = chatMessageInput.value.trim();
+            if (!message) return;
+            
+            streamingClient.send({
+                type: 'chat',
+                roomId: roomId,
+                message: message,
+                sender: userName
+            });
+            
+            addChatMessage('Tú', message);
+            chatMessageInput.value = '';
+        }
+        
+        function addChatMessage(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            messageElement.innerHTML = `
+                <span class="chat-sender">${sender}:</span>
+                <span class="chat-text">${message}</span>
+            `;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function updateViewersList(viewers) {
+            if (!viewers || viewers.length === 0) {
+                viewersList.innerHTML = '<p class="text-white text-center">No hay espectadores</p>';
+                return;
+            }
+            
+            let viewersHtml = '';
+            viewers.forEach(viewer => {
+                viewersHtml += `<div class="viewer-item">${viewer.userName}</div>`;
+            });
+            
+            viewersList.innerHTML = viewersHtml;
+        }
+    });
+</script>
+{% endblock %}

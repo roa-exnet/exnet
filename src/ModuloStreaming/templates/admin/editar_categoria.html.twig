@@ -1,0 +1,214 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Categoría - Admin Streaming - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .form-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+        }
+        .form-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            margin-bottom: 5px;
+            display: block;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+        }
+        .btn-submit {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .icon-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        .icon-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .icon-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .icon-item i {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        .icon-item.selected {
+            background-color: rgba(0, 123, 255, 0.3);
+        }
+        .icon-name {
+            font-size: 10px;
+            text-align: center;
+            word-break: break-word;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Editar Categoría</h1>
+        <div>
+            <a href="{{ path('streaming_admin') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form method="post" action="{{ path('streaming_admin_editar_categoria', {id: categoria.id}) }}">
+            <div class="form-group">
+                <label for="nombre" class="form-label">Nombre *</label>
+                <input type="text" id="nombre" name="nombre" class="form-control" value="{{ categoria.nombre }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="descripcion" class="form-label">Descripción</label>
+                <textarea id="descripcion" name="descripcion" class="form-control">{{ categoria.descripcion }}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="icono" class="form-label">Icono</label>
+                <input type="text" id="icono" name="icono" class="form-control" value="{{ categoria.icono }}" placeholder="fa-solid fa-film">
+                <small class="text-muted">Introduce una clase de Font Awesome o selecciona de la lista a continuación.</small>
+                
+                <div class="icon-list mt-2">
+                    <div class="icon-item {% if categoria.icono == 'fas fa-film' %}selected{% endif %}" data-icon="fas fa-film">
+                        <i class="fas fa-film"></i>
+                        <span class="icon-name">fa-film</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-video' %}selected{% endif %}" data-icon="fas fa-video">
+                        <i class="fas fa-video"></i>
+                        <span class="icon-name">fa-video</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-tv' %}selected{% endif %}" data-icon="fas fa-tv">
+                        <i class="fas fa-tv"></i>
+                        <span class="icon-name">fa-tv</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-play' %}selected{% endif %}" data-icon="fas fa-play">
+                        <i class="fas fa-play"></i>
+                        <span class="icon-name">fa-play</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-photo-video' %}selected{% endif %}" data-icon="fas fa-photo-video">
+                        <i class="fas fa-photo-video"></i>
+                        <span class="icon-name">fa-photo-video</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-music' %}selected{% endif %}" data-icon="fas fa-music">
+                        <i class="fas fa-music"></i>
+                        <span class="icon-name">fa-music</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-headphones' %}selected{% endif %}" data-icon="fas fa-headphones">
+                        <i class="fas fa-headphones"></i>
+                        <span class="icon-name">fa-headphones</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-gamepad' %}selected{% endif %}" data-icon="fas fa-gamepad">
+                        <i class="fas fa-gamepad"></i>
+                        <span class="icon-name">fa-gamepad</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-laugh' %}selected{% endif %}" data-icon="fas fa-laugh">
+                        <i class="fas fa-laugh"></i>
+                        <span class="icon-name">fa-laugh</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-child' %}selected{% endif %}" data-icon="fas fa-child">
+                        <i class="fas fa-child"></i>
+                        <span class="icon-name">fa-child</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-running' %}selected{% endif %}" data-icon="fas fa-running">
+                        <i class="fas fa-running"></i>
+                        <span class="icon-name">fa-running</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-ghost' %}selected{% endif %}" data-icon="fas fa-ghost">
+                        <i class="fas fa-ghost"></i>
+                        <span class="icon-name">fa-ghost</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-heart' %}selected{% endif %}" data-icon="fas fa-heart">
+                        <i class="fas fa-heart"></i>
+                        <span class="icon-name">fa-heart</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-graduation-cap' %}selected{% endif %}" data-icon="fas fa-graduation-cap">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span class="icon-name">fa-graduation-cap</span>
+                    </div>
+                    <div class="icon-item {% if categoria.icono == 'fas fa-rocket' %}selected{% endif %}" data-icon="fas fa-rocket">
+                        <i class="fas fa-rocket"></i>
+                        <span class="icon-name">fa-rocket</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 text-end">
+                <a href="{{ path('streaming_admin') }}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-submit">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const iconItems = document.querySelectorAll('.icon-item');
+        const iconInput = document.getElementById('icono');
+        
+        iconItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // Eliminar selección previa
+                iconItems.forEach(i => i.classList.remove('selected'));
+                
+                // Seleccionar este icono
+                this.classList.add('selected');
+                
+                // Establecer el valor en el input
+                const iconValue = this.getAttribute('data-icon');
+                iconInput.value = iconValue;
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ video.titulo }} - Streaming Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .video-detail-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+        }
+        .video-banner {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 40%;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        .video-banner img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .video-info {
+            margin-top: 20px;
+        }
+        .video-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .video-meta {
+            color: #ccc;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .video-description {
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .tipo-badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .tipo-serie {
+            background-color: #dc3545;
+        }
+        .tipo-pelicula {
+            background-color: #007bff;
+        }
+        .play-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #E50914;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .play-button:hover {
+            background-color: #F40612;
+            color: white;
+        }
+        .seasons-section {
+            margin-top: 30px;
+        }
+        .season-tabs {
+            display: flex;
+            overflow-x: auto;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+        }
+        .season-tab {
+            padding: 8px 15px;
+            margin-right: 10px;
+            background-color: #333;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .season-tab.active {
+            background-color: #007bff;
+        }
+        .episode-card {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+        .episode-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+        }
+        .episode-info {
+            flex-grow: 1;
+        }
+        .episode-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .episode-play {
+            margin-left: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Detalle</h1>
+        <div>
+            <a href="{{ path('streaming_index') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="video-detail-container">
+        <!-- Banner/Imagen del video -->
+        <div class="video-banner">
+            <img src="{{ video.imagen ?: 'https://via.placeholder.com/1200x480?text=Sin+imagen' }}" alt="{{ video.titulo }}">
+        </div>
+
+        <!-- Información del video -->
+        <div class="video-info">
+            <div class="video-title">
+                {{ video.titulo }}
+                {% if video.tipo == 'serie' and video.temporada %}
+                    - T{{ video.temporada }}E{{ video.episodio }}
+                {% endif %}
+            </div>
+            
+            <div class="video-meta">
+                <span class="tipo-badge {% if video.tipo == 'serie' %}tipo-serie{% else %}tipo-pelicula{% endif %}">
+                    {{ video.tipo|capitalize }}
+                </span>
+                
+                {% if video.categoria %}
+                    <span>{{ video.categoria.nombre }}</span> • 
+                {% endif %}
+                
+                {% if video.anio %}
+                    <span>{{ video.anio }}</span>
+                {% endif %}
+            </div>
+            
+            <div class="video-description">
+                {{ video.descripcion|nl2br }}
+            </div>
+            
+            <a href="{{ path('streaming_reproducir', {id: video.id}) }}" class="play-button">
+                <i class="fas fa-play me-2"></i> Reproducir
+            </a>
+        </div>
+
+        <!-- Sección de episodios (solo para series) -->
+        {% if video.tipo == 'serie' and episodios is not empty %}
+            <div class="seasons-section">
+                <h3>Episodios</h3>
+                
+                {% if temporadas|length > 1 %}
+                    <div class="season-tabs">
+                        {% for temp in temporadas %}
+                            <div class="season-tab {% if video.temporada == temp %}active{% endif %}" 
+                                 onclick="filterEpisodes({{ temp }})">
+                                Temporada {{ temp }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <div id="episodes-container">
+                    {% for ep in episodios %}
+                        <div class="episode-card" data-season="{{ ep.temporada }}">
+                            <div class="episode-number">{{ ep.episodio }}</div>
+                            <div class="episode-info">
+                                <div class="episode-title">{{ ep.titulo }}</div>
+                                <div class="episode-desc">{{ ep.descripcion|u.truncate(100, '...') }}</div>
+                            </div>
+                            <div class="episode-play">
+                                <a href="{{ path('streaming_reproducir', {id: ep.id}) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-play"></i>
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <script>
+                function filterEpisodes(season) {
+                    const episodes = document.querySelectorAll('.episode-card');
+                    episodes.forEach(episode => {
+                        const episodeSeason = episode.getAttribute('data-season');
+                        if (episodeSeason == season) {
+                            episode.style.display = 'flex';
+                        } else {
+                            episode.style.display = 'none';
+                        }
+                    });
+                    
+                    // Actualizar pestaña activa
+                    const tabs = document.querySelectorAll('.season-tab');
+                    tabs.forEach(tab => {
+                        tab.classList.remove('active');
+                        if (tab.textContent.includes('Temporada ' + season)) {
+                            tab.classList.add('active');
+                        }
+                    });
+                }
+                
+                // Filtrar episodios por la temporada actual al cargar la página
+                document.addEventListener('DOMContentLoaded', function() {
+                    const currentSeason = {{ video.temporada ?: temporadas[0] }};
+                    filterEpisodes(currentSeason);
+                });
+            </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

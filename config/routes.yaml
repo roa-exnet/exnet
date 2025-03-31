@@ -14,3 +14,8 @@ modulo_explorador_controllers:
         path: ../src/ModuloExplorador/Controller/
         namespace: App\ModuloExplorador\Controller
     type: attribute
+    
+streaming_routes:
+    resource: '../src/ModuloStreaming/Controller/'
+    type: attribute
+    prefix: /

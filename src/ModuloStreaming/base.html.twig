@@ -1,0 +1,97 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Módulo de Streaming - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/streaming.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <h1 class="exnet-main-title mb-4">Streaming en Exnet</h1>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="exnet-card">
+                <i class="fas fa-video fa-3x"></i>
+                <h3 class="mt-3">Iniciar Transmisión</h3>
+                <p>Comparte tu video y audio en tiempo real con otros usuarios.</p>
+                <a href="{{ path('streaming_broadcast') }}" class="exnet-btn-blue mt-2">
+                    Iniciar
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="exnet-card">
+                <i class="fas fa-desktop fa-3x"></i>
+                <h3 class="mt-3">Ver Transmisiones</h3>
+                <p>Explora las transmisiones activas de otros usuarios.</p>
+                <button id="btnRefreshStreams" class="exnet-btn-blue mt-2">
+                    Ver Transmisiones
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="activeStreamsContainer" class="mt-4" style="display: none;">
+        <h3 class="exnet-subtitle">Transmisiones Activas</h3>
+        <div id="activeStreamsList" class="row">
+            <!-- Aquí se cargarán dinámicamente las transmisiones activas -->
+            <div class="col-12 text-center text-white">
+                <p>Cargando transmisiones...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // URL del servidor WebSocket
+    const wsServerUrl = "{{ wsServerUrl }}";
+    
+    // ID del usuario actual
+    const userId = "{{ user.id }}";
+    const userName = "{{ user.nombre }} {{ user.apellidos }}";
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnRefreshStreams = document.getElementById('btnRefreshStreams');
+        const activeStreamsContainer = document.getElementById('activeStreamsContainer');
+        const activeStreamsList = document.getElementById('activeStreamsList');
+        
+        // Cargar transmisiones activas
+        btnRefreshStreams.addEventListener('click', async () => {
+            try {
+                activeStreamsContainer.style.display = 'block';
+                activeStreamsList.innerHTML = '<div class="col-12 text-center text-white"><p>Cargando transmisiones...</p></div>';
+                
+                const response = await fetch('/streaming/api/rooms');
+                const data = await response.json();
+                
+                if (data.success && data.rooms.length > 0) {
+                    let streamsHtml = '';
+                    
+                    data.rooms.forEach(room => {
+                        streamsHtml += `
+                        <div class="col-md-4 mb-3">
+                            <div class="exnet-card">
+                                <h4>${room.title || 'Sin título'}</h4>
+                                <p>Por: ${room.streamerName || 'Usuario desconocido'}</p>
+                                <p>Espectadores: ${room.viewers || 0}</p>
+                                <a href="/streaming/view/${room.id}" class="exnet-btn-blue">Ver</a>
+                            </div>
+                        </div>`;
+                    });
+                    
+                    activeStreamsList.innerHTML = streamsHtml;
+                } else {
+                    activeStreamsList.innerHTML = '<div class="col-12 text-center text-white"><p>No hay transmisiones activas en este momento.</p></div>';
+                }
+            } catch (error) {
+                console.error('Error al cargar transmisiones:', error);
+                activeStreamsList.innerHTML = '<div class="col-12 text-center text-white"><p>Error al cargar transmisiones. Inténtalo de nuevo.</p></div>';
+            }
+        });
+    });
+</script>
+{% endblock %}

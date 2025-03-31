@@ -3,4 +3,5 @@ twig:
         '%kernel.project_dir%/src/ModuloCore/templates': ~
         '%kernel.project_dir%/src/ModuloExplorador/templates': ~
         '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat
+        '%kernel.project_dir%/src/ModuloStreaming/templates': ModuloStreaming
         # '%kernel.project_dir%/src/ModuloTest/templates': ~
