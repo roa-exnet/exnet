@@ -65,6 +65,13 @@
                     <span>Módulos</span>
                 </a>
             {% endif %}
+            
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; background-color: rgba(255,255,255,0.1); border-radius: 5px; padding: 10px;">
+                    <i class="fas fa-plus-circle" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>Añadir Módulos</span>
+                </a>
+            </div>
         </div>
     </div>
     
@@ -73,24 +80,27 @@
             <a href="/" style="text-decoration: none;">
                 <h1 style="color: white; margin: 0; font-size: 1.75rem;">Exnet</h1>
             </a>
-            <div>
-                {% for menu in menus %}
-                    <a href="{{ menu.ruta ?: '#' }}" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
-                        <i class="{{ menu.icon }}" style="margin-right: 5px;"></i>
-                        <span>{{ menu.nombre }}</span>
-                    </a>
-                {% endfor %}
+            <div class="d-flex align-items-center">
+                <div class="me-4">
+                    {% for menu in menus %}
+                        <a href="{{ menu.ruta ?: '#' }}" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                            <i class="{{ menu.icon }}" style="margin-right: 5px;"></i>
+                            <span>{{ menu.nombre }}</span>
+                        </a>
+                    {% endfor %}
+                    
+                    {% if menus is empty %}
+                        <a href="/" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                            <i class="fas fa-home" style="margin-right: 5px;"></i>
+                            <span>Inicio</span>
+                        </a>
+                    {% endif %}
+                </div>
                 
-                {% if menus is empty %}
-                    <a href="/" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
-                        <i class="fas fa-home" style="margin-right: 5px;"></i>
-                        <span>Inicio</span>
-                    </a>
-                    <a href="/modulos" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
-                        <i class="fas fa-puzzle-piece" style="margin-right: 5px;"></i>
-                        <span>Módulos</span>
-                    </a>
-                {% endif %}
+                <a href="/modulos" style="color: white; padding: 6px 15px; text-decoration: none; display: inline-block; border-radius: 5px; background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); transition: all 0.3s ease;">
+                    <i class="fas fa-plus-circle" style="margin-right: 5px;"></i>
+                    <span>Añadir Módulos</span>
+                </a>
             </div>
         </div>
     </nav>
@@ -111,7 +121,6 @@
     </footer>
     {% endblock %}
 
-    <!-- Scripts -->
     {% block imports %}
         <script src="{{ asset('bootstrap/js/bootstrap.bundle.min.js') }}"></script>
         <script src="{{ asset('js/ModuloCoreJs/Other/navbar.js') }}"></script>

@@ -7,7 +7,7 @@ namespace DoctrineMigrations;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
-final class RemoveChatTables20250315163601 extends AbstractMigration
+final class RemoveChatTables20250401164123 extends AbstractMigration
 {
     public function getDescription(): string
     {
