@@ -42,6 +42,7 @@
   
   .chat-sidebar h2 {
     padding: 15px;
+    color: black;
     margin: 0;
     border-bottom: 1px solid var(--chat-border-color);
     font-size: 1.2rem;
@@ -505,3 +506,7 @@
   .remove-user:hover {
     color: #f44336;
   }
+
+  .header-title-area h2 {
+    color: black;
+}
