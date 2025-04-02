@@ -5,6 +5,7 @@ namespace App\ModuloCore\Service;
 use App\ModuloCore\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Response;
 
 class IpAuthService
 {
@@ -52,11 +53,7 @@ class IpAuthService
         $userRepository = $this->entityManager->getRepository(User::class);
         $user = $userRepository->findOneBy(['ip_address' => $ipAddress]);
 
-        if ($user) {
-            return $user;
-        }
-
-        return null;
+        return $user;
     }
 
     public function registerUserIp(User $user): void

@@ -1,0 +1,305 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Reproductor - {{ cancion.titulo }} - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+        }
+        .player-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .player-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+        .song-info {
+            display: flex;
+            align-items: center;
+        }
+        .song-cover {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+        .song-details {
+            color: white;
+        }
+        .song-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .song-artist {
+            font-size: 14px;
+            color: #ccc;
+        }
+        .player-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        .background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(20px);
+            opacity: 0.3;
+            z-index: 0;
+        }
+        .player-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        .album-art {
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            object-fit: cover;
+        }
+        .audio-player {
+            width: 100%;
+            margin-top: 20px;
+        }
+        .audio-player audio {
+            width: 100%;
+        }
+        .audio-controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .control-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s;
+        }
+        .control-button:hover {
+            transform: scale(1.1);
+        }
+        .control-button.play-pause {
+            width: 60px;
+            height: 60px;
+        }
+        .fallback-message {
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .progress-container {
+            margin-top: 30px;
+            width: 100%;
+        }
+        .progress-bar {
+            height: 5px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+        .progress {
+            height: 100%;
+            width: 0%;
+            background-color: #8e44ad;
+            border-radius: 5px;
+            transition: width 0.1s linear;
+        }
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+{% endblock %}
+
+{% block navbar %}
+    <!-- Se omite la navbar en la página de reproducción -->
+{% endblock %}
+
+{% block body %}
+<div class="player-container">
+    <div class="player-header">
+        <div class="song-info">
+            <img src="{{ cancion.imagen ?: 'https://via.placeholder.com/50x50?text=Imagen' }}" alt="{{ cancion.titulo }}" class="song-cover">
+            <div class="song-details">
+                <div class="song-title">{{ cancion.titulo }}</div>
+                <div class="song-artist">{{ cancion.artista ?: 'Artista desconocido' }}</div>
+            </div>
+        </div>
+        
+        <a href="{{ path('musica_cancion_detalle', {id: cancion.id}) }}" class="exnet-btn-small">
+            <i class="fas fa-times"></i>
+        </a>
+    </div>
+    
+    <div class="player-wrapper">
+        {% if cancion.imagen %}
+            <div class="background-image" style="background-image: url('{{ cancion.imagen }}');"></div>
+        {% endif %}
+        
+        <div class="player-content">
+            <img src="{{ cancion.imagen ?: 'https://via.placeholder.com/300x300?text=Sin+imagen' }}" alt="{{ cancion.titulo }}" class="album-art">
+            
+            <h2 class="text-white">{{ cancion.titulo }}</h2>
+            <p class="text-light mb-4">
+                {{ cancion.artista ?: 'Artista desconocido' }}
+                {% if cancion.album %}
+                    • {{ cancion.album }}
+                {% endif %}
+            </p>
+            
+            {% if cancion.url %}
+                <div class="audio-player">
+                    <audio id="audioPlayer" controls autoplay>
+                        <source src="{{ cancion.url }}" type="audio/mpeg">
+                        Tu navegador no soporta la reproducción de audio.
+                    </audio>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress" id="progress"></div>
+                    </div>
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span>
+                        <span id="duration">{{ cancion.duracionFormateada }}</span>
+                    </div>
+                </div>
+                
+                <div class="audio-controls">
+                    <button class="control-button" id="prevButton">
+                        <i class="fas fa-step-backward"></i>
+                    </button>
+                    <button class="control-button play-pause" id="playPauseButton">
+                        <i class="fas fa-pause" id="playPauseIcon"></i>
+                    </button>
+                    <button class="control-button" id="nextButton">
+                        <i class="fas fa-step-forward"></i>
+                    </button>
+                </div>
+            {% else %}
+                <div class="fallback-message">
+                    <h2>No hay URL de audio disponible</h2>
+                    <p>Esta canción no tiene una URL de audio configurada.</p>
+                    <a href="{{ path('musica_cancion_detalle', {id: cancion.id}) }}" class="exnet-btn-blue mt-3">
+                        Volver al detalle
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% block imports %}
+    {{ parent() }}
+    {% if cancion.url %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const audioPlayer = document.getElementById('audioPlayer');
+                const playPauseButton = document.getElementById('playPauseButton');
+                const playPauseIcon = document.getElementById('playPauseIcon');
+                const progressBar = document.getElementById('progressBar');
+                const progress = document.getElementById('progress');
+                const currentTimeDisplay = document.getElementById('currentTime');
+                const durationDisplay = document.getElementById('duration');
+                const prevButton = document.getElementById('prevButton');
+                const nextButton = document.getElementById('nextButton');
+                
+                function formatTime(seconds) {
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = Math.floor(seconds % 60);
+                    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+                }
+                
+                function updateProgress() {
+                    if (audioPlayer.duration) {
+                        const percentage = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                        progress.style.width = `${percentage}%`;
+                        currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime);
+                    }
+                }
+                
+                audioPlayer.addEventListener('timeupdate', updateProgress);
+                
+                audioPlayer.addEventListener('loadedmetadata', function() {
+                    durationDisplay.textContent = formatTime(audioPlayer.duration);
+                });
+                
+                audioPlayer.addEventListener('ended', function() {
+                    playPauseIcon.className = 'fas fa-play';
+                });
+                
+                playPauseButton.addEventListener('click', function() {
+                    if (audioPlayer.paused) {
+                        audioPlayer.play();
+                        playPauseIcon.className = 'fas fa-pause';
+                    } else {
+                        audioPlayer.pause();
+                        playPauseIcon.className = 'fas fa-play';
+                    }
+                });
+                
+                progressBar.addEventListener('click', function(e) {
+                    const clickPosition = (e.offsetX / this.offsetWidth);
+                    const clickTime = clickPosition * audioPlayer.duration;
+                    audioPlayer.currentTime = clickTime;
+                });
+                
+                window.addEventListener('beforeunload', () => {
+                    localStorage.setItem('audioTime_{{ cancion.id }}', audioPlayer.currentTime);
+                });
+                
+                const savedTime = localStorage.getItem('audioTime_{{ cancion.id }}');
+                if (savedTime && !isNaN(parseFloat(savedTime))) {
+                    audioPlayer.currentTime = parseFloat(savedTime);
+                }
+                
+                prevButton.addEventListener('click', function() {
+                    audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
+                });
+                
+                nextButton.addEventListener('click', function() {
+                    audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 10);
+                });
+            });
+        </script>
+    {% endif %}
+{% endblock %}
+{% endblock %}

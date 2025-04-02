@@ -1,0 +1,288 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ playlist.nombre }} - Música Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .playlist-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 30px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .playlist-header {
+            display: flex;
+            margin-bottom: 30px;
+        }
+        .playlist-cover {
+            width: 250px;
+            height: 250px;
+            border-radius: 8px;
+            margin-right: 30px;
+            background-color: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        .playlist-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .playlist-cover-icon {
+            font-size: 5rem;
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .playlist-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .playlist-type {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        .playlist-title {
+            font-size: 40px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .playlist-creator {
+            font-size: 16px;
+            color: #ccc;
+            margin-bottom: 10px;
+        }
+        .playlist-details {
+            display: flex;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #888;
+        }
+        .playlist-detail-item {
+            margin-right: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .playlist-detail-item i {
+            margin-right: 5px;
+        }
+        .playlist-description {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            max-width: 800px;
+        }
+        .playlist-actions {
+            display: flex;
+            gap: 15px;
+        }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-play {
+            background-color: #8e44ad;
+            color: white;
+        }
+        .btn-play:hover {
+            background-color: #9b59b6;
+            color: white;
+        }
+        .btn-edit {
+            background-color: transparent;
+            color: white;
+            border: 2px solid #8e44ad;
+        }
+        .btn-edit:hover {
+            background-color: rgba(142, 68, 173, 0.1);
+            color: white;
+        }
+        .action-btn i {
+            margin-right: 8px;
+        }
+        .songs-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+        }
+        .songs-table th, .songs-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .songs-table th {
+            color: #aaa;
+            font-weight: normal;
+            font-size: 14px;
+        }
+        .songs-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .song-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .song-title-cell {
+            display: flex;
+            align-items: center;
+        }
+        .song-thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+        .empty-playlist {
+            text-align: center;
+            padding: 30px 0;
+            color: #aaa;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Playlist</h1>
+        <div>
+            <a href="{{ path('musica_index') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="playlist-container">
+        <div class="playlist-header">
+            <div class="playlist-cover">
+                {% if playlist.imagen %}
+                    <img src="{{ playlist.imagen }}" alt="{{ playlist.nombre }}">
+                {% else %}
+                    <i class="fas fa-music playlist-cover-icon"></i>
+                {% endif %}
+            </div>
+            
+            <div class="playlist-info">
+                <div class="playlist-type">Playlist</div>
+                <h1 class="playlist-title">{{ playlist.nombre }}</h1>
+                
+                <div class="playlist-creator">
+                    Creada por {{ playlist.creadorNombre }}
+                </div>
+                
+                <div class="playlist-details">
+                    <div class="playlist-detail-item">
+                        <i class="fas fa-music"></i>
+                        {{ playlist.canciones|length }} canciones
+                    </div>
+                    
+                    <div class="playlist-detail-item">
+                        <i class="fas fa-clock"></i>
+                        {{ playlist.duracionFormateada }}
+                    </div>
+                    
+                    <div class="playlist-detail-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        Creada el {{ playlist.creadoEn|date('d/m/Y') }}
+                    </div>
+                    
+                    <div class="playlist-detail-item">
+                        <i class="fas fa-{% if playlist.esPublica %}globe{% else %}lock{% endif %}"></i>
+                        {{ playlist.esPublica ? 'Pública' : 'Privada' }}
+                    </div>
+                </div>
+                
+                {% if playlist.descripcion %}
+                    <div class="playlist-description">
+                        {{ playlist.descripcion|nl2br }}
+                    </div>
+                {% endif %}
+                
+                <div class="playlist-actions">
+                    {% if playlist.canciones|length > 0 %}
+                        <a href="{{ path('musica_reproductor', {'id': playlist.canciones.first.id}) }}" class="action-btn btn-play">
+                            <i class="fas fa-play"></i> Reproducir
+                        </a>
+                    {% endif %}
+                    
+                    {% if playlist.creadorId == user.id %}
+                        <a href="{{ path('musica_playlist_editar', {'id': playlist.id}) }}" class="action-btn btn-edit">
+                            <i class="fas fa-edit"></i> Editar
+                        </a>
+                        
+                        <form method="post" action="{{ path('musica_playlist_eliminar', {'id': playlist.id}) }}" onsubmit="return confirm('¿Estás seguro de eliminar esta playlist?')">
+                            <button type="submit" class="action-btn btn-edit">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        {% if playlist.canciones|length > 0 %}
+            <table class="songs-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th style="width: 40%;">Título</th>
+                        <th>Artista</th>
+                        <th>Álbum</th>
+                        <th style="width: 10%;">Duración</th>
+                        <th style="width: 100px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cancion in playlist.canciones %}
+                        <tr class="song-row" onclick="window.location='{{ path('musica_cancion_detalle', {'id': cancion.id}) }}'">
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <div class="song-title-cell">
+                                    <img src="{{ cancion.imagen ?: 'https://via.placeholder.com/40x40?text=Sin+imagen' }}" alt="{{ cancion.titulo }}" class="song-thumb">
+                                    <div>{{ cancion.titulo }}</div>
+                                </div>
+                            </td>
+                            <td>{{ cancion.artista ?: 'Artista desconocido' }}</td>
+                            <td>{{ cancion.album ?: '-' }}</td>
+                            <td>{{ cancion.duracionFormateada }}</td>
+                            <td class="text-end">
+                                <a href="{{ path('musica_reproductor', {'id': cancion.id}) }}" class="btn btn-sm btn-outline-light me-1" onclick="event.stopPropagation();">
+                                    <i class="fas fa-play"></i>
+                                </a>
+                                
+                                {% if playlist.creadorId == user.id %}
+                                    <form method="post" action="{{ path('musica_playlist_eliminar_cancion', {'id': playlist.id, 'cancionId': cancion.id}) }}" class="d-inline" onsubmit="event.stopPropagation();">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation();">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-playlist">
+                <i class="fas fa-music mb-3" style="font-size: 3rem;"></i>
+                <h3>Playlist vacía</h3>
+                <p>Esta playlist no tiene canciones todavía.</p>
+                <p>Explora el catálogo de música y usa el botón "Añadir a Playlist" para agregar canciones.</p>
+                <a href="{{ path('musica_index') }}" class="btn btn-outline-light mt-3">Explorar música</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

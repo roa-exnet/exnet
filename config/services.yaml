@@ -5,6 +5,9 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     websocket_url: 'https://websockettest.exnet.cloud'
+    jwt.auth_mode: 'jwt'
+    jwt.cookie_name: 'exnet_auth_jwt'
+    jwt.token_lifetime: 86400
 
 services:
     # default configuration for services in *this* file
@@ -47,5 +50,28 @@ services:
             $entityManager: '@doctrine.orm.entity_manager'
             $requestStack: '@request_stack'
 
+    App\ModuloCore\Service\JwtAuthService:
+        arguments:
+            $appSecret: '%kernel.secret%'
+    
+    # Suscriptor de eventos para autenticación JWT
+    App\ModuloCore\EventSubscriber\JwtAuthSubscriber:
+        tags:
+            - { name: kernel.event_subscriber }
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    App\ModuloChat\Controller\:
+        resource: '../src/ModuloChat/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
+        tags: ['console.command']
+        
+    App\ModuloChat\Service\:
+        resource: '../src/ModuloChat/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
                         

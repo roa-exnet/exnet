@@ -1,0 +1,215 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo Género - Admin Música - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .form-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+        }
+        .form-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            margin-bottom: 5px;
+            display: block;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+        }
+        .btn-submit {
+            background-color: #8e44ad;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .icon-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        .icon-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .icon-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .icon-item i {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        .icon-item.selected {
+            background-color: rgba(142, 68, 173, 0.3);
+        }
+        .icon-name {
+            font-size: 10px;
+            text-align: center;
+            word-break: break-word;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Nuevo Género Musical</h1>
+        <div>
+            <a href="{{ path('musica_admin') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form method="post" action="{{ path('musica_admin_nuevo_genero') }}">
+            <div class="form-group">
+                <label for="nombre" class="form-label">Nombre *</label>
+                <input type="text" id="nombre" name="nombre" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="descripcion" class="form-label">Descripción</label>
+                <textarea id="descripcion" name="descripcion" class="form-control"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="icono" class="form-label">Icono</label>
+                <input type="text" id="icono" name="icono" class="form-control" placeholder="fas fa-music">
+                <small class="text-muted">Introduce una clase de Font Awesome o selecciona de la lista a continuación.</small>
+                
+                <div class="icon-list mt-2">
+                    <div class="icon-item" data-icon="fas fa-music">
+                        <i class="fas fa-music"></i>
+                        <span class="icon-name">fa-music</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-guitar">
+                        <i class="fas fa-guitar"></i>
+                        <span class="icon-name">fa-guitar</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-drum">
+                        <i class="fas fa-drum"></i>
+                        <span class="icon-name">fa-drum</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-microphone-alt">
+                        <i class="fas fa-microphone-alt"></i>
+                        <span class="icon-name">fa-microphone-alt</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-headphones">
+                        <i class="fas fa-headphones"></i>
+                        <span class="icon-name">fa-headphones</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-record-vinyl">
+                        <i class="fas fa-record-vinyl"></i>
+                        <span class="icon-name">fa-record-vinyl</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-compact-disc">
+                        <i class="fas fa-compact-disc"></i>
+                        <span class="icon-name">fa-compact-disc</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-volume-up">
+                        <i class="fas fa-volume-up"></i>
+                        <span class="icon-name">fa-volume-up</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-sliders-h">
+                        <i class="fas fa-sliders-h"></i>
+                        <span class="icon-name">fa-sliders-h</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-bolt">
+                        <i class="fas fa-bolt"></i>
+                        <span class="icon-name">fa-bolt</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-fire">
+                        <i class="fas fa-fire"></i>
+                        <span class="icon-name">fa-fire</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-star">
+                        <i class="fas fa-star"></i>
+                        <span class="icon-name">fa-star</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-heart">
+                        <i class="fas fa-heart"></i>
+                        <span class="icon-name">fa-heart</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-smile">
+                        <i class="fas fa-smile"></i>
+                        <span class="icon-name">fa-smile</span>
+                    </div>
+                    <div class="icon-item" data-icon="fas fa-skull">
+                        <i class="fas fa-skull"></i>
+                        <span class="icon-name">fa-skull</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 text-end">
+                <a href="{{ path('musica_admin') }}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-submit">Guardar Género</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const iconItems = document.querySelectorAll('.icon-item');
+        const iconInput = document.getElementById('icono');
+        
+        iconItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // Eliminar selección previa
+                iconItems.forEach(i => i.classList.remove('selected'));
+                
+                // Seleccionar este icono
+                this.classList.add('selected');
+                
+                // Establecer el valor en el input
+                const iconValue = this.getAttribute('data-icon');
+                iconInput.value = iconValue;
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -75,7 +75,7 @@
         </div>
     </div>
     
-    <nav class="d-none d-lg-block" style="position: fixed; top: 0; left: 0; width: 100%; background-color: rgba(44, 62, 80, 0.9); z-index: 9999; padding: 0.75rem 0; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <nav class="d-none d-lg-block" style="position: fixed; top: 0; left: 0; width: 100%; background-color: rgba(44, 62, 80, 0.6); z-index: 9999; padding: 0.75rem 0; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
         <div class="container d-flex justify-content-between align-items-center">
             <a href="/" style="text-decoration: none;">
                 <h1 style="color: white; margin: 0; font-size: 1.75rem;">Exnet</h1>
@@ -124,6 +124,8 @@
     {% block imports %}
         <script src="{{ asset('bootstrap/js/bootstrap.bundle.min.js') }}"></script>
         <script src="{{ asset('js/ModuloCoreJs/Other/navbar.js') }}"></script>
+        <script src="{{ asset('js/auth.js') }}"></script>
+        <script src="{{ asset('js/auth-loader.js') }}"></script>
     {% endblock %}
 </body>
 </html>
