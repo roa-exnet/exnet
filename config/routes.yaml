@@ -9,9 +9,3 @@ modulo_chat_controllers:
         path: ../src/ModuloChat/Controller/
         namespace: App\ModuloChat\Controller
     type: attribute
-
-modulo_musica_controllers:
-    resource:
-        path: ../src/ModuloMusica/Controller/
-        namespace: App\ModuloMusica\Controller
-    type: attribute

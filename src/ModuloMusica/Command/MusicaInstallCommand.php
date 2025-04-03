@@ -42,63 +42,54 @@ class MusicaInstallCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $io->title('Instalación del Módulo de Música');
 
+        if ($input->getOption('force')) {
+            $input->setOption('yes', true);
+        }
+
         try {
-            // Comprobar si el módulo ya está instalado
             if (!$input->getOption('force') && $this->isModuleInstalled()) {
                 $io->warning('El módulo de Música ya está instalado. Usa --force para reinstalarlo.');
                 return Command::SUCCESS;
             }
 
-            // 1. Actualizar services.yaml
             $this->updateServicesYaml($io);
             
-            // 2. Actualizar routes.yaml
             $this->updateRoutesYaml($io);
             
-            // 3. Actualizar twig.yaml
             $this->updateTwigYaml($io);
             
-            // 4. Actualizar doctrine.yaml
             $this->updateDoctrineYaml($io);
 
-            // 5. Registrar el módulo en la base de datos
             $modulo = $this->registerModule($io);
             
-            // 6. Crear elementos de menú
             if (!$input->getOption('skip-menu')) {
                 $this->createMenuItems($io, $modulo);
             }
 
-            // 7. Crear géneros musicales predeterminados
-            $this->createDefaultGenres($io);
-
-            // Omitir migraciones si se solicita
             if ($input->getOption('skip-migrations')) {
                 $io->note('Las migraciones han sido omitidas según los parámetros de entrada.');
                 $io->success('Configuración del Módulo de Música completada exitosamente (sin migraciones).');
                 return Command::SUCCESS;
             }
             
-            // Confirmación para generar migraciones
             if (!$input->getOption('yes') && !$io->confirm('¿Deseas generar y ejecutar la migración de la base de datos ahora?', true)) {
                 $io->note('Operaciones de base de datos omitidas. Puedes ejecutarlas manualmente más tarde.');
                 $io->success('Configuración de archivos completada.');
                 return Command::SUCCESS;
             }
             
-            // 8. Generar migración
             $migrationSuccess = $this->generateMigration($io);
             if (!$migrationSuccess) {
                 return Command::FAILURE;
             }
             
-            // 9. Ejecutar migración
             $executionSuccess = $this->executeMigration($input, $io);
             if (!$executionSuccess) {
                 return Command::FAILURE;
             }
 
-            // 10. Limpiar caché
+            $this->createDefaultGenres($io);
+
             $io->section('Limpiando caché');
             $process = new Process(['php', 'bin/console', 'cache:clear']);
             $process->run();
@@ -138,14 +129,12 @@ class MusicaInstallCommand extends Command
         $servicesYamlPath = 'config/services.yaml';
         $servicesContent = file_get_contents($servicesYamlPath);
         
-        // Verificar si la configuración ya existe
         if (strpos($servicesContent, 'App\ModuloMusica\Controller') !== false && 
             strpos($servicesContent, '# DESACTIVADO') === false) {
             $io->note('La configuración de servicios ya incluye el módulo de música.');
             return;
         }
         
-        // Si está desactivado, reactivarlo
         if (strpos($servicesContent, 'App\ModuloMusica\Controller') !== false && 
             strpos($servicesContent, '# DESACTIVADO') !== false) {
             $servicesContent = str_replace(
@@ -154,7 +143,6 @@ class MusicaInstallCommand extends Command
                 $servicesContent
             );
             
-            // Descomentar las líneas
             $pattern = "/#(\s+App\\\\ModuloMusica\\\\)/";
             $servicesContent = preg_replace($pattern, "$1", $servicesContent);
             
@@ -163,7 +151,6 @@ class MusicaInstallCommand extends Command
             return;
         }
         
-        // Buscar dónde insertar la configuración
         $pattern = '#END\s+------+\s+ModuloCore\s+------+';
         
         if (!preg_match('/' . $pattern . '/', $servicesContent)) {
@@ -173,20 +160,16 @@ class MusicaInstallCommand extends Command
                 return;
             }
             
-            // Añadir al final del archivo si no se encuentra el punto de inserción
             $servicesContent .= "\n\n" . $this->getMusicaServicesConfig();
             file_put_contents($servicesYamlPath, $servicesContent);
             $io->success('La configuración del módulo de música se ha añadido al final de services.yaml.');
             return;
         }
         
-        // Si encontramos el punto de inserción, realizar reemplazo seguro
         $musicaConfig = $this->getMusicaServicesConfig();
         
-        // Realizar reemplazo con preg_replace para mayor seguridad
         $newContent = preg_replace('/' . $pattern . '/', "$0" . $musicaConfig, $servicesContent, 1);
         
-        // Verificar que el reemplazo fue exitoso
         if ($newContent !== $servicesContent) {
             file_put_contents($servicesYamlPath, $newContent);
             $io->success('services.yaml actualizado con la configuración del módulo de música.');
@@ -222,14 +205,12 @@ EOT;
         $routesYamlPath = 'config/routes.yaml';
         $routesContent = file_get_contents($routesYamlPath);
         
-        // Verificar si la configuración ya existe y no está comentada
         if (strpos($routesContent, 'App\ModuloMusica\Controller') !== false && 
             strpos($routesContent, '# modulo_musica_controllers') === false) {
             $io->note('La configuración de rutas ya incluye el módulo de música.');
             return;
         }
         
-        // Si está comentado, descomentarlo
         if (strpos($routesContent, '# modulo_musica_controllers') !== false) {
             $routesContent = str_replace(
                 [
@@ -253,7 +234,6 @@ EOT;
             return;
         }
         
-        // Buscar un punto de inserción seguro
         $patterns = [
             'modulo_chat_controllers:',
             'modulo_Explorador_controllers:',
@@ -275,7 +255,6 @@ EOT;
                 return;
             }
             
-            // Añadir al final del archivo si no se encuentra el punto de inserción
             $routesContent .= "\n\n" . $this->getMusicaRoutesConfig();
             file_put_contents($routesYamlPath, $routesContent);
             $io->success('La configuración del módulo de música se ha añadido al final de routes.yaml.');
@@ -284,7 +263,6 @@ EOT;
         
         $musicaConfig = $this->getMusicaRoutesConfig();
         
-        // Asegurar que insertamos después del elemento completo
         $pattern = '/(' . preg_quote($insertPoint) . '.*?type:\s+attribute)/s';
         if (preg_match($pattern, $routesContent, $matches)) {
             $newContent = str_replace($matches[1], $matches[1] . $musicaConfig, $routesContent);
@@ -313,13 +291,11 @@ EOT;
         $twigYamlPath = 'config/packages/twig.yaml';
         $twigContent = file_get_contents($twigYamlPath);
         
-        // Verificar si la configuración ya existe y no está comentada
         if (strpos($twigContent, "ModuloMusica/templates': ModuloMusica") !== false) {
             $io->note('La configuración de Twig ya incluye las plantillas del módulo de música.');
             return;
         }
         
-        // Si está comentada, descomentarla
         if (strpos($twigContent, "# '%kernel.project_dir%/src/ModuloMusica/templates': ~ # DESACTIVADO") !== false) {
             $twigContent = str_replace(
                 "# '%kernel.project_dir%/src/ModuloMusica/templates': ~ # DESACTIVADO",
@@ -331,7 +307,6 @@ EOT;
             return;
         }
         
-        // Buscar un punto de inserción seguro
         if (!preg_match('/paths:/', $twigContent)) {
             $io->error('No se pudo encontrar la sección "paths" en twig.yaml');
             return;
@@ -354,7 +329,6 @@ EOT;
         if ($insertPoint === null) {
             $io->warning('No se pudo encontrar un punto de inserción específico en twig.yaml.');
             
-            // Insertar justo después de 'paths:'
             $newContent = preg_replace(
                 '/(paths:)/i',
                 "$1\n        '%kernel.project_dir%/src/ModuloMusica/templates': ModuloMusica",
@@ -370,7 +344,6 @@ EOT;
             return;
         }
         
-        // Insertar después del punto encontrado
         $musicaConfig = "\n        '%kernel.project_dir%/src/ModuloMusica/templates': ModuloMusica";
         $newContent = str_replace($insertPoint, $insertPoint . $musicaConfig, $twigContent);
         
@@ -387,13 +360,11 @@ EOT;
         $doctrineYamlPath = 'config/packages/doctrine.yaml';
         $doctrineContent = file_get_contents($doctrineYamlPath);
         
-        // Verificar si la configuración ya existe
         if (strpos($doctrineContent, 'ModuloMusica:') !== false) {
             $io->note('La configuración de Doctrine ya incluye las entidades del módulo de música.');
             return;
         }
         
-        // Extraer la configuración actual para entender la estructura
         $pattern = '/mappings:\s*\n(.*?)(?:\n\s*\w+:|$)/s';
         
         if (!preg_match($pattern, $doctrineContent, $mappingsMatch)) {
@@ -401,21 +372,17 @@ EOT;
             return;
         }
         
-        // Determinar la indentación correcta basada en la estructura existente
         $mappingsIndentation = '';
         $moduleIndentation = '';
         
         if (preg_match('/(\s+)ModuloCore:/m', $doctrineContent, $indentMatch)) {
             $moduleIndentation = $indentMatch[1];
-            // La indentación de 'mappings:' debe ser un nivel menos
             $mappingsIndentation = substr($moduleIndentation, 0, -4);
         } else {
-            // Valores por defecto si no podemos determinar la indentación
-            $moduleIndentation = '            '; // 12 espacios
-            $mappingsIndentation = '        '; // 8 espacios
+            $moduleIndentation = '            ';
+            $mappingsIndentation = '        ';
         }
         
-        // Crear la configuración del módulo Música con la indentación correcta
         $musicaConfig = "\n{$moduleIndentation}ModuloMusica:
 {$moduleIndentation}    type: attribute
 {$moduleIndentation}    is_bundle: false
@@ -423,7 +390,6 @@ EOT;
 {$moduleIndentation}    prefix: 'App\\ModuloMusica\\Entity'
 {$moduleIndentation}    alias: ModuloMusica";
         
-        // Encontrar dónde insertar el nuevo módulo
         $lastModules = [
             'ModuloChat:.*?alias: ModuloChat',
             'ModuloExplorador:.*?alias: ModuloExplorador',
@@ -433,7 +399,6 @@ EOT;
         $foundInsertPoint = false;
         foreach ($lastModules as $lastModulePattern) {
             if (preg_match('/(' . $lastModulePattern . ')/s', $doctrineContent, $lastModuleMatch)) {
-                // Insertar después del último módulo
                 $newContent = str_replace($lastModuleMatch[1], $lastModuleMatch[1] . $musicaConfig, $doctrineContent);
                 file_put_contents($doctrineYamlPath, $newContent);
                 $io->success('doctrine.yaml actualizado con las entidades del módulo de música.');
@@ -443,7 +408,6 @@ EOT;
         }
         
         if (!$foundInsertPoint) {
-            // Si no encontramos un patrón específico, intentar agregar al final de la sección mappings
             $mappingsSection = "mappings:";
             $newMappingsSection = "mappings:" . $musicaConfig;
             
@@ -464,11 +428,9 @@ EOT;
             $musicaModule = $moduloRepository->findOneBy(['nombre' => 'Música']);
             
             if ($musicaModule) {
-                // Si el módulo ya existe, lo activamos
                 $musicaModule->setEstado(true);
                 $io->note('El módulo Música ya existe en la base de datos. Se ha activado.');
             } else {
-                // Si no existe, lo creamos
                 $musicaModule = new Modulo();
                 $musicaModule->setNombre('Música');
                 $musicaModule->setDescripcion('Módulo para gestionar y reproducir música');
@@ -509,7 +471,7 @@ EOT;
                 $menuItem->setNombre('Música');
                 $menuItem->setIcon('fas fa-music');
                 $menuItem->setType('menu');
-                $menuItem->setParentId(0); // Menú principal
+                $menuItem->setParentId(0);
                 $menuItem->setRuta('/musica');
                 $menuItem->setEnabled(true);
                 $menuItem->addModulo($modulo);
@@ -571,7 +533,7 @@ EOT;
     {
         $io->section('Generando migración...');
         $process = new Process(['php', 'bin/console', 'make:migration']);
-        $process->setTimeout(120); // 2 minutos de timeout
+        $process->setTimeout(120);
         $process->run(function ($type, $buffer) use ($io) {
             $io->write($buffer);
         });
@@ -594,7 +556,7 @@ EOT;
         
         $io->section('Ejecutando migración...');
         $process = new Process(['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction']);
-        $process->setTimeout(300); // 5 minutos de timeout
+        $process->setTimeout(300);
         $process->run(function ($type, $buffer) use ($io) {
             $io->write($buffer);
         });

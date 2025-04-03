@@ -70,17 +70,18 @@ class MusicaUninstallCommand extends Command
         $keepConfig = $input->getOption('keep-config');
         $force = $input->getOption('force');
         
-        // Confirmación si no se usa --force
+        if ($force) {
+            $io->note('La opción --force implica confirmar automáticamente todas las preguntas.');
+        }
+        
         if (!$force && !$io->confirm('¿Estás seguro de que deseas desinstalar completamente el módulo de música?', false)) {
             $io->warning('Operación cancelada por el usuario.');
             return Command::SUCCESS;
         }
         
-        // Primero desactivar el módulo para evitar errores durante la desinstalación
         $io->section('Desactivando el módulo de música');
         $this->deactivateModule($io);
         
-        // Eliminar configuraciones
         if (!$keepConfig) {
             $io->section('Eliminando configuraciones');
             $this->removeServicesConfig($io);
@@ -91,12 +92,10 @@ class MusicaUninstallCommand extends Command
             $io->note('Se ha omitido la eliminación de configuraciones según las opciones seleccionadas.');
         }
         
-        // Eliminar registros de la base de datos
         $io->section('Eliminando registros del módulo en la base de datos');
         $this->removeModuleFromDatabase($io);
         $this->removeMenuItems($io);
         
-        // Eliminar tablas de la base de datos
         if (!$keepTables) {
             $io->section('Eliminando tablas de la base de datos');
             
@@ -141,7 +140,6 @@ class MusicaUninstallCommand extends Command
         $servicesYamlPath = 'config/services.yaml';
         $servicesContent = file_get_contents($servicesYamlPath);
         
-        // Patrón que coincide con toda la sección del ModuloMusica
         $pattern = '/#START\s+----+\s+ModuloMusica.*?\n.*?#END\s+----+\s+ModuloMusica.*?\n/s';
         
         if (preg_match($pattern, $servicesContent, $matches)) {
@@ -158,25 +156,28 @@ class MusicaUninstallCommand extends Command
         $routesYamlPath = 'config/routes.yaml';
         $routesContent = file_get_contents($routesYamlPath);
         
-        // Patrón para las rutas del módulo música (activas o comentadas)
-        $patterns = [
-            '/\n\nmodulo_musica_controllers:.*?type: attribute\n/s',
-            '/\n\n# modulo_musica_controllers:.*?# type: attribute\n/s'
-        ];
+        $exactPattern = '/\n\nmodulo_musica_controllers:\n\s+resource:\n\s+path: \.\.\/src\/ModuloMusica\/Controller\/\n\s+namespace: App\\\\ModuloMusica\\\\Controller\n\s+type: attribute/s';
         
-        $removed = false;
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $routesContent)) {
-                $routesContent = preg_replace($pattern, '', $routesContent);
-                $removed = true;
-            }
-        }
-        
-        if ($removed) {
+        if (preg_match($exactPattern, $routesContent)) {
+            $routesContent = preg_replace($exactPattern, '', $routesContent);
             file_put_contents($routesYamlPath, $routesContent);
-            $io->success('Rutas del módulo de música eliminadas de routes.yaml.');
+            $io->success('Configuración de controllers del módulo de música eliminada de routes.yaml.');
         } else {
-            $io->note('No se encontraron rutas para eliminar en routes.yaml.');
+            $alternativePattern = '/\n\nmodulo_musica_controllers:.*?type: attribute/s';
+            if (preg_match($alternativePattern, $routesContent)) {
+                $routesContent = preg_replace($alternativePattern, '', $routesContent);
+                file_put_contents($routesYamlPath, $routesContent);
+                $io->success('Configuración de controllers del módulo de música eliminada de routes.yaml.');
+            } else {
+                $commentedPattern = '/\n\n# modulo_musica_controllers:.*?# type: attribute/s';
+                if (preg_match($commentedPattern, $routesContent)) {
+                    $routesContent = preg_replace($commentedPattern, '', $routesContent);
+                    file_put_contents($routesYamlPath, $routesContent);
+                    $io->success('Configuración comentada de controllers del módulo de música eliminada de routes.yaml.');
+                } else {
+                    $io->note('No se encontró configuración de controllers para eliminar en routes.yaml.');
+                }
+            }
         }
     }
     
@@ -185,9 +186,9 @@ class MusicaUninstallCommand extends Command
         $twigYamlPath = 'config/packages/twig.yaml';
         $twigContent = file_get_contents($twigYamlPath);
         
-        // Patrones para la configuración de Twig (activa o comentada)
         $patterns = [
             "/\n\s+'%kernel\.project_dir%\/src\/ModuloMusica\/templates': ModuloMusica/",
+            "/\n\s+\"%kernel\.project_dir%\/src\/ModuloMusica\/templates\": ModuloMusica/",
             "/\n\s+# '%kernel\.project_dir%\/src\/ModuloMusica\/templates':.*?DESACTIVADO/"
         ];
         
@@ -212,7 +213,6 @@ class MusicaUninstallCommand extends Command
         $doctrineYamlPath = 'config/packages/doctrine.yaml';
         $doctrineContent = file_get_contents($doctrineYamlPath);
         
-        // Patrón para la sección ModuloMusica completa
         $pattern = '/\n\s+ModuloMusica:\n\s+type: attribute\n\s+is_bundle: false\n\s+dir:.*?\n\s+prefix:.*?\n\s+alias: ModuloMusica/s';
         
         if (preg_match($pattern, $doctrineContent, $matches)) {
@@ -264,7 +264,6 @@ class MusicaUninstallCommand extends Command
     
     private function generateTableRemovalMigration(SymfonyStyle $io): bool
     {
-        // Crear un archivo de migración personalizado
         $migrationDir = 'migrations';
         if (!is_dir($migrationDir)) {
             mkdir($migrationDir, 0777, true);
@@ -303,7 +302,6 @@ final class {$className} extends AbstractMigration
 
     public function up(Schema \$schema): void
     {
-        // Eliminar tablas en orden seguro (primero las que tienen claves foráneas)
         \$this->addSql('DROP TABLE IF EXISTS musica_playlist_cancion');
         \$this->addSql('DROP TABLE IF EXISTS musica_playlist');
         \$this->addSql('DROP TABLE IF EXISTS musica_cancion');
@@ -312,7 +310,6 @@ final class {$className} extends AbstractMigration
 
     public function down(Schema \$schema): void
     {
-        // Este método puede quedarse vacío o implementar la recreación de tablas si es necesario
         \$this->addSql('CREATE TABLE musica_genero (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, nombre VARCHAR(255) NOT NULL, descripcion VARCHAR(255) DEFAULT NULL, icono VARCHAR(255) DEFAULT NULL, creado_en DATETIME NOT NULL --(DC2Type:datetime_immutable))');
         \$this->addSql('CREATE TABLE musica_cancion (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, genero_id INTEGER DEFAULT NULL, titulo VARCHAR(255) NOT NULL, artista VARCHAR(255) DEFAULT NULL, album VARCHAR(255) DEFAULT NULL, descripcion CLOB DEFAULT NULL, imagen VARCHAR(255) DEFAULT NULL, url VARCHAR(255) DEFAULT NULL, es_publico BOOLEAN NOT NULL, anio INTEGER DEFAULT NULL, duracion INTEGER DEFAULT NULL, creado_en DATETIME NOT NULL --(DC2Type:datetime_immutable), actualizado_en DATETIME DEFAULT NULL --(DC2Type:datetime_immutable), CONSTRAINT FK_GENERO_ID FOREIGN KEY (genero_id) REFERENCES musica_genero (id) NOT DEFERRABLE INITIALLY IMMEDIATE)');
         \$this->addSql('CREATE TABLE musica_playlist (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, nombre VARCHAR(255) NOT NULL, descripcion CLOB DEFAULT NULL, imagen VARCHAR(255) DEFAULT NULL, creador_id VARCHAR(255) NOT NULL, creador_nombre VARCHAR(255) DEFAULT NULL, es_publica BOOLEAN NOT NULL, creado_en DATETIME NOT NULL --(DC2Type:datetime_immutable), actualizado_en DATETIME DEFAULT NULL --(DC2Type:datetime_immutable))');
@@ -331,7 +328,7 @@ EOT;
             }
             
             $process = new Process($command);
-            $process->setTimeout(300); // 5 minutos
+            $process->setTimeout(300);
             
             $io->note('Ejecutando migración para eliminar tablas...');
             $process->run(function ($type, $buffer) use ($io) {
