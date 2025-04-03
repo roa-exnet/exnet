@@ -124,8 +124,14 @@
     {% block imports %}
         <script src="{{ asset('bootstrap/js/bootstrap.bundle.min.js') }}"></script>
         <script src="{{ asset('js/ModuloCoreJs/Other/navbar.js') }}"></script>
-        <script src="{{ asset('js/auth.js') }}"></script>
+        
+        {% if not auth_js_imported is defined %}
+            <script src="{{ asset('js/auth.js') }}"></script>
+            {% set auth_js_imported = true %}
+        {% endif %}
+        
         <script src="{{ asset('js/auth-loader.js') }}"></script>
+        
     {% endblock %}
 </body>
 </html>

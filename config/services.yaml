@@ -27,7 +27,6 @@ services:
     #START -----------------------------------------------------  ModuloCore -------------------------------------------------------------------------
     App\ModuloCore\Controller\:
         resource: '../src/ModuloCore/Controller'
-        tags: ['controller.service_arguments']
     
     App\ModuloCore\EventSubscriber\MenuSubscriber:
         tags: ['kernel.event_subscriber']
@@ -59,19 +58,31 @@ services:
         tags:
             - { name: kernel.event_subscriber }
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
-    App\ModuloChat\Controller\:
-        resource: '../src/ModuloChat/Controller'
+    #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
+    App\ModuloMusica\Controller\:
+        resource: '../src/ModuloMusica/Controller'
         tags: ['controller.service_arguments']
         
-    App\ModuloChat\Command\:
-        resource: '../src/ModuloChat/Command'
+    App\ModuloMusica\Command\:
+        resource: '../src/ModuloMusica/Command'
         tags: ['console.command']
         
-    App\ModuloChat\Service\:
-        resource: '../src/ModuloChat/Service/'
+    App\ModuloMusica\Service\:
+        resource: '../src/ModuloMusica/Service/'
         autowire: true
         autoconfigure: true
         public: true
+    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        
+            #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    App\ModuloChat\Controller\:
+        resource: '../src/ModuloChat/Controller'
+
+        
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
+
+    App\ModuloChat\Service\:
+        resource: '../src/ModuloChat/Service/'
+
     #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
                         

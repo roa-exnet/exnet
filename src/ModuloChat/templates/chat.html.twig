@@ -6,26 +6,33 @@
 {% block head %}
     {{ parent() }}
     <link rel="stylesheet" href="{{ asset('css/chat.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/voice_call.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 {% endblock %}
 
 {% block body %}
-<div class="chat-container">
-    <div class="chat-sidebar">
-        <h2 style="padding: 15px;">Chats</h2>
-        
-        <div class="chat-list">
-            <div style="padding: 15px;">Cargando conversaciones...</div>
-        </div>
-        
-        <div class="chat-actions">
-            <button id="btnNewChat">Nuevo chat</button>
-        </div>
+<div class="exnet-container-transparent p-2">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h1 class="exnet-main-title" style="font-size: 1.8rem; margin-bottom: 0;">Chat</h1>
     </div>
-    
-    <div class="chat-main" id="chatMain">
-        <div style="display: flex; height: 100%; align-items: center; justify-content: center;">
-            <h3>Selecciona un chat para comenzar</h3>
+
+    <div class="chat-container">
+        <div class="chat-sidebar">
+            <h2>Conversaciones</h2>
+            
+            <div class="chat-list">
+                <div style="padding: 10px; color: #aaa;">Cargando conversaciones...</div>
+            </div>
+            
+            <div class="chat-actions">
+                <button id="btnNewChat">Nueva conversación</button>
+            </div>
+        </div>
+        
+        <div class="chat-main" id="chatMain">
+            <div style="display: flex; height: 100%; align-items: center; justify-content: center; flex-direction: column;">
+                <h3 style="color: white;">Selecciona un chat para comenzar</h3>
+                <p style="color: #aaa; margin-top: 10px;">O crea una nueva conversación con el botón de la izquierda</p>
+            </div>
         </div>
     </div>
 </div>
@@ -33,14 +40,14 @@
 <div id="chatModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
-        <h2>Nuevo chat</h2>
+        <h2>Nueva conversación</h2>
         <form id="chatForm">
             <div style="margin-bottom: 15px;">
-                <label for="chatName">Nombre del chat:</label>
-                <input type="text" id="chatName" name="chatName" required>
+                <label for="chatName">Nombre de la conversación:</label>
+                <input type="text" id="chatName" name="chatName" required placeholder="Ej: Proyecto nuevo, Grupo de estudio...">
             </div>
             <div style="margin-bottom: 15px;" class="form-user-search">
-                <label for="userSearch">Buscar usuario:</label>
+                <label for="userSearch">Buscar participantes:</label>
                 <div class="search-container">
                     <input type="text" id="userSearch" name="userSearch" placeholder="Buscar por nombre o email...">
                     <div id="searchResults" class="search-results"></div>
@@ -48,41 +55,12 @@
                 <div id="selectedUsers" class="selected-users"></div>
                 <input type="hidden" id="recipientIds" name="recipientIds">
             </div>
-            <button type="submit">Crear chat</button>
+            <button type="submit">Crear</button>
         </form>
     </div>
 </div>
 
-<div id="voice-call-modal" class="voice-call-modal">
-    <div class="voice-call-content">
-        <div class="voice-call-header">
-            <h3 id="call-status">Iniciando llamada...</h3>
-            <span class="voice-call-close">&times;</span>
-        </div>
-        <div class="voice-call-body">
-            <div class="participant-info">
-                <div id="local-participant" class="participant">
-                    <div class="audio-indicator">
-                        <div class="audio-wave"></div>
-                        <div class="audio-wave"></div>
-                        <div class="audio-wave"></div>
-                    </div>
-                    <div class="participant-name">Tú</div>
-                </div>
-                <div id="remote-participants" class="remote-participants">
-                </div>
-            </div>
-            <div class="call-controls">
-                <button id="mute-toggle" class="control-button">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button id="end-call" class="control-button end-call">
-                    <i class="fas fa-phone-slash"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include '@ModuloChat/voice_call.html.twig' %}
 
 {% block javascripts %}
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -701,110 +679,110 @@ document.addEventListener('DOMContentLoaded', function() {
         messageInput.value = '';
     }
         
-    function addMessageToChat(message, scroll = true) {
-        const messagesContainer = document.querySelector('.chat-messages');
-        if (!messagesContainer) return;
-        
-        const messageDiv = document.createElement('div');
-        
-        if (message.type === 'system') {
-            messageDiv.className = 'message message-system';
-            messageDiv.textContent = message.content;
-        } else {
-            if (message.senderName == "Anonymous User"){}
-            else {
-            const isSentByMe = message.senderId === storedUserId.toString();
-            messageDiv.className = `message ${isSentByMe ? 'message-sent' : 'message-received'}`;
-            
-            let timestamp = message.timestamp;
-            if (typeof timestamp === 'string') {
-                timestamp = new Date(timestamp);
-            }
-            
-            const formattedTime = timestamp instanceof Date 
-                ? timestamp.toLocaleTimeString() 
-                : 'ahora';
-            
-            messageDiv.innerHTML = `
-                <div><strong>${message.senderName}</strong></div>
-                <div>${message.content}</div>
-                <div><small>${formattedTime}</small></div>
-            `;
-            }
+function addMessageToChat(message, scroll = true) {
+    const messagesContainer = document.querySelector('.chat-messages');
+    if (!messagesContainer) return;
+    
+    const messageDiv = document.createElement('div');
+    
+    if (message.type === 'system') {
+        messageDiv.className = 'message message-system';
+        messageDiv.textContent = message.content;
+    } else {
+        if (message.senderName == "Anonymous User") {
+            return;
         }
         
-        messagesContainer.prepend(messageDiv);
+        const isSentByMe = message.senderId === storedUserId.toString();
+        messageDiv.className = `message ${isSentByMe ? 'message-sent' : 'message-received'}`;
         
-        if (scroll) {
-            messagesContainer.scrollTop = 0;
+        let timestamp = message.timestamp;
+        if (typeof timestamp === 'string') {
+            timestamp = new Date(timestamp);
         }
+        
+        const formattedTime = timestamp instanceof Date 
+            ? timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+            : 'ahora';
+        
+        messageDiv.innerHTML = `
+            <div class="message-header">${message.senderName}</div>
+            <div class="message-content">${message.content}</div>
+            <div class="message-timestamp">${formattedTime}</div>
+        `;
     }
+    
+    messagesContainer.appendChild(messageDiv);
+    
+    if (scroll) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
 
-    function addMessageToChatOrdered(message, scroll = true) {
-        const messagesContainer = document.querySelector('.chat-messages');
-        if (!messagesContainer) return;
-        
-        const existingMessage = document.querySelector(`.message[data-id="${message.id}"]`);
-        if (existingMessage) {
-            console.log(`Mensaje con ID ${message.id} ya existe, ignorando duplicado`);
-            return;
-        }
-        
-        if (!message.content) {
-            console.warn('Intentando mostrar mensaje sin contenido', message);
-            return;
-        }
-        
-        const messageDiv = document.createElement('div');
-        
-        messageDiv.setAttribute('data-id', message.id || `temp_${Date.now()}`);
-        messageDiv.setAttribute('data-sender', message.senderId || 'unknown');
-        messageDiv.setAttribute('data-time', message.timestamp?.getTime() || Date.now());
-        
-        if (message.type === 'system') {
-            messageDiv.className = 'message message-system';
-            messageDiv.textContent = message.content;
-        } else {
-            if (message.senderName === "Anonymous User" || !message.senderName) {
-                message.senderName = "Usuario " + (message.senderId || "Desconocido");
-            }
-            
-            const isSentByMe = message.senderId === storedUserId.toString();
-            messageDiv.className = `message ${isSentByMe ? 'message-sent' : 'message-received'}`;
-            
-            let timestamp = message.timestamp;
-            if (typeof timestamp === 'string') {
-                timestamp = new Date(timestamp);
-            }
-            
-            if (!timestamp || isNaN(timestamp)) {
-                timestamp = new Date();
-            }
-            
-            const formattedTime = timestamp instanceof Date 
-                ? timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                : 'ahora';
-            
-            messageDiv.innerHTML = `
-                <div class="message-header"><strong>${message.senderName}</strong></div>
-                <div class="message-content">${message.content}</div>
-                <div class="message-timestamp"><small>${formattedTime}</small></div>
-            `;
-        }
-        
-        messagesContainer.appendChild(messageDiv);
-        
-        const noMessagesEl = document.querySelector('.no-messages');
-        if (noMessagesEl) {
-            noMessagesEl.remove();
-        }
-        
-        if (scroll) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-        
-        console.log(`Mensaje mostrado: ID=${message.id || 'sin ID'}, Emisor=${message.senderName}, Contenido=${message.content.substring(0, 20)}...`);
+
+function addMessageToChatOrdered(message, scroll = true) {
+    const messagesContainer = document.querySelector('.chat-messages');
+    if (!messagesContainer) return;
+    
+    const existingMessage = document.querySelector(`.message[data-id="${message.id}"]`);
+    if (existingMessage) {
+        console.log(`Mensaje con ID ${message.id} ya existe, ignorando duplicado`);
+        return;
     }
+    
+    if (!message.content) {
+        console.warn('Intentando mostrar mensaje sin contenido', message);
+        return;
+    }
+    
+    const messageDiv = document.createElement('div');
+    
+    messageDiv.setAttribute('data-id', message.id || `temp_${Date.now()}`);
+    messageDiv.setAttribute('data-sender', message.senderId || 'unknown');
+    messageDiv.setAttribute('data-time', message.timestamp?.getTime() || Date.now());
+    
+    if (message.type === 'system') {
+        messageDiv.className = 'message message-system';
+        messageDiv.textContent = message.content;
+    } else {
+        if (message.senderName === "Anonymous User" || !message.senderName) {
+            message.senderName = "Usuario " + (message.senderId || "Desconocido");
+        }
+        
+        const isSentByMe = message.senderId === storedUserId.toString();
+        messageDiv.className = `message ${isSentByMe ? 'message-sent' : 'message-received'}`;
+        
+        let timestamp = message.timestamp;
+        if (typeof timestamp === 'string') {
+            timestamp = new Date(timestamp);
+        }
+        
+        if (!timestamp || isNaN(timestamp)) {
+            timestamp = new Date();
+        }
+        
+        const formattedTime = timestamp instanceof Date 
+            ? timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            : 'ahora';
+        
+        messageDiv.innerHTML = `
+            <div class="message-header"><strong>${message.senderName}</strong></div>
+            <div class="message-content">${message.content}</div>
+            <div class="message-timestamp"><small>${formattedTime}</small></div>
+        `;
+    }
+    
+    messagesContainer.appendChild(messageDiv);
+    
+    const noMessagesEl = document.querySelector('.no-messages');
+    if (noMessagesEl) {
+        noMessagesEl.remove();
+    }
+    
+    if (scroll) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
         
     function updateTypingIndicator(data) {
         console.log('Actualizando indicador de escritura:', data);

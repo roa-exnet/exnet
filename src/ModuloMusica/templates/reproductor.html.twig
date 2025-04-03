@@ -149,9 +149,6 @@
     </style>
 {% endblock %}
 
-{% block navbar %}
-    <!-- Se omite la navbar en la página de reproducción -->
-{% endblock %}
 
 {% block body %}
 <div class="player-container">
@@ -187,7 +184,7 @@
             
             {% if cancion.url %}
                 <div class="audio-player">
-                    <audio id="audioPlayer" controls autoplay>
+                    <audio id="audioPlayer" autoplay>
                         <source src="{{ cancion.url }}" type="audio/mpeg">
                         Tu navegador no soporta la reproducción de audio.
                     </audio>
@@ -227,7 +224,6 @@
     </div>
 </div>
 
-{% block imports %}
     {{ parent() }}
     {% if cancion.url %}
         <script>
@@ -268,8 +264,13 @@
                 
                 playPauseButton.addEventListener('click', function() {
                     if (audioPlayer.paused) {
-                        audioPlayer.play();
-                        playPauseIcon.className = 'fas fa-pause';
+                        audioPlayer.play()
+                        .then(() => {
+                            playPauseIcon.className = 'fas fa-pause';
+                        })
+                        .catch(error => {
+                            console.error('Error al reproducir:', error);
+                        });
                     } else {
                         audioPlayer.pause();
                         playPauseIcon.className = 'fas fa-play';
@@ -301,5 +302,4 @@
             });
         </script>
     {% endif %}
-{% endblock %}
 {% endblock %}

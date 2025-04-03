@@ -3,121 +3,348 @@
 namespace App\ModuloMusica\Command;
 
 use App\ModuloCore\Entity\Modulo;
+use App\ModuloCore\Entity\MenuElement;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Process\Process;
 
 #[AsCommand(
     name: 'musica:uninstall',
-    description: 'Desinstala el módulo de música'
+    description: 'Desinstala completamente el módulo de música'
 )]
 class MusicaUninstallCommand extends Command
 {
     private EntityManagerInterface $entityManager;
-
+    
     public function __construct(EntityManagerInterface $entityManager)
     {
         $this->entityManager = $entityManager;
         parent::__construct();
+    }
+    
+    protected function configure(): void
+    {
+        $this
+            ->addOption('keep-tables', null, InputOption::VALUE_NONE, 'Mantener las tablas en la base de datos')
+            ->addOption('keep-config', null, InputOption::VALUE_NONE, 'Mantener los archivos de configuración')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la desinstalación sin confirmaciones')
+            ->setHelp(<<<EOT
+                El comando <info>musica:uninstall</info> realiza lo siguiente:
+
+                1. Elimina las configuraciones del módulo de música de los archivos:
+                   - services.yaml
+                   - routes.yaml
+                   - twig.yaml
+                   - doctrine.yaml
+                2. Elimina el registro del módulo en la base de datos
+                3. Elimina los elementos de menú asociados
+                4. Genera una migración para eliminar las tablas de la base de datos
+                5. Ejecuta la migración para eliminar las tablas
+
+                Opciones:
+                  --keep-tables     No eliminar las tablas de la base de datos
+                  --keep-config     No eliminar las configuraciones de los archivos
+                  --force, -f       Forzar la desinstalación sin confirmaciones
+
+                Ejemplo de uso:
+
+                <info>php bin/console musica:uninstall</info>
+                <info>php bin/console musica:uninstall --keep-tables</info>
+                <info>php bin/console musica:uninstall --force</info>
+                EOT
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $io->title('Desinstalación del Módulo de Música');
-
-        $helper = $this->getHelper('question');
-        $question = new ConfirmationQuestion(
-            '⚠️  ADVERTENCIA: Esta acción eliminará todos los datos del módulo de música (canciones, géneros, playlists, etc.). ¿Deseas continuar? (s/N) ',
-            false
-        );
-
-        if (!$helper->ask($input, $output, $question)) {
-            $io->info('Operación cancelada.');
+        
+        $keepTables = $input->getOption('keep-tables');
+        $keepConfig = $input->getOption('keep-config');
+        $force = $input->getOption('force');
+        
+        // Confirmación si no se usa --force
+        if (!$force && !$io->confirm('¿Estás seguro de que deseas desinstalar completamente el módulo de música?', false)) {
+            $io->warning('Operación cancelada por el usuario.');
             return Command::SUCCESS;
         }
-
+        
+        // Primero desactivar el módulo para evitar errores durante la desinstalación
+        $io->section('Desactivando el módulo de música');
+        $this->deactivateModule($io);
+        
+        // Eliminar configuraciones
+        if (!$keepConfig) {
+            $io->section('Eliminando configuraciones');
+            $this->removeServicesConfig($io);
+            $this->removeRoutesConfig($io);
+            $this->removeTwigConfig($io);
+            $this->removeDoctrineConfig($io);
+        } else {
+            $io->note('Se ha omitido la eliminación de configuraciones según las opciones seleccionadas.');
+        }
+        
+        // Eliminar registros de la base de datos
+        $io->section('Eliminando registros del módulo en la base de datos');
+        $this->removeModuleFromDatabase($io);
+        $this->removeMenuItems($io);
+        
+        // Eliminar tablas de la base de datos
+        if (!$keepTables) {
+            $io->section('Eliminando tablas de la base de datos');
+            
+            if (!$force && !$io->confirm('¿Estás seguro de que deseas eliminar todas las tablas relacionadas con la música? Esta acción es irreversible y eliminará todos los datos.', false)) {
+                $io->warning('Se ha omitido la eliminación de tablas por elección del usuario.');
+            } else {
+                $success = $this->generateTableRemovalMigration($io);
+                if ($success) {
+                    $this->executeTableRemovalMigration($io, $force);
+                }
+            }
+        } else {
+            $io->note('Se ha omitido la eliminación de tablas según las opciones seleccionadas.');
+        }
+        
+        $io->success('El módulo de música ha sido desinstalado correctamente.');
+        
+        return Command::SUCCESS;
+    }
+    
+    private function deactivateModule(SymfonyStyle $io): void
+    {
         try {
             $moduloRepository = $this->entityManager->getRepository(Modulo::class);
-            $modulo = $moduloRepository->findOneBy(['nombre' => 'Música']);
-
-            if (!$modulo) {
-                $io->warning('El módulo de Música no está instalado o ya fue desinstalado.');
-                return Command::SUCCESS;
-            }
-
-            $io->section('Actualizando estado del módulo');
+            $musicaModule = $moduloRepository->findOneBy(['nombre' => 'Música']);
             
-            $modulo->setEstado(false);
-            $modulo->setUninstallDate(new \DateTimeImmutable());
-            
-            $this->entityManager->flush();
-            
-            $io->success('Estado del módulo actualizado.');
-
-            $eliminarTablas = $helper->ask($input, $output, new ConfirmationQuestion(
-                '¿Deseas eliminar completamente las tablas del módulo? (s/N) ',
-                false
-            ));
-
-            if ($eliminarTablas) {
-                $io->section('Eliminando tablas de la base de datos');
-                
-                $conn = $this->entityManager->getConnection();
-                
-                $tablas = ['musica_playlist_cancion', 'musica_playlist', 'musica_cancion', 'musica_genero'];
-                
-                foreach ($tablas as $tabla) {
-                    try {
-                        $conn->executeStatement("DROP TABLE IF EXISTS $tabla");
-                        $io->text("Tabla '$tabla' eliminada.");
-                    } catch (\Exception $e) {
-                        $io->warning("Error al eliminar la tabla '$tabla': " . $e->getMessage());
-                    }
-                }
-                
-                $io->success('Tablas eliminadas correctamente.');
-            }
-
-            $eliminarRegistro = $helper->ask($input, $output, new ConfirmationQuestion(
-                '¿Deseas eliminar completamente el registro del módulo? (s/N) ',
-                false
-            ));
-
-            if ($eliminarRegistro) {
-                $io->section('Eliminando registro del módulo');
-                
-                $this->entityManager->remove($modulo);
+            if ($musicaModule) {
+                $musicaModule->setEstado(false);
+                $musicaModule->setUninstallDate(new \DateTimeImmutable());
                 $this->entityManager->flush();
-                
-                $io->success('Registro del módulo eliminado.');
-            }
-
-            $io->section('Limpiando caché');
-            
-            $process = new Process(['php', 'bin/console', 'cache:clear']);
-            $process->run();
-            
-            if (!$process->isSuccessful()) {
-                $io->warning('Error al limpiar la caché: ' . $process->getErrorOutput());
+                $io->success('Módulo de música desactivado correctamente.');
             } else {
-                $io->success('Caché limpiada correctamente.');
+                $io->note('No se encontró el módulo de música para desactivar.');
             }
-
-            $io->success([
-                'Módulo de Música desinstalado correctamente.',
-                $eliminarTablas ? 'Los datos han sido eliminados.' : 'Los datos se han mantenido, pero el módulo está desactivado.'
-            ]);
-
-            return Command::SUCCESS;
         } catch (\Exception $e) {
-            $io->error('Error durante la desinstalación: ' . $e->getMessage());
-            return Command::FAILURE;
+            $io->error('Error al desactivar el módulo de música: ' . $e->getMessage());
+        }
+    }
+    
+    private function removeServicesConfig(SymfonyStyle $io): void
+    {
+        $servicesYamlPath = 'config/services.yaml';
+        $servicesContent = file_get_contents($servicesYamlPath);
+        
+        // Patrón que coincide con toda la sección del ModuloMusica
+        $pattern = '/#START\s+----+\s+ModuloMusica.*?\n.*?#END\s+----+\s+ModuloMusica.*?\n/s';
+        
+        if (preg_match($pattern, $servicesContent, $matches)) {
+            $newContent = preg_replace($pattern, '', $servicesContent);
+            file_put_contents($servicesYamlPath, $newContent);
+            $io->success('Configuración del módulo de música eliminada de services.yaml.');
+        } else {
+            $io->note('No se encontró configuración para eliminar en services.yaml.');
+        }
+    }
+    
+    private function removeRoutesConfig(SymfonyStyle $io): void
+    {
+        $routesYamlPath = 'config/routes.yaml';
+        $routesContent = file_get_contents($routesYamlPath);
+        
+        // Patrón para las rutas del módulo música (activas o comentadas)
+        $patterns = [
+            '/\n\nmodulo_musica_controllers:.*?type: attribute\n/s',
+            '/\n\n# modulo_musica_controllers:.*?# type: attribute\n/s'
+        ];
+        
+        $removed = false;
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $routesContent)) {
+                $routesContent = preg_replace($pattern, '', $routesContent);
+                $removed = true;
+            }
+        }
+        
+        if ($removed) {
+            file_put_contents($routesYamlPath, $routesContent);
+            $io->success('Rutas del módulo de música eliminadas de routes.yaml.');
+        } else {
+            $io->note('No se encontraron rutas para eliminar en routes.yaml.');
+        }
+    }
+    
+    private function removeTwigConfig(SymfonyStyle $io): void
+    {
+        $twigYamlPath = 'config/packages/twig.yaml';
+        $twigContent = file_get_contents($twigYamlPath);
+        
+        // Patrones para la configuración de Twig (activa o comentada)
+        $patterns = [
+            "/\n\s+'%kernel\.project_dir%\/src\/ModuloMusica\/templates': ModuloMusica/",
+            "/\n\s+# '%kernel\.project_dir%\/src\/ModuloMusica\/templates':.*?DESACTIVADO/"
+        ];
+        
+        $removed = false;
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $twigContent)) {
+                $twigContent = preg_replace($pattern, '', $twigContent);
+                $removed = true;
+            }
+        }
+        
+        if ($removed) {
+            file_put_contents($twigYamlPath, $twigContent);
+            $io->success('Configuración del módulo de música eliminada de twig.yaml.');
+        } else {
+            $io->note('No se encontró configuración para eliminar en twig.yaml.');
+        }
+    }
+    
+    private function removeDoctrineConfig(SymfonyStyle $io): void
+    {
+        $doctrineYamlPath = 'config/packages/doctrine.yaml';
+        $doctrineContent = file_get_contents($doctrineYamlPath);
+        
+        // Patrón para la sección ModuloMusica completa
+        $pattern = '/\n\s+ModuloMusica:\n\s+type: attribute\n\s+is_bundle: false\n\s+dir:.*?\n\s+prefix:.*?\n\s+alias: ModuloMusica/s';
+        
+        if (preg_match($pattern, $doctrineContent, $matches)) {
+            $newContent = preg_replace($pattern, '', $doctrineContent);
+            file_put_contents($doctrineYamlPath, $newContent);
+            $io->success('Configuración del módulo de música eliminada de doctrine.yaml.');
+        } else {
+            $io->note('No se encontró configuración para eliminar en doctrine.yaml.');
+        }
+    }
+    
+    private function removeModuleFromDatabase(SymfonyStyle $io): void
+    {
+        try {
+            $moduloRepository = $this->entityManager->getRepository(Modulo::class);
+            $musicaModule = $moduloRepository->findOneBy(['nombre' => 'Música']);
+            
+            if ($musicaModule) {
+                $this->entityManager->remove($musicaModule);
+                $this->entityManager->flush();
+                $io->success('Módulo Música eliminado de la base de datos.');
+            } else {
+                $io->note('No se encontró el módulo Música en la base de datos.');
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al eliminar el módulo de la base de datos: ' . $e->getMessage());
+        }
+    }
+    
+    private function removeMenuItems(SymfonyStyle $io): void
+    {
+        try {
+            $menuRepository = $this->entityManager->getRepository(MenuElement::class);
+            $menuItems = $menuRepository->findBy(['nombre' => 'Música']);
+            
+            if (!empty($menuItems)) {
+                foreach ($menuItems as $menuItem) {
+                    $this->entityManager->remove($menuItem);
+                }
+                $this->entityManager->flush();
+                $io->success('Elementos de menú del módulo Música eliminados de la base de datos.');
+            } else {
+                $io->note('No se encontraron elementos de menú para el módulo Música.');
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al eliminar los elementos de menú: ' . $e->getMessage());
+        }
+    }
+    
+    private function generateTableRemovalMigration(SymfonyStyle $io): bool
+    {
+        // Crear un archivo de migración personalizado
+        $migrationDir = 'migrations';
+        if (!is_dir($migrationDir)) {
+            mkdir($migrationDir, 0777, true);
+        }
+        
+        $timestamp = date('YmdHis');
+        $className = "RemoveMusicaTables{$timestamp}";
+        $migrationFile = "{$migrationDir}/Version{$timestamp}.php";
+        
+        $migrationContent = $this->getMigrationTemplate($className);
+        
+        file_put_contents($migrationFile, $migrationContent);
+        $io->success("Migración para eliminar tablas generada: {$migrationFile}");
+        
+        return true;
+    }
+    
+    private function getMigrationTemplate(string $className): string
+    {
+        return <<<EOT
+<?php
+
+declare(strict_types=1);
+
+namespace DoctrineMigrations;
+
+use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\AbstractMigration;
+
+final class {$className} extends AbstractMigration
+{
+    public function getDescription(): string
+    {
+        return 'Eliminar tablas del módulo Música';
+    }
+
+    public function up(Schema \$schema): void
+    {
+        // Eliminar tablas en orden seguro (primero las que tienen claves foráneas)
+        \$this->addSql('DROP TABLE IF EXISTS musica_playlist_cancion');
+        \$this->addSql('DROP TABLE IF EXISTS musica_playlist');
+        \$this->addSql('DROP TABLE IF EXISTS musica_cancion');
+        \$this->addSql('DROP TABLE IF EXISTS musica_genero');
+    }
+
+    public function down(Schema \$schema): void
+    {
+        // Este método puede quedarse vacío o implementar la recreación de tablas si es necesario
+        \$this->addSql('CREATE TABLE musica_genero (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, nombre VARCHAR(255) NOT NULL, descripcion VARCHAR(255) DEFAULT NULL, icono VARCHAR(255) DEFAULT NULL, creado_en DATETIME NOT NULL --(DC2Type:datetime_immutable))');
+        \$this->addSql('CREATE TABLE musica_cancion (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, genero_id INTEGER DEFAULT NULL, titulo VARCHAR(255) NOT NULL, artista VARCHAR(255) DEFAULT NULL, album VARCHAR(255) DEFAULT NULL, descripcion CLOB DEFAULT NULL, imagen VARCHAR(255) DEFAULT NULL, url VARCHAR(255) DEFAULT NULL, es_publico BOOLEAN NOT NULL, anio INTEGER DEFAULT NULL, duracion INTEGER DEFAULT NULL, creado_en DATETIME NOT NULL --(DC2Type:datetime_immutable), actualizado_en DATETIME DEFAULT NULL --(DC2Type:datetime_immutable), CONSTRAINT FK_GENERO_ID FOREIGN KEY (genero_id) REFERENCES musica_genero (id) NOT DEFERRABLE INITIALLY IMMEDIATE)');
+        \$this->addSql('CREATE TABLE musica_playlist (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, nombre VARCHAR(255) NOT NULL, descripcion CLOB DEFAULT NULL, imagen VARCHAR(255) DEFAULT NULL, creador_id VARCHAR(255) NOT NULL, creador_nombre VARCHAR(255) DEFAULT NULL, es_publica BOOLEAN NOT NULL, creado_en DATETIME NOT NULL --(DC2Type:datetime_immutable), actualizado_en DATETIME DEFAULT NULL --(DC2Type:datetime_immutable))');
+        \$this->addSql('CREATE TABLE musica_playlist_cancion (playlist_id INTEGER NOT NULL, cancion_id INTEGER NOT NULL, PRIMARY KEY(playlist_id, cancion_id), CONSTRAINT FK_PLAYLIST_ID FOREIGN KEY (playlist_id) REFERENCES musica_playlist (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE, CONSTRAINT FK_CANCION_ID FOREIGN KEY (cancion_id) REFERENCES musica_cancion (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE)');
+    }
+}
+EOT;
+    }
+    
+    private function executeTableRemovalMigration(SymfonyStyle $io, bool $force): void
+    {
+        try {
+            $command = ['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'];
+            if ($force) {
+                $command[] = '--allow-no-migration';
+            }
+            
+            $process = new Process($command);
+            $process->setTimeout(300); // 5 minutos
+            
+            $io->note('Ejecutando migración para eliminar tablas...');
+            $process->run(function ($type, $buffer) use ($io) {
+                $io->write($buffer);
+            });
+            
+            if ($process->isSuccessful()) {
+                $io->success('Las tablas del módulo Música han sido eliminadas correctamente.');
+            } else {
+                $io->error('Error al ejecutar la migración. Detalles: ' . $process->getErrorOutput());
+            }
+        } catch (\Exception $e) {
+            $io->error('Error durante la eliminación de tablas: ' . $e->getMessage());
         }
     }
 }

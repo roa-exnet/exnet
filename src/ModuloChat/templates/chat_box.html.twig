@@ -1,11 +1,22 @@
-{# src/ModuloChat/templates/chat_room.html.twig #}
+{# src/ModuloChat/templates/chat_box.html.twig #}
+
 <div class="chat-header">
-    <h2>{{ roomId }}</h2>
+    <div class="header-title-area">
+        <h2>{{ roomName|default(roomId) }}</h2>
+        <button id="voice-call-button" class="voice-call-button" title="Iniciar llamada de voz">
+            <i class="fas fa-phone"></i> Llamar
+        </button>
+    </div>
+    {% if participants is defined %}
+        <div class="participants-count">{{ participants|length }} participante(s)</div>
+    {% endif %}
 </div>
+
 <div class="chat-messages">
-    <!-- Los mensajes se cargarán aquí desde el servidor WebSocket -->
 </div>
-<div class="typing-indicator" style="display: none;"></div>
+
+<div class="typing-indicator" id="typingIndicator" style="display: none;">Alguien está escribiendo...</div>
+
 <div class="chat-input">
     <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
     <button id="sendButton">Enviar</button>

@@ -4,13 +4,13 @@
     {% if message.messageType == 'system' %}
         <div class="message message-system">
             {{ message.content }}
-            <div><small>{{ message.sentAt|date('Y-m-d H:i:s') }}</small></div>
+            <small>{{ message.sentAt|date('H:i') }}</small>
         </div>
     {% else %}
         <div class="message {% if message.senderIdentifier == userId %}message-sent{% else %}message-received{% endif %}">
-            <div><strong>{{ message.senderName }}</strong></div>
-            <div>{{ message.content }}</div>
-            <div><small>{{ message.sentAt|date('Y-m-d H:i:s') }}</small></div>
+            <div class="message-header">{{ message.senderName }}</div>
+            <div class="message-content">{{ message.content }}</div>
+            <div class="message-timestamp">{{ message.sentAt|date('H:i') }}</div>
         </div>
     {% endif %}
 {% else %}
