@@ -37,16 +37,23 @@ doctrine:
                 prefix: 'App\ModuloChat\Entity'
 
                 alias: ModuloChat
+
+            ModuloMusica:
+
+                type: attribute
+
+                is_bundle: false
+
+                dir: '%kernel.project_dir%/src/ModuloMusica/Entity'
+
+                prefix: 'App\ModuloMusica\Entity'
+
+                alias: ModuloMusica
             ModuloStreaming:
                 is_bundle: false
                 dir: '%kernel.project_dir%/src/ModuloStreaming/Entity'
                 prefix: App\ModuloStreaming\Entity
                 alias: ModuloStreaming
-            ModuloMusica:
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/ModuloMusica/Entity'
-                prefix: App\ModuloMusica\Entity
-                alias: ModuloMusica
         controller_resolver:
             auto_mapping: false
 when@test:

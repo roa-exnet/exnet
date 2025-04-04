@@ -56,8 +56,30 @@ services:
     App\ModuloCore\EventSubscriber\JwtAuthSubscriber:
         tags:
             - { name: kernel.event_subscriber }
+    
+    App\ModuloCore\Service\CdnService:
+        arguments:
+            $httpClient: '@http_client'
+            $entityManager: '@doctrine.orm.entity_manager'
+            $parameterBag: '@parameter_bag'
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-                                #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
+    App\ModuloMusica\Controller\:
+        resource: '../src/ModuloMusica/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloMusica\Command\:
+        resource: '../src/ModuloMusica/Command'
+        tags: ['console.command']
+        
+    App\ModuloMusica\Service\:
+        resource: '../src/ModuloMusica/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        
+                       
+                                    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
     App\ModuloChat\Controller\:
         resource: '../src/ModuloChat/Controller'
 
