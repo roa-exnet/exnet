@@ -5,14 +5,14 @@
 {% block head %}
     {{ parent() }}
     <style>
-        .module-grid {
+        .exnet-module-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
             margin-top: 20px;
         }
         
-        .module-card {
+        .exnet-module-card {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             padding: 20px;
@@ -22,12 +22,12 @@
             overflow: hidden;
         }
         
-        .module-card:hover {
+        .exnet-module-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
         }
         
-        .premium-badge {
+        .exnet-premium-badge {
             position: absolute;
             top: 10px;
             right: 10px;
@@ -39,7 +39,7 @@
             font-weight: bold;
         }
         
-        .installed-badge {
+        .exnet-installed-badge {
             position: absolute;
             top: 10px;
             right: 10px;
@@ -51,31 +51,31 @@
             font-weight: bold;
         }
         
-        .module-icon {
+        .exnet-module-icon {
             font-size: 2rem;
             margin-bottom: 15px;
             color: #8fd3f4;
         }
         
-        .module-title {
+        .exnet-module-title {
             font-size: 1.25rem;
             margin-bottom: 10px;
             color: white;
         }
         
-        .module-version {
+        .exnet-module-version {
             font-size: 0.85rem;
             color: rgba(255, 255, 255, 0.6);
             margin-bottom: 15px;
         }
         
-        .module-description {
+        .exnet-module-description {
             color: rgba(255, 255, 255, 0.8);
             margin-bottom: 20px;
             font-size: 0.9rem;
         }
         
-        .category-title {
+        .exnet-category-title {
             color: white;
             font-size: 1.5rem;
             margin: 30px 0 15px;
@@ -83,7 +83,7 @@
             padding-bottom: 10px;
         }
         
-        .category-subtitle {
+        .exnet-category-subtitle {
             color: white;
             font-size: 1.2rem;
             margin: 15px 0 10px;
@@ -91,12 +91,12 @@
             border-left: 3px solid rgba(135, 206, 235, 0.7);
         }
         
-        .license-form {
+        .exnet-license-form {
             display: none;
             margin-top: 15px;
         }
         
-        .license-input {
+        .exnet-license-input {
             width: 100%;
             padding: 8px;
             margin-bottom: 10px;
@@ -106,19 +106,19 @@
             color: white;
         }
         
-        .alert {
+        .exnet-alert {
             padding: 15px;
             border-radius: 5px;
             margin-bottom: 20px;
         }
         
-        .alert-danger {
+        .exnet-alert-danger {
             background-color: rgba(220, 53, 69, 0.2);
             color: #f8d7da;
             border: 1px solid rgba(220, 53, 69, 0.3);
         }
         
-        .loader {
+        .exnet-loader {
             display: inline-block;
             width: 20px;
             height: 20px;
@@ -147,14 +147,14 @@
         <p class="mb-4">Explora y añade nuevos módulos a tu instancia de Exnet</p>
         
         {% if error is defined and error %}
-            <div class="alert alert-danger">
+            <div class="exnet-alert exnet-alert-danger">
                 <i class="fas fa-exclamation-circle me-2"></i> {{ error }}
             </div>
         {% endif %}
         
         <div id="marketplace-container">
             <div class="d-flex justify-content-center p-5">
-                <div class="loader"></div>
+                <div class="exnet-loader"></div>
                 <span>Cargando módulos disponibles...</span>
             </div>
         </div>
@@ -185,7 +185,7 @@
             function showError(message) {
                 const container = document.getElementById('marketplace-container');
                 container.innerHTML = `
-                    <div class="alert alert-danger">
+                    <div class="exnet-alert exnet-alert-danger">
                         <i class="fas fa-exclamation-circle me-2"></i> ${message}
                     </div>
                     <div class="text-center mt-4">
@@ -210,7 +210,7 @@
                 
                 if (Object.keys(marketplace).length === 0) {
                     container.innerHTML = `
-                        <div class="alert alert-info">
+                        <div class="exnet-alert exnet-alert-info">
                             <i class="fas fa-info-circle me-2"></i> No hay módulos disponibles en este momento.
                         </div>
                     `;
@@ -230,7 +230,6 @@
                                 m.name.toLowerCase() === module.name.toLowerCase() ||
                                 m.name.toLowerCase() === 'modulo' + module.name.toLowerCase()
                             );
-                            
                             if (!exists) {
                                 installedModules.push({...module, category});
                             }
@@ -245,7 +244,7 @@
                 
                 if (installedModules.length > 0) {
                     const installedTitle = document.createElement('h3');
-                    installedTitle.className = 'category-title';
+                    installedTitle.className = 'exnet-category-title';
                     installedTitle.textContent = 'Módulos Instalados';
                     container.appendChild(installedTitle);
                     
@@ -255,7 +254,7 @@
                     container.appendChild(installedInfo);
                     
                     const installedGrid = document.createElement('div');
-                    installedGrid.className = 'module-grid';
+                    installedGrid.className = 'exnet-module-grid';
                     
                     installedModules.forEach(module => {
                         installedGrid.appendChild(createModuleCard(module, module.category));
@@ -266,7 +265,7 @@
                 
                 if (Object.keys(availableModules).length > 0) {
                     const availableTitle = document.createElement('h3');
-                    availableTitle.className = 'category-title mt-5';
+                    availableTitle.className = 'exnet-category-title mt-5';
                     availableTitle.textContent = 'Módulos Disponibles';
                     container.appendChild(availableTitle);
                     
@@ -275,12 +274,12 @@
                         if (modules.length === 0) continue;
                         
                         const categoryTitle = document.createElement('h4');
-                        categoryTitle.className = 'category-subtitle';
+                        categoryTitle.className = 'exnet-category-subtitle';
                         categoryTitle.textContent = formatCategoryName(category);
                         container.appendChild(categoryTitle);
                         
                         const moduleGrid = document.createElement('div');
-                        moduleGrid.className = 'module-grid';
+                        moduleGrid.className = 'exnet-module-grid';
                         
                         modules.forEach(module => {
                             moduleGrid.appendChild(createModuleCard(module, category));
@@ -293,29 +292,29 @@
             
             function createModuleCard(module, category) {
                 const card = document.createElement('div');
-                card.className = 'module-card';
+                card.className = 'exnet-module-card';
                 
                 if (module.price === 'premium') {
                     const premiumBadge = document.createElement('span');
-                    premiumBadge.className = 'premium-badge';
+                    premiumBadge.className = 'exnet-premium-badge';
                     premiumBadge.innerHTML = '<i class="fas fa-crown me-1"></i> Premium';
                     card.appendChild(premiumBadge);
                 }
                 
                 if (module.installed) {
                     const installedBadge = document.createElement('span');
-                    installedBadge.className = 'installed-badge';
+                    installedBadge.className = 'exnet-installed-badge';
                     installedBadge.innerHTML = '<i class="fas fa-check me-1"></i> Instalado';
                     card.appendChild(installedBadge);
                 }
                 
                 card.innerHTML += `
-                    <div class="module-icon">
+                    <div class="exnet-module-icon">
                         <i class="fas fa-puzzle-piece"></i>
                     </div>
-                    <h4 class="module-title">${module.name}</h4>
-                    <div class="module-version">v${module.version}</div>
-                    <p class="module-description">${module.description}</p>
+                    <h4 class="exnet-module-title">${module.name}</h4>
+                    <div class="exnet-module-version">v${module.version}</div>
+                    <p class="exnet-module-description">${module.description}</p>
                 `;
                 
                 if (!module.installed) {
@@ -337,17 +336,17 @@
                     
                     if (module.price === 'premium') {
                         const licenseForm = document.createElement('div');
-                        licenseForm.className = 'license-form';
+                        licenseForm.className = 'exnet-license-form';
                         licenseForm.innerHTML = `
-                            <input type="text" class="license-input" placeholder="Introduce tu clave de licencia" />
-                            <button class="exnet-btn exnet-btn-green w-100 mt-2 verify-license-btn">
+                            <input type="text" class="exnet-license-input" placeholder="Introduce tu clave de licencia" />
+                            <button class="exnet-btn exnet-btn-green w-100 mt-2 exnet-verify-license-btn">
                                 <i class="fas fa-key me-2"></i> Verificar licencia
                             </button>
                         `;
                         
-                        const verifyButton = licenseForm.querySelector('.verify-license-btn');
+                        const verifyButton = licenseForm.querySelector('.exnet-verify-license-btn');
                         verifyButton.onclick = function() {
-                            const licenseKey = licenseForm.querySelector('.license-input').value.trim();
+                            const licenseKey = licenseForm.querySelector('.exnet-license-input').value.trim();
                             if (licenseKey) {
                                 verifyLicense(licenseKey, module, category);
                             }
@@ -361,8 +360,8 @@
             }
             
             function toggleLicenseForm(button, module, category) {
-                const card = button.closest('.module-card');
-                const licenseForm = card.querySelector('.license-form');
+                const card = button.closest('.exnet-module-card');
+                const licenseForm = card.querySelector('.exnet-license-form');
                 
                 if (licenseForm.style.display === 'block') {
                     licenseForm.style.display = 'none';
@@ -397,130 +396,128 @@
                 });
             }
             
-function installModule(module, category, downloadToken = null) {
-    const container = document.getElementById('marketplace-container');
-    container.innerHTML = `
-        <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-            <div class="loader" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
-            <h4 class="text-white mb-3">Instalando módulo ${module.name}</h4>
-            <p class="text-white-50">Este proceso puede tardar unos minutos. No cierres esta página.</p>
-        </div>
-    `;
-    
-    fetch('/api/modulos/install', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            moduleType: category,
-            filename: module.filename,
-            downloadToken: downloadToken
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.message || `Error HTTP: ${response.status}`);
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            const commandFailed = data.commandSuccess === false;
-            
-            let resultMessage = `
-                <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                    <i class="fas fa-${commandFailed ? 'exclamation-triangle text-warning' : 'check-circle text-success'}" 
-                       style="font-size: 40px; margin-bottom: 20px;"></i>
-                    <h4 class="text-white mb-3">
-                        ${commandFailed ? '⚠️ Módulo instalado con advertencias' : '✅ Módulo instalado correctamente!'}
-                    </h4>
-                    <p class="text-white-50">${data.message}</p>
-            `;
-            
-            if (data.commandOutput) {
-                resultMessage += `
-                    <div class="mt-4 p-3 bg-dark rounded w-100">
-                        <h5 class="text-white d-flex align-items-center">
-                            <span class="badge ${commandFailed ? 'bg-danger' : 'bg-success'} me-2">
-                                ${commandFailed ? 'Error' : 'Éxito'}
-                            </span>
-                            Resultado del comando de instalación:
-                        </h5>
-                        <div class="bg-black p-2 rounded" style="max-height: 200px; overflow-y: auto;">
-                            <pre class="${commandFailed ? 'text-danger' : 'text-light'} mb-0" style="white-space: pre-wrap;">${data.commandOutput}</pre>
-                        </div>
+            function installModule(module, category, downloadToken = null) {
+                const container = document.getElementById('marketplace-container');
+                container.innerHTML = `
+                    <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                        <div class="exnet-loader" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
+                        <h4 class="text-white mb-3">Instalando módulo ${module.name}</h4>
+                        <p class="text-white-50">Este proceso puede tardar unos minutos. No cierres esta página.</p>
                     </div>
                 `;
-            }
-            
-            resultMessage += `
-                <div class="d-flex gap-3 mt-4">
-                    <button class="exnet-btn exnet-btn-blue" onclick="window.location.href='/modulos'">
-                        <i class="fas fa-list me-2"></i> Ver módulos instalados
-                    </button>
-                    ${commandFailed ? `
-                        <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
-                            <i class="fas fa-sync me-2"></i> Volver a marketplace
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-            `;
-            
-            container.innerHTML = resultMessage;
-            
-            if (!commandFailed) {
-                setTimeout(() => {
-                    window.location.href = '/modulos';
-                }, 5000);
-            }
-        } else {
-            let errorMessage = `
-                <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                    <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
-                    <h4 class="text-white mb-3">❌ Error al instalar el módulo</h4>
-                    <p class="text-white-50">${data.message || 'Se produjo un error durante la instalación'}</p>
-            `;
-            
-            if (data.commandOutput) {
-                errorMessage += `
-                    <div class="mt-4 p-3 bg-dark rounded w-100">
-                        <h5 class="text-white">Detalles del error:</h5>
-                        <div class="bg-black p-2 rounded" style="max-height: 200px; overflow-y: auto;">
-                            <pre class="text-danger mb-0" style="white-space: pre-wrap;">${data.commandOutput}</pre>
+                
+                fetch('/api/modulos/install', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        moduleType: category,
+                        filename: module.filename,
+                        downloadToken: downloadToken
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || `Error HTTP: ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        const commandFailed = data.commandSuccess === false;
+                        let resultMessage = `
+                            <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                                <i class="fas fa-${commandFailed ? 'exclamation-triangle text-warning' : 'check-circle text-success'}" 
+                                   style="font-size: 40px; margin-bottom: 20px;"></i>
+                                <h4 class="text-white mb-3">
+                                    ${commandFailed ? '⚠️ Módulo instalado con advertencias' : '✅ Módulo instalado correctamente!'}
+                                </h4>
+                                <p class="text-white-50">${data.message}</p>
+                        `;
+                        
+                        if (data.commandOutput) {
+                            resultMessage += `
+                                <div class="mt-4 p-3 bg-dark rounded w-100">
+                                    <h5 class="text-white d-flex align-items-center">
+                                        <span class="badge ${commandFailed ? 'bg-danger' : 'bg-success'} me-2">
+                                            ${commandFailed ? 'Error' : 'Éxito'}
+                                        </span>
+                                        Resultado del comando de instalación:
+                                    </h5>
+                                    <div class="bg-black p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+                                        <pre class="${commandFailed ? 'text-danger' : 'text-light'} mb-0" style="white-space: pre-wrap;">${data.commandOutput}</pre>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        resultMessage += `
+                            <div class="d-flex gap-3 mt-4">
+                                <button class="exnet-btn exnet-btn-blue" onclick="window.location.href='/modulos'">
+                                    <i class="fas fa-list me-2"></i> Ver módulos instalados
+                                </button>
+                                ${commandFailed ? `
+                                    <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
+                                        <i class="fas fa-sync me-2"></i> Volver a marketplace
+                                    </button>
+                                ` : ''}
+                            </div>
                         </div>
-                    </div>
-                `;
+                        `;
+                        
+                        container.innerHTML = resultMessage;
+                        
+                        if (!commandFailed) {
+                            setTimeout(() => {
+                                window.location.href = '/modulos';
+                            }, 5000);
+                        }
+                    } else {
+                        let errorMessage = `
+                            <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                                <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
+                                <h4 class="text-white mb-3">❌ Error al instalar el módulo</h4>
+                                <p class="text-white-50">${data.message || 'Se produjo un error durante la instalación'}</p>
+                        `;
+                        
+                        if (data.commandOutput) {
+                            errorMessage += `
+                                <div class="mt-4 p-3 bg-dark rounded w-100">
+                                    <h5 class="text-white">Detalles del error:</h5>
+                                    <div class="bg-black p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+                                        <pre class="text-danger mb-0" style="white-space: pre-wrap;">${data.commandOutput}</pre>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        errorMessage += `
+                            <button class="exnet-btn exnet-btn-outline-light mt-4" onclick="window.location.reload()">
+                                <i class="fas fa-sync me-2"></i> Reintentar
+                            </button>
+                        </div>
+                        `;
+                        
+                        container.innerHTML = errorMessage;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error en la instalación:', error);
+                    container.innerHTML = `
+                        <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                            <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
+                            <h4 class="text-white mb-3">Error de conexión</h4>
+                            <p class="text-white-50">No se pudo conectar con el servidor para instalar el módulo: ${error.message}</p>
+                            <button class="exnet-btn exnet-btn-outline-light mt-4" onclick="window.location.reload()">
+                                <i class="fas fa-sync me-2"></i> Reintentar
+                            </button>
+                        </div>
+                    `;
+                });
             }
-            
-            errorMessage += `
-                <button class="exnet-btn exnet-btn-outline-light mt-4" onclick="window.location.reload()">
-                    <i class="fas fa-sync me-2"></i> Reintentar
-                </button>
-            </div>
-            `;
-            
-            container.innerHTML = errorMessage;
-        }
-    })
-    .catch(error => {
-        console.error('Error en la instalación:', error);
-        
-        container.innerHTML = `
-            <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
-                <h4 class="text-white mb-3">Error de conexión</h4>
-                <p class="text-white-50">No se pudo conectar con el servidor para instalar el módulo: ${error.message}</p>
-                <button class="exnet-btn exnet-btn-outline-light mt-4" onclick="window.location.reload()">
-                    <i class="fas fa-sync me-2"></i> Reintentar
-                </button>
-            </div>
-        `;
-    });
-}
         });
     </script>
 {% endblock %}

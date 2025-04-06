@@ -21,29 +21,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 class GenController extends AbstractController
 {
-    #[Route('/explorador', name: 'explorer_')]
-    #[IsGranted('IS_AUTHENTICATED_REMEMBERED')]
-
-    #[Route('/', name: 'index')]
-    public function index(): Response
-    {
-        /** @var User $user */
-        $user = $this->getUser();
-        
-        // Verificación adicional de seguridad
-        if (!$user instanceof User) {
-            throw new AccessDeniedException('Debes iniciar sesión para acceder al explorador de archivos.');
-        }
-        
-        $userId = (string) $user->getId();
-        $userName = $user->getNombre() . ' ' . $user->getApellidos();
-        
-        /*return $this->render('gen/index.html.twig', [
-            'userId' => $userId,
-            'userName' => $userName,
-        ]);*/
-        return $this->redirectToRoute('explorer');
-    }
+   
     #[Route('/archivos', name: 'explorer',methods:['GET','POST'])]
     public function explorer(Request $request): Response {
         $lastDir='/root/explorador';

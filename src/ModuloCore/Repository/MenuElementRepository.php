@@ -1,14 +1,10 @@
 <?php
-
 namespace App\ModuloCore\Repository;
 
 use App\ModuloCore\Entity\MenuElement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
-/**
- * @extends ServiceEntityRepository<MenuElement>
- */
 class MenuElementRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -16,28 +12,31 @@ class MenuElementRepository extends ServiceEntityRepository
         parent::__construct($registry, MenuElement::class);
     }
 
-    //    /**
-    //     * @return MenuElement[] Returns an array of MenuElement objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('m')
-    //            ->andWhere('m.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('m.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function getMenuHierarchy(): array
+    {
+        $menus = $this->createQueryBuilder('m')
+            ->where('m.enabled = :enabled')
+            ->setParameter('enabled', true)
+            ->orderBy('m.orden', 'ASC')
+            ->getQuery()
+            ->getResult();
 
-    //    public function findOneBySomeField($value): ?MenuElement
-    //    {
-    //        return $this->createQueryBuilder('m')
-    //            ->andWhere('m.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        $hierarchy = [];
+        $byParent = [];
+
+        foreach ($menus as $menu) {
+            $byParent[$menu->getParentId()][] = $menu;
+        }
+
+        if (isset($byParent[0])) {
+            foreach ($byParent[0] as $rootMenu) {
+                $hierarchy[] = [
+                    'menu' => $rootMenu,
+                    'submenus' => $byParent[$rootMenu->getId()] ?? []
+                ];
+            }
+        }
+
+        return $hierarchy;
+    }
 }

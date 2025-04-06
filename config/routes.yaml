@@ -15,3 +15,15 @@ modulo_musica_controllers:
         path: ../src/ModuloMusica/Controller/
         namespace: App\ModuloMusica\Controller
     type: attribute
+
+modulo_explorador_controllers:
+    resource:
+        path: ../src/ModuloExplorador/Controller/
+        namespace: App\ModuloExplorador\Controller
+    type: attribute
+
+modulo_streaming_controllers:
+    resource:
+        path: ../src/ModuloStreaming/Controller/
+        namespace: App\ModuloStreaming\Controller
+    type: attribute

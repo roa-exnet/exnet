@@ -39,75 +39,123 @@
     </button>
 </nav>
     
-    <div id="sideMenu" style="position: fixed; top: 0; left: -280px; width: 280px; height: 100vh; background-color: #2c3e50; z-index: 10000; transition: left 0.3s ease; box-shadow: 0 0 15px rgba(0,0,0,0.3);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-            <h2 style="color: white; margin: 0; font-size: 1.8rem;">Exnet</h2>
-            <button id="closeMenu" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div style="padding: 20px;">
+<div id="sideMenu" style="position: fixed; top: 0; left: -280px; width: 280px; height: 100vh; background-color: #2c3e50; z-index: 10000; transition: left 0.3s ease; box-shadow: 0 0 15px rgba(0,0,0,0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <h2 style="color: white; margin: 0; font-size: 1.8rem;">Exnet</h2>
+        <button id="closeMenu" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div style="padding: 20px;">
+        {% if menuStructure is defined %}
+            {% for item in menuStructure %}
+                {% if item.submenus|length > 0 %}
+                    <div class="exnet-has-submenu">
+                        <a href="javascript:void(0)" class="exnet-dropdown-toggle" style="color: white; display: flex; align-items: center; justify-content: space-between; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span><i class="{{ item.menu.icon }}" style="margin-right: 12px; width: 20px; text-align: center;"></i>{{ item.menu.nombre }}</span>
+                            <i class="fas fa-chevron-down exnet-dropdown-icon"></i>
+                        </a>
+                        <div class="exnet-submenu">
+                            {% for submenu in item.submenus %}
+                                <a href="{{ submenu.ruta ?: '#' }}" class="exnet-submenu-item">
+                                    <i class="{{ submenu.icon }}" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                                    <span>{{ submenu.nombre }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{{ item.menu.ruta ?: '#' }}" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <i class="{{ item.menu.icon }}" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                        <span>{{ item.menu.nombre }}</span>
+                    </a>
+                {% endif %}
+            {% endfor %}
+        {% elseif menus is defined %}
             {% for menu in menus %}
                 <a href="{{ menu.ruta ?: '#' }}" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
                     <i class="{{ menu.icon }}" style="margin-right: 12px; width: 20px; text-align: center;"></i>
                     <span>{{ menu.nombre }}</span>
                 </a>
             {% endfor %}
-            
-            {% if menus is empty %}
-                <a href="/" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <i class="fas fa-home" style="margin-right: 12px; width: 20px; text-align: center;"></i>
-                    <span>Inicio</span>
-                </a>
-                <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <i class="fas fa-puzzle-piece" style="margin-right: 12px; width: 20px; text-align: center;"></i>
-                    <span>Módulos</span>
-                </a>
-            {% endif %}
-            
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
-                <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; background-color: rgba(255,255,255,0.1); border-radius: 5px; padding: 10px;">
-                    <i class="fas fa-plus-circle" style="margin-right: 12px; width: 20px; text-align: center;"></i>
-                    <span>Añadir Módulos</span>
-                </a>
-            </div>
+        {% else %}
+            <a href="/" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <i class="fas fa-home" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                <span>Inicio</span>
+            </a>
+            <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <i class="fas fa-puzzle-piece" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                <span>Módulos</span>
+            </a>
+        {% endif %}
+        
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+            <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; background-color: rgba(255,255,255,0.1); border-radius: 5px; padding: 10px;">
+                <i class="fas fa-plus-circle" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                <span>Añadir Módulos</span>
+            </a>
         </div>
     </div>
+</div>
     
-    <nav class="d-none d-lg-block" style="position: fixed; top: 0; left: 0; width: 100%; background-color: rgba(44, 62, 80, 0.6); z-index: 9999; padding: 0.75rem 0; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-        <div class="container d-flex justify-content-between align-items-center">
-            <a href="/" style="text-decoration: none;">
-                <h1 style="color: white; margin: 0; font-size: 1.75rem;">Exnet</h1>
-            </a>
-            <div class="d-flex align-items-center">
-                <div class="me-4">
+<nav class="d-none d-lg-block" style="position: fixed; top: 0; left: 0; width: 100%; background-color: rgba(44, 62, 80, 0.6); z-index: 9999; padding: 0.75rem 0; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a href="/" style="text-decoration: none;">
+            <h1 style="color: white; margin: 0; font-size: 1.75rem;">Exnet</h1>
+        </a>
+        <div class="d-flex align-items-center">
+            <div class="me-4">
+                {% if menuStructure is defined %}
+                    {% for item in menuStructure %}
+                        {% if item.submenus|length > 0 %}
+                            <div class="exnet-has-submenu d-inline-block position-relative">
+                                <a href="javascript:void(0)" class="exnet-dropdown-toggle" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                                    <i class="{{ item.menu.icon }}" style="margin-right: 5px;"></i>
+                                    <span>{{ item.menu.nombre }}</span>
+                                    <i class="fas fa-chevron-down exnet-dropdown-icon" style="font-size: 0.7rem; margin-left: 5px;"></i>
+                                </a>
+                                <div class="exnet-submenu">
+                                    {% for submenu in item.submenus %}
+                                        <a href="{{ submenu.ruta ?: '#' }}" class="exnet-submenu-item">
+                                            <i class="{{ submenu.icon }}" style="margin-right: 8px;"></i>
+                                            <span>{{ submenu.nombre }}</span>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% else %}
+                            <a href="{{ item.menu.ruta ?: '#' }}" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                                <i class="{{ item.menu.icon }}" style="margin-right: 5px;"></i>
+                                <span>{{ item.menu.nombre }}</span>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                {% elseif menus is defined %}
                     {% for menu in menus %}
                         <a href="{{ menu.ruta ?: '#' }}" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
                             <i class="{{ menu.icon }}" style="margin-right: 5px;"></i>
                             <span>{{ menu.nombre }}</span>
                         </a>
                     {% endfor %}
-                    
-                    {% if menus is empty %}
-                        <a href="/" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
-                            <i class="fas fa-home" style="margin-right: 5px;"></i>
-                            <span>Inicio</span>
-                        </a>
-                    {% endif %}
-                </div>
-                
-                <a href="/modulos" style="color: white; padding: 6px 15px; text-decoration: none; display: inline-block; border-radius: 5px; background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); transition: all 0.3s ease;">
-                    <i class="fas fa-plus-circle" style="margin-right: 5px;"></i>
-                    <span>Añadir Módulos</span>
-                </a>
+                {% else %}
+                    <a href="/" style="color: white; margin: 0 10px; padding: 5px 10px; text-decoration: none; display: inline-block; border-radius: 5px; transition: background-color 0.3s ease;">
+                        <i class="fas fa-home" style="margin-right: 5px;"></i>
+                        <span>Inicio</span>
+                    </a>
+                {% endif %}
             </div>
+            
+            <a href="/modulos" style="color: white; padding: 6px 15px; text-decoration: none; display: inline-block; border-radius: 5px; background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); transition: all 0.3s ease;">
+                <i class="fas fa-plus-circle" style="margin-right: 5px;"></i>
+                <span>Añadir Módulos</span>
+            </a>
         </div>
-    </nav>
-    
+    </div>
+</nav>
 {% endblock %}
 
-    <div class="flex-grow-1">
+    <div class="exnet-flex-grow-1">
         <main class="container mt-5 pt-4">
             {% block body %}{% endblock %}
         </main>
@@ -116,7 +164,7 @@
     {% block footer %}
     <footer class="exnet-footer text-center">
         <div class="container">
-            <p class="mb-0">&copy; 2025 Exnet. By ROA.</p>
+            <p class="mb-0">© 2025 Exnet. By ROA.</p>
         </div>
     </footer>
     {% endblock %}

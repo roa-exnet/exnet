@@ -65,36 +65,36 @@ a:hover {
     text-decoration: none;
 }
 
-.text-primary {
+.exnet-text-primary {
     color: var(--exnet-primary) !important;
 }
 
-.text-secondary {
+.exnet-text-secondary {
     color: var(--exnet-secondary) !important;
 }
 
-.text-accent {
+.exnet-text-accent {
     color: var(--exnet-accent) !important;
 }
 
-.text-light {
+.exnet-text-light {
     color: var(--exnet-text-light) !important;
 }
 
-.bg-primary {
+.exnet-bg-primary {
     background-color: var(--exnet-primary) !important;
 }
 
-.bg-secondary {
+.exnet-bg-secondary {
     background-color: var(--exnet-secondary) !important;
 }
 
-.bg-transparent-dark {
+.exnet-bg-transparent-dark {
     background-color: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(10px);
 }
 
-.flex-grow-1 {
+.exnet-flex-grow-1 {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
@@ -150,9 +150,87 @@ a:hover {
     text-decoration: underline;
 }
 
-.vh-centered {
+.exnet-vh-centered {
     min-height: calc(100vh - 160px);
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.exnet-has-submenu {
+    position: relative;
+}
+
+.exnet-dropdown-toggle {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.exnet-dropdown-icon {
+    margin-left: 5px;
+    transition: transform 0.3s ease;
+    font-size: 0.7rem;
+}
+
+.exnet-dropdown-icon.exnet-rotated {
+    transform: rotate(180deg);
+}
+
+@media (min-width: 992px) {
+    .exnet-submenu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        min-width: 200px;
+        background-color: rgba(44, 62, 80, 0.95);
+        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        display: none;
+        z-index: 1000;
+        padding: 5px 0;
+    }
+    
+    .exnet-submenu.exnet-show {
+        display: block;
+    }
+    
+    .exnet-submenu-item {
+        padding: 8px 15px;
+        display: flex;
+        align-items: center;
+        color: white;
+        text-decoration: none;
+        transition: background-color 0.2s ease;
+    }
+    
+    .exnet-submenu-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
+
+@media (max-width: 991px) {
+    #sideMenu .exnet-submenu {
+        display: none;
+        background-color: rgba(0, 0, 0, 0.2);
+        padding-left: 20px;
+        margin-top: 5px;
+    }
+    
+    #sideMenu .exnet-submenu.exnet-show {
+        display: block;
+    }
+    
+    #sideMenu .exnet-submenu-item {
+        padding: 10px 0;
+        display: flex;
+        align-items: center;
+        color: white;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    #sideMenu .exnet-submenu-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
 }
