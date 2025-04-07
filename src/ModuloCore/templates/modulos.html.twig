@@ -39,6 +39,18 @@
             font-weight: bold;
         }
         
+        .exnet-inactive-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #ffb199 0%, #ff0844 100%);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
         .exnet-module-icon {
             font-size: 2rem;
             margin-bottom: 15px;
@@ -78,6 +90,57 @@
             color: #d1ecf1;
             border: 1px solid rgba(91, 192, 222, 0.3);
         }
+        
+        .exnet-uninstall-confirm-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .exnet-modal-content {
+            background: rgba(44, 62, 80, 0.95);
+            margin: 15% auto;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            color: white;
+            position: relative;
+        }
+        
+        .exnet-modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .exnet-modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .exnet-loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 {% endblock %}
 
@@ -85,7 +148,7 @@
     <div class="exnet-container-transparent">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="exnet-section-title mb-0">Módulos Disponibles</h2>
-            <a href="{{ path('modulos_marketplace') }}" class="exnet-btn exnet-btn-outline-light">
+            <a href="/modulos/marketplace" class="exnet-btn exnet-btn-outline-light">
                 <i class="fas fa-store me-2"></i> Explorar Marketplace
             </a>
         </div>
@@ -107,6 +170,10 @@
                         <span class="exnet-installed-badge">
                             <i class="fas fa-check me-1"></i> Instalado
                         </span>
+                    {% else %}
+                        <span class="exnet-inactive-badge">
+                            <i class="fas fa-times me-1"></i> Inactivo
+                        </span>
                     {% endif %}
                     <div class="exnet-module-icon">
                         <i class="{{ modulo.icon }}"></i>
@@ -119,22 +186,20 @@
                             <a href="{{ modulo.ruta }}" class="exnet-btn exnet-btn-blue">
                                 <i class="fas fa-external-link-alt me-2"></i> Abrir
                             </a>
-                            <form method="POST" action="{{ path('modulos_toggle_state', {'id': modulo.id}) }}" class="d-inline">
-                                <button type="submit" class="exnet-btn exnet-btn-outline-light">
-                                    <i class="fas fa-power-off me-2"></i> Desactivar
-                                </button>
-                            </form>
+                            <button class="exnet-btn exnet-btn-outline-danger" 
+                                    onclick="showDeleteConfirm('{{ modulo.id }}', '{{ modulo.nombre }}')">
+                                <i class="fas fa-trash-alt me-2"></i> Borrar
+                            </button>
                         {% else %}
                             <form method="POST" action="{{ path('modulos_toggle_state', {'id': modulo.id}) }}" class="d-inline">
-                                <button type="submit" class="exnet-btn exnet-btn-blue">
-                                    <i class="fas fa-power-off me-2"></i> Activar
+                                <button type="submit" class="exnet-btn exnet-btn-green">
+                                    <i class="fas fa-sync me-2"></i> Reinstalar
                                 </button>
                             </form>
-                            <form method="POST" action="{{ path('modulos_uninstall', {'id': modulo.id}) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de querer desinstalar este módulo?');">
-                                <button type="submit" class="exnet-btn exnet-btn-outline-danger">
-                                    <i class="fas fa-trash-alt me-2"></i> Desinstalar
-                                </button>
-                            </form>
+                            <button class="exnet-btn exnet-btn-outline-danger" 
+                                    onclick="showDeleteConfirm('{{ modulo.id }}', '{{ modulo.nombre }}')">
+                                <i class="fas fa-trash-alt me-2"></i> Borrar
+                            </button>
                         {% endif %}
                     </div>
                 </div>
@@ -142,9 +207,136 @@
                 <div class="exnet-alert exnet-alert-info" style="grid-column: 1 / -1;">
                     <i class="fas fa-info-circle me-2"></i>
                     No hay módulos instalados actualmente. Puedes añadir nuevos módulos desde el 
-                    <a href="{{ path('modulos_marketplace') }}" class="alert-link">Marketplace</a>.
+                    <a href="/modulos/marketplace" class="alert-link">Marketplace</a>.
                 </div>
             {% endfor %}
         </div>
     </div>
+    
+    <!-- Modal de confirmación de eliminación -->
+    <div id="deleteConfirmModal" class="exnet-uninstall-confirm-modal">
+        <div class="exnet-modal-content">
+            <div class="exnet-modal-title">Confirmar eliminación</div>
+            <p>¿Estás seguro de que quieres eliminar completamente el módulo <span id="moduleNameToDelete"></span>?</p>
+            <p>Esta acción ejecutará el comando de desinstalación definido en el archivo commands.json del módulo, eliminará sus datos y borrará físicamente todos los archivos.</p>
+            
+            <div id="deleteInProgress" style="display: none;">
+                <div class="d-flex align-items-center mt-3 mb-3">
+                    <div class="exnet-loader"></div>
+                    <span>Eliminando módulo...</span>
+                </div>
+                <div id="deleteLog" class="p-2 bg-dark rounded mt-2" style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.8rem;">
+                </div>
+            </div>
+            
+            <div class="exnet-modal-buttons" id="deleteModalButtons">
+                <button class="exnet-btn exnet-btn-outline-light" onclick="closeDeleteConfirm()">
+                    Cancelar
+                </button>
+                <button class="exnet-btn exnet-btn-danger" id="confirmDeleteBtn">
+                    Borrar
+                </button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block imports %}
+    {{ parent() }}
+    <script>
+        let moduleIdToDelete = null;
+        
+        function showDeleteConfirm(moduleId, moduleName) {
+            moduleIdToDelete = moduleId;
+            document.getElementById('moduleNameToDelete').textContent = moduleName;
+            document.getElementById('deleteConfirmModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            
+            // Configurar botón de confirmación
+            document.getElementById('confirmDeleteBtn').onclick = function() {
+                deleteModule(moduleId);
+            };
+        }
+        
+        function closeDeleteConfirm() {
+            document.getElementById('deleteConfirmModal').style.display = 'none';
+            document.body.style.overflow = '';
+            moduleIdToDelete = null;
+            
+            // Restablecer estado del modal
+            document.getElementById('deleteInProgress').style.display = 'none';
+            document.getElementById('deleteModalButtons').style.display = 'flex';
+            document.getElementById('deleteLog').innerHTML = '';
+        }
+        
+        function deleteModule(moduleId) {
+            // Mostrar estado de progreso
+            document.getElementById('deleteInProgress').style.display = 'block';
+            document.getElementById('deleteModalButtons').style.display = 'none';
+            
+            // Agregar mensaje inicial al log
+            const deleteLog = document.getElementById('deleteLog');
+            deleteLog.innerHTML = '> Iniciando proceso de eliminación...\n';
+            
+            // Llamar a la API para eliminar el módulo
+            fetch(`/api/modulos/${moduleId}/uninstall`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    completeRemoval: true  // Indicar que se desea eliminar completamente
+                })
+            })
+            .then(response => {
+                // Verificar el estado de la respuesta antes de intentar parsear JSON
+                if (!response.ok) {
+                    // Si la respuesta no es exitosa, obtener el texto para mostrar el error
+                    return response.text().then(text => {
+                        throw new Error(`Error HTTP ${response.status}: ${text.substring(0, 200)}...`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    deleteLog.innerHTML += `> ${data.message}\n`;
+                    
+                    if (data.commandOutput) {
+                        deleteLog.innerHTML += `\n> Salida del comando:\n${data.commandOutput}\n`;
+                    }
+                    
+                    deleteLog.innerHTML += `\n> Proceso completado. Redirigiendo...`;
+                    
+                    // Redirigir después de un breve retraso
+                    setTimeout(() => {
+                        window.location.href = '/modulos';
+                    }, 2000);
+                } else {
+                    deleteLog.innerHTML += `> Error: ${data.message}\n`;
+                    
+                    if (data.commandOutput) {
+                        deleteLog.innerHTML += `\n> Salida del comando:\n${data.commandOutput}\n`;
+                    }
+                    
+                    // Mostrar botones de nuevo para permitir cerrar o reintentar
+                    document.getElementById('deleteModalButtons').style.display = 'flex';
+                    document.getElementById('confirmDeleteBtn').textContent = 'Reintentar';
+                }
+            })
+            .catch(error => {
+                deleteLog.innerHTML += `> Error de conexión: ${error.message}\n`;
+                document.getElementById('deleteModalButtons').style.display = 'flex';
+                document.getElementById('confirmDeleteBtn').textContent = 'Reintentar';
+            });
+        }
+        
+        // Cerrar modal al hacer clic fuera del contenido
+        window.onclick = function(event) {
+            const modal = document.getElementById('deleteConfirmModal');
+            if (event.target == modal && !document.getElementById('deleteInProgress').style.display === 'block') {
+                closeDeleteConfirm();
+            }
+        }
+    </script>
 {% endblock %}

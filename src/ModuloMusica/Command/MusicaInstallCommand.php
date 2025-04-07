@@ -47,6 +47,10 @@ class MusicaInstallCommand extends Command
         }
 
         try {
+            $io->section('Limpiando caché de metadatos de Doctrine');
+            $this->entityManager->getConfiguration()->getMetadataCache()->clear();
+            $io->success('Caché de metadatos de Doctrine limpiada correctamente.');
+
             if (!$input->getOption('force') && $this->isModuleInstalled()) {
                 $io->warning('El módulo de Música ya está instalado. Usa --force para reinstalarlo.');
                 return Command::SUCCESS;
@@ -360,7 +364,7 @@ EOT;
         $doctrineYamlPath = 'config/packages/doctrine.yaml';
         $doctrineContent = file_get_contents($doctrineYamlPath);
         
-        if (strpos($doctrineContent, 'ModuloMusica:') !== false) {
+        if (preg_match('/ModuloMusica:.*?\n\s+type: attribute\n\s+is_bundle: false\n\s+dir:.*?\n\s+prefix:.*?\n\s+alias: ModuloMusica/s', $doctrineContent)) {
             $io->note('La configuración de Doctrine ya incluye las entidades del módulo de música.');
             return;
         }
@@ -391,6 +395,7 @@ EOT;
 {$moduleIndentation}    alias: ModuloMusica";
         
         $lastModules = [
+            'ModuloStreaming:.*?alias: ModuloStreaming',
             'ModuloChat:.*?alias: ModuloChat',
             'ModuloExplorador:.*?alias: ModuloExplorador',
             'ModuloCore:.*?alias: ModuloCore'
@@ -408,11 +413,13 @@ EOT;
         }
         
         if (!$foundInsertPoint) {
-            $mappingsSection = "mappings:";
-            $newMappingsSection = "mappings:" . $musicaConfig;
+            $newContent = preg_replace(
+                '/(mappings:.*?\n)(?=\s*\w+:|$)/s',
+                "$1{$musicaConfig}\n",
+                $doctrineContent
+            );
             
-            if (strpos($doctrineContent, $mappingsSection) !== false) {
-                $newContent = str_replace($mappingsSection, $newMappingsSection, $doctrineContent);
+            if ($newContent !== $doctrineContent) {
                 file_put_contents($doctrineYamlPath, $newContent);
                 $io->success('doctrine.yaml actualizado con las entidades del módulo de música al final de la sección mappings.');
             } else {
@@ -427,15 +434,23 @@ EOT;
             $moduloRepository = $this->entityManager->getRepository(Modulo::class);
             $musicaModule = $moduloRepository->findOneBy(['nombre' => 'Música']);
             
+            $moduleDir = __DIR__;
+            
+            $moduleBasePath = dirname($moduleDir);
+            
+            
+            $io->note("Directorio base del módulo: " . $moduleBasePath);
+            
             if ($musicaModule) {
                 $musicaModule->setEstado(true);
-                $io->note('El módulo Música ya existe en la base de datos. Se ha activado.');
+                $musicaModule->setRuta($moduleBasePath);
+                $io->note('El módulo Música ya existe en la base de datos. Se ha activado y actualizado su ruta.');
             } else {
                 $musicaModule = new Modulo();
                 $musicaModule->setNombre('Música');
                 $musicaModule->setDescripcion('Módulo para gestionar y reproducir música');
                 $musicaModule->setIcon('fas fa-music');
-                $musicaModule->setRuta('/musica');
+                $musicaModule->setRuta($moduleBasePath);
                 $musicaModule->setEstado(true);
                 $musicaModule->setInstallDate(new \DateTimeImmutable());
                 
@@ -450,6 +465,11 @@ EOT;
             $io->note('Puedes continuar con la instalación y añadir el módulo manualmente más tarde.');
             return null;
         }
+    }
+
+    private function getProjectDir(): string
+    {
+        return dirname(dirname(dirname(dirname(__DIR__))));
     }
     
     private function createMenuItems(SymfonyStyle $io, ?Modulo $modulo): void
@@ -477,7 +497,47 @@ EOT;
                 $menuItem->addModulo($modulo);
                 
                 $this->entityManager->persist($menuItem);
+                $this->entityManager->flush();
+                $existingMenuItem = $menuItem;
                 $io->success('Se ha creado el elemento de menú para el módulo Música.');
+            }
+
+            $parentMenuId = $existingMenuItem->getId();
+
+            $generalSubmenu = $menuRepository->findOneBy(['nombre' => 'General', 'parentId' => $parentMenuId]);
+            if ($generalSubmenu) {
+                $generalSubmenu->setEnabled(true);
+                $io->note('El submenú "General" ya existe. Se ha activado.');
+            } else {
+                $generalSubmenu = new MenuElement();
+                $generalSubmenu->setNombre('General');
+                $generalSubmenu->setIcon('fas fa-list');
+                $generalSubmenu->setType('menu');
+                $generalSubmenu->setParentId($parentMenuId);
+                $generalSubmenu->setRuta('/musica');
+                $generalSubmenu->setEnabled(true);
+                $generalSubmenu->addModulo($modulo);
+                
+                $this->entityManager->persist($generalSubmenu);
+                $io->success('Se ha creado el submenú "General" para el módulo Música.');
+            }
+
+            $adminSubmenu = $menuRepository->findOneBy(['nombre' => 'Admin', 'parentId' => $parentMenuId]);
+            if ($adminSubmenu) {
+                $adminSubmenu->setEnabled(true);
+                $io->note('El submenú "Admin" ya existe. Se ha activado.');
+            } else {
+                $adminSubmenu = new MenuElement();
+                $adminSubmenu->setNombre('Admin');
+                $adminSubmenu->setIcon('fas fa-cog');
+                $adminSubmenu->setType('menu');
+                $adminSubmenu->setParentId($parentMenuId);
+                $adminSubmenu->setRuta('/musica/admin');
+                $adminSubmenu->setEnabled(true);
+                $adminSubmenu->addModulo($modulo);
+                
+                $this->entityManager->persist($adminSubmenu);
+                $io->success('Se ha creado el submenú "Admin" para el módulo Música.');
             }
             
             $this->entityManager->flush();

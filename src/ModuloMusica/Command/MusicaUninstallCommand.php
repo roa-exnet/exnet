@@ -43,9 +43,10 @@ class MusicaUninstallCommand extends Command
                    - twig.yaml
                    - doctrine.yaml
                 2. Elimina el registro del módulo en la base de datos
-                3. Elimina los elementos de menú asociados
+                3. Elimina los elementos de menú asociados (incluidos submenús)
                 4. Genera una migración para eliminar las tablas de la base de datos
                 5. Ejecuta la migración para eliminar las tablas
+                6. Limpia la caché del sistema
 
                 Opciones:
                   --keep-tables     No eliminar las tablas de la base de datos
@@ -79,6 +80,9 @@ class MusicaUninstallCommand extends Command
             return Command::SUCCESS;
         }
         
+        $io->section('Limpiando caché de metadatos de Doctrine');
+        $this->clearDoctrineCache($io);
+        
         $io->section('Desactivando el módulo de música');
         $this->deactivateModule($io);
         
@@ -93,8 +97,9 @@ class MusicaUninstallCommand extends Command
         }
         
         $io->section('Eliminando registros del módulo en la base de datos');
-        $this->removeModuleFromDatabase($io);
         $this->removeMenuItems($io);
+        $this->removeModuleFromDatabase($io);
+        $this->cleanOrphanMenuElementModuloRecords($io);
         
         if (!$keepTables) {
             $io->section('Eliminando tablas de la base de datos');
@@ -111,9 +116,22 @@ class MusicaUninstallCommand extends Command
             $io->note('Se ha omitido la eliminación de tablas según las opciones seleccionadas.');
         }
         
+        $io->section('Limpiando caché');
+        $this->clearCache($io);
+        
         $io->success('El módulo de música ha sido desinstalado correctamente.');
         
         return Command::SUCCESS;
+    }
+    
+    private function clearDoctrineCache(SymfonyStyle $io): void
+    {
+        try {
+            $this->entityManager->getConfiguration()->getMetadataCache()->clear();
+            $io->success('Caché de metadatos de Doctrine limpiada correctamente.');
+        } catch (\Exception $e) {
+            $io->warning('Error al limpiar la caché de metadatos de Doctrine: ' . $e->getMessage());
+        }
     }
     
     private function deactivateModule(SymfonyStyle $io): void
@@ -131,7 +149,7 @@ class MusicaUninstallCommand extends Command
                 $io->note('No se encontró el módulo de música para desactivar.');
             }
         } catch (\Exception $e) {
-            $io->error('Error al desactivar el módulo de música: ' . $e->getMessage());
+            $io->error('Error al desactivar el módulo de música: ' . $e->getMessage() . "\nStack trace: " . $e->getTraceAsString());
         }
     }
     
@@ -231,6 +249,16 @@ class MusicaUninstallCommand extends Command
             $musicaModule = $moduloRepository->findOneBy(['nombre' => 'Música']);
             
             if ($musicaModule) {
+                $menuElements = $musicaModule->getMenuElements();
+                if (!empty($menuElements)) {
+                    foreach ($menuElements as $menuElement) {
+                        $musicaModule->removeMenuElement($menuElement);
+                    }
+                    $this->entityManager->persist($musicaModule);
+                    $this->entityManager->flush();
+                    $io->note('Relaciones del módulo Música con elementos de menú eliminadas.');
+                }
+
                 $this->entityManager->remove($musicaModule);
                 $this->entityManager->flush();
                 $io->success('Módulo Música eliminado de la base de datos.');
@@ -238,27 +266,84 @@ class MusicaUninstallCommand extends Command
                 $io->note('No se encontró el módulo Música en la base de datos.');
             }
         } catch (\Exception $e) {
-            $io->error('Error al eliminar el módulo de la base de datos: ' . $e->getMessage());
+            $io->error('Error al eliminar el módulo de la base de datos: ' . $e->getMessage() . "\nStack trace: " . $e->getTraceAsString());
         }
     }
     
     private function removeMenuItems(SymfonyStyle $io): void
     {
         try {
+            if (!$this->entityManager->isOpen()) {
+                $io->warning('No se pueden eliminar los elementos de menú porque el EntityManager está cerrado. Por favor, elimina los elementos de menú manualmente.');
+                return;
+            }
+
+            $moduloRepository = $this->entityManager->getRepository(Modulo::class);
             $menuRepository = $this->entityManager->getRepository(MenuElement::class);
-            $menuItems = $menuRepository->findBy(['nombre' => 'Música']);
             
-            if (!empty($menuItems)) {
-                foreach ($menuItems as $menuItem) {
-                    $this->entityManager->remove($menuItem);
+            $musicaModule = $moduloRepository->findOneBy(['nombre' => 'Música']);
+            if ($musicaModule) {
+                $moduloId = $musicaModule->getId();
+
+                $connection = $this->entityManager->getConnection();
+                $platform = $connection->getDatabasePlatform();
+                $sql = $platform->getTruncateTableSQL('menu_element_modulo') . ' WHERE modulo_id = :moduloId';
+                $connection->executeStatement('DELETE FROM menu_element_modulo WHERE modulo_id = :moduloId', ['moduloId' => $moduloId]);
+                $io->success('Registros asociados en menu_element_modulo eliminados.');
+            } else {
+                $io->note('No se encontró el módulo Música para eliminar registros de menu_element_modulo.');
+            }
+
+            $mainMenuItem = $menuRepository->findOneBy(['nombre' => 'Música']);
+            
+            if ($mainMenuItem) {
+                $mainMenuId = $mainMenuItem->getId();
+                
+                $subMenuItems = $menuRepository->findBy(['parentId' => $mainMenuId]);
+                
+                if (!empty($subMenuItems)) {
+                    foreach ($subMenuItems as $subMenuItem) {
+                        $this->entityManager->remove($subMenuItem);
+                    }
+                    $io->success('Submenús del módulo Música eliminados de la base de datos.');
+                } else {
+                    $io->note('No se encontraron submenús para el módulo Música.');
                 }
+                
+                $this->entityManager->remove($mainMenuItem);
                 $this->entityManager->flush();
-                $io->success('Elementos de menú del módulo Música eliminados de la base de datos.');
+                $io->success('Elemento de menú principal "Música" eliminado de la base de datos.');
             } else {
                 $io->note('No se encontraron elementos de menú para el módulo Música.');
             }
         } catch (\Exception $e) {
-            $io->error('Error al eliminar los elementos de menú: ' . $e->getMessage());
+            $io->error('Error al eliminar los elementos de menú: ' . $e->getMessage() . "\nStack trace: " . $e->getTraceAsString());
+        }
+    }
+    
+    private function cleanOrphanMenuElementModuloRecords(SymfonyStyle $io): void
+    {
+        try {
+            if (!$this->entityManager->isOpen()) {
+                $io->warning('No se pueden limpiar los registros huérfanos de menu_element_modulo porque el EntityManager está cerrado.');
+                return;
+            }
+
+            $connection = $this->entityManager->getConnection();
+            $sql = "
+                DELETE FROM menu_element_modulo
+                WHERE menu_element_id NOT IN (SELECT id FROM menu_element)
+                OR modulo_id NOT IN (SELECT id FROM modulo)
+            ";
+            $deletedRows = $connection->executeStatement($sql);
+            
+            if ($deletedRows > 0) {
+                $io->success("Se eliminaron $deletedRows registros huérfanos de la tabla menu_element_modulo.");
+            } else {
+                $io->note('No se encontraron registros huérfanos en menu_element_modulo.');
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al limpiar registros huérfanos de menu_element_modulo: ' . $e->getMessage());
         }
     }
     
@@ -342,6 +427,22 @@ EOT;
             }
         } catch (\Exception $e) {
             $io->error('Error durante la eliminación de tablas: ' . $e->getMessage());
+        }
+    }
+    
+    private function clearCache(SymfonyStyle $io): void
+    {
+        try {
+            $process = new Process(['php', 'bin/console', 'cache:clear']);
+            $process->run();
+            
+            if (!$process->isSuccessful()) {
+                $io->warning('Error al limpiar la caché: ' . $process->getErrorOutput());
+            } else {
+                $io->success('Caché limpiada correctamente.');
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al limpiar la caché: ' . $e->getMessage());
         }
     }
 }
