@@ -2,44 +2,49 @@
 
 namespace App\ModuloCore\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
-#[ORM\Table(name: "menu_element")]
+#[ORM\Table(name: 'menu_element')]
 class MenuElement
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: "integer")]
+    #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(type: "string", length: 255)]
-    private ?string $nombre = null;
-
-    #[ORM\Column(type: "string", length: 50, nullable: true)]
+    #[ORM\Column(length: 255)]
     private ?string $icon = null;
 
-    #[ORM\Column(type: "string", length: 50)]
+    #[ORM\Column(length: 255)]
     private ?string $type = null;
 
-    #[ORM\Column(type: "integer", options: ["default" => 0])]
-    private int $parentId = 0;
+    #[ORM\Column(name: 'parent_id', nullable: true)]
+    private ?int $parentId = null;
 
-    #[ORM\Column(type: "string", length: 255, nullable: true)]
+    #[ORM\Column(length: 255)]
     private ?string $ruta = null;
 
-    #[ORM\Column(type: "boolean")]
-    private bool $enabled = true;
+    #[ORM\Column]
+    private ?bool $enabled = null;
 
-    #[ORM\ManyToMany(targetEntity: Modulo::class, inversedBy: "menuElements")]
-    #[ORM\JoinTable(name: "menu_element_modulo")]
-    private Collection $modulos;
+    #[ORM\Column(length: 255)]
+    private ?string $nombre = null;
+
+    /**
+     * @var Collection<int, Modulo>
+     */
+    #[ORM\ManyToMany(targetEntity: Modulo::class, inversedBy: 'menuElements')]
+    #[ORM\JoinTable(name: 'menu_element_modulo')]
+    #[ORM\JoinColumn(name: 'menu_element_id', referencedColumnName: 'id')]
+    #[ORM\InverseJoinColumn(name: 'modulo_id', referencedColumnName: 'id')]
+    private Collection $modulo;
 
     public function __construct()
     {
-        $this->modulos = new ArrayCollection();
+        $this->modulo = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -47,23 +52,12 @@ class MenuElement
         return $this->id;
     }
 
-    public function getNombre(): ?string
-    {
-        return $this->nombre;
-    }
-
-    public function setNombre(string $nombre): self
-    {
-        $this->nombre = $nombre;
-        return $this;
-    }
-
     public function getIcon(): ?string
     {
         return $this->icon;
     }
 
-    public function setIcon(?string $icon): self
+    public function setIcon(string $icon): static
     {
         $this->icon = $icon;
         return $this;
@@ -74,18 +68,18 @@ class MenuElement
         return $this->type;
     }
 
-    public function setType(string $type): self
+    public function setType(string $type): static
     {
         $this->type = $type;
         return $this;
     }
 
-    public function getParentId(): int
+    public function getParentId(): ?int
     {
         return $this->parentId;
     }
 
-    public function setParentId(int $parentId): self
+    public function setParentId(?int $parentId): static
     {
         $this->parentId = $parentId;
         return $this;
@@ -96,39 +90,55 @@ class MenuElement
         return $this->ruta;
     }
 
-    public function setRuta(?string $ruta): self
+    public function setRuta(string $ruta): static
     {
         $this->ruta = $ruta;
         return $this;
     }
 
-    public function isEnabled(): bool
+    public function isEnabled(): ?bool
     {
         return $this->enabled;
     }
 
-    public function setEnabled(bool $enabled): self
+    public function setEnabled(bool $enabled): static
     {
         $this->enabled = $enabled;
         return $this;
     }
 
-    public function getModulos(): Collection
+    public function getNombre(): ?string
     {
-        return $this->modulos;
+        return $this->nombre;
     }
 
-    public function addModulo(Modulo $modulo): self
+    public function setNombre(string $nombre): static
     {
-        if (!$this->modulos->contains($modulo)) {
-            $this->modulos[] = $modulo;
-        }
+        $this->nombre = $nombre;
         return $this;
     }
 
-    public function removeModulo(Modulo $modulo): self
+    /**
+     * @return Collection<int, Modulo>
+     */
+    public function getModulo(): Collection
     {
-        $this->modulos->removeElement($modulo);
+        return $this->modulo;
+    }
+
+    public function addModulo(Modulo $modulo): static
+    {
+        if (!$this->modulo->contains($modulo)) {
+            $this->modulo->add($modulo);
+        }
+
+        return $this;
+    }
+
+    public function removeModulo(Modulo $modulo): static
+    {
+        $this->modulo->removeElement($modulo);
+
         return $this;
     }
 }

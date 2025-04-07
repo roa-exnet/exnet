@@ -164,6 +164,9 @@
 {% block imports %}
     {{ parent() }}
     <script>
+        let currentModule = null;
+        let currentCategory = null;
+
         document.addEventListener('DOMContentLoaded', function() {
             loadModules();
             
@@ -397,6 +400,9 @@
             }
             
             function installModule(module, category, downloadToken = null) {
+                currentModule = module;
+                currentCategory = category;
+
                 const container = document.getElementById('marketplace-container');
                 container.innerHTML = `
                     <div class="d-flex justify-content-center p-5 flex-column align-items-center">
@@ -495,9 +501,14 @@
                         }
                         
                         errorMessage += `
-                            <button class="exnet-btn exnet-btn-outline-light mt-4" onclick="window.location.reload()">
-                                <i class="fas fa-sync me-2"></i> Reintentar
-                            </button>
+                            <div class="d-flex gap-3 mt-4">
+                                <button class="exnet-btn exnet-btn-outline-light" onclick="installModule(currentModule, currentCategory${downloadToken ? `, '${downloadToken}'` : ''})">
+                                    <i class="fas fa-sync me-2"></i> Reintentar instalación
+                                </button>
+                                <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
+                                    <i class="fas fa-arrow-left me-2"></i> Volver a marketplace
+                                </button>
+                            </div>
                         </div>
                         `;
                         
@@ -511,9 +522,14 @@
                             <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
                             <h4 class="text-white mb-3">Error de conexión</h4>
                             <p class="text-white-50">No se pudo conectar con el servidor para instalar el módulo: ${error.message}</p>
-                            <button class="exnet-btn exnet-btn-outline-light mt-4" onclick="window.location.reload()">
-                                <i class="fas fa-sync me-2"></i> Reintentar
-                            </button>
+                            <div class="d-flex gap-3 mt-4">
+                                <button class="exnet-btn exnet-btn-outline-light" onclick="installModule(currentModule, currentCategory${downloadToken ? `, '${downloadToken}'` : ''})">
+                                    <i class="fas fa-sync me-2"></i> Reintentar instalación
+                                </button>
+                                <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
+                                    <i class="fas fa-arrow-left me-2"></i> Volver a marketplace
+                                </button>
+                            </div>
                         </div>
                     `;
                 });

@@ -103,38 +103,6 @@ class CdnController extends AbstractController
         return $this->json($result);
     }
     
-    #[Route('/modulos/{id}/toggle', name: 'modulos_toggle_state', methods: ['POST'])]
-    public function toggleModuleState(Request $request, int $id): Response
-    {
-        $auth = $this->requireJwtRoles($request, ['ROLE_ADMIN']);
-        if ($auth instanceof Response) {
-            return $auth;
-        }
-        
-        $modulo = $this->entityManager->getRepository(Modulo::class)->find($id);
-        
-        if (!$modulo) {
-            $this->addFlash('error', 'Módulo no encontrado');
-            return $this->redirectToRoute('modulos_index');
-        }
-        
-        $modulo->setEstado(!$modulo->isEstado());
-        
-        if (!$modulo->isEstado()) {
-            $modulo->setUninstallDate(new \DateTimeImmutable());
-        } else {
-            $modulo->setInstallDate(new \DateTimeImmutable());
-            $modulo->setUninstallDate(null);
-        }
-        
-        $this->entityManager->flush();
-        
-        $message = $modulo->isEstado() ? 'Módulo activado correctamente' : 'Módulo desactivado correctamente';
-        $this->addFlash('success', $message);
-        
-        return $this->redirectToRoute('modulos_index');
-    }
-    
     #[Route('/modulos/{id}/uninstall', name: 'modulos_uninstall', methods: ['POST'])]
     public function uninstallModule(Request $request, int $id): Response
     {
@@ -150,12 +118,13 @@ class CdnController extends AbstractController
             return $this->redirectToRoute('modulos_index');
         }
         
-        $modulo->setEstado(false);
-        $modulo->setUninstallDate(new \DateTimeImmutable());
+        $result = $this->executeUninstallCommandAndRemoveFiles($modulo);
         
-        $this->entityManager->flush();
-        
-        $this->addFlash('success', 'Módulo desinstalado correctamente');
+        if ($result['success']) {
+            $this->addFlash('success', $result['message']);
+        } else {
+            $this->addFlash('error', $result['message']);
+        }
         
         return $this->redirectToRoute('modulos_index');
     }
@@ -178,34 +147,9 @@ class CdnController extends AbstractController
                 ], 404);
             }
             
-            $data = json_decode($request->getContent(), true) ?? [];
-            $completeRemoval = isset($data['completeRemoval']) && $data['completeRemoval'] === true;
+            $result = $this->executeUninstallCommandAndRemoveFiles($modulo);
             
-            $moduleDirectory = $this->findModuleDirectory($modulo->getNombre());
-            $commandsJsonPath = $moduleDirectory ? $moduleDirectory . '/commands.json' : null;
-            $commandOutput = '';
-            $commandSuccess = false;
-                        
-            if ($completeRemoval) {
-                $this->limpiarRelacionesModulo($modulo);
-                
-                $this->entityManager->remove($modulo);
-            } else {
-                $modulo->setEstado(false);
-                $modulo->setUninstallDate(new \DateTimeImmutable());
-            }
-            
-            $this->entityManager->flush();
-            
-            return $this->json([
-                'success' => true,
-                'commandSuccess' => $commandSuccess,
-                'message' => $completeRemoval 
-                    ? 'Módulo eliminado completamente' 
-                    : 'Módulo desinstalado correctamente',
-                'commandOutput' => $commandOutput,
-                'completeRemoval' => $completeRemoval
-            ]);
+            return $this->json($result);
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
@@ -215,27 +159,146 @@ class CdnController extends AbstractController
         }
     }
 
-    private function limpiarRelacionesModulo(Modulo $modulo): void
-{
-    $menuElements = $modulo->getMenuElements();
-    if ($menuElements) {
-        foreach ($menuElements as $menuElement) {
-            $modulo->removeMenuElement($menuElement);
+    #[Route('/api/modulos/{id}/get-url', name: 'api_get_module_url', methods: ['GET'])]
+    public function getModuleUrl(int $id): JsonResponse
+    {
+        try {
+            $modulo = $this->entityManager->getRepository(Modulo::class)->find($id);
+            
+            if (!$modulo) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Módulo no encontrado'
+                ], 404);
+            }
+
+            $menuElements = $modulo->getMenuElements();
+
+            if ($menuElements->isEmpty()) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'No se encontraron elementos de menú asociados al módulo'
+                ], 404);
+            }
+
+            foreach ($menuElements as $menuElement) {
+                if ($menuElement->getParentId() !== 0) {
+                    return $this->json([
+                        'success' => true,
+                        'url' => $menuElement->getRuta()
+                    ]);
+                }
+            }
+
+            $firstMenuElement = $menuElements->first();
+
+            return $this->json([
+                'success' => true,
+                'url' => $firstMenuElement ? $firstMenuElement->getRuta() : null
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Error al obtener la URL del módulo: ' . $e->getMessage()
+            ], 500);
         }
     }
-    
-    
-    $this->entityManager->flush();
-}
+
+    private function executeUninstallCommandAndRemoveFiles(Modulo $modulo): array
+    {
+        try {
+            $moduleDirectory = $modulo->getRuta();
+            $commandsJsonPath = $moduleDirectory ? $moduleDirectory . '/commands.json' : null;
+            $commandOutput = '';
+            $commandSuccess = false;
+
+            if ($commandsJsonPath && $this->filesystem->exists($commandsJsonPath)) {
+                $commandsJson = json_decode(file_get_contents($commandsJsonPath), true);
+                $uninstallCommand = $commandsJson['uninstall'] ?? null;
+
+                if ($uninstallCommand) {
+                    $process = new Process(explode(' ', $uninstallCommand));
+                    $process->setWorkingDirectory($this->projectDir);
+                    $process->run();
+
+                    if ($process->isSuccessful()) {
+                        $commandOutput = $process->getOutput();
+                        $commandSuccess = true;
+                    } else {
+                        $commandOutput = $process->getErrorOutput();
+                        $commandSuccess = false;
+                        return [
+                            'success' => false,
+                            'commandSuccess' => $commandSuccess,
+                            'message' => 'Error al ejecutar el comando de desinstalación',
+                            'commandOutput' => $commandOutput
+                        ];
+                    }
+                } else {
+                    $commandOutput = 'No se encontró un comando de desinstalación en commands.json';
+                }
+            } else {
+                $commandOutput = 'No se encontró el archivo commands.json en el directorio del módulo';
+            }
+
+            $this->limpiarRelacionesModulo($modulo);
+
+            $this->entityManager->remove($modulo);
+            $this->entityManager->flush();
+
+            if ($moduleDirectory && $this->filesystem->exists($moduleDirectory)) {
+                try {
+                    $this->filesystem->remove($moduleDirectory);
+                    $commandOutput .= "\nCarpeta del módulo ($moduleDirectory) eliminada correctamente.";
+                } catch (\Exception $e) {
+                    $commandOutput .= "\nError al eliminar la carpeta del módulo: " . $e->getMessage();
+                    return [
+                        'success' => false,
+                        'commandSuccess' => $commandSuccess,
+                        'message' => 'Módulo desinstalado, pero no se pudo eliminar la carpeta',
+                        'commandOutput' => $commandOutput
+                    ];
+                }
+            } else {
+                $commandOutput .= "\nNo se encontró la carpeta del módulo en la ruta especificada: $moduleDirectory";
+            }
+
+            return [
+                'success' => true,
+                'commandSuccess' => $commandSuccess,
+                'message' => 'Módulo desinstalado y carpeta eliminada correctamente',
+                'commandOutput' => $commandOutput
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error al desinstalar el módulo: ' . $e->getMessage(),
+                'commandOutput' => $commandOutput,
+                'stackTrace' => $e->getTraceAsString()
+            ];
+        }
+    }
+
+    private function limpiarRelacionesModulo(Modulo $modulo): void
+    {
+        $menuElements = $modulo->getMenuElements();
+        if ($menuElements) {
+            foreach ($menuElements as $menuElement) {
+                $modulo->removeMenuElement($menuElement);
+            }
+        }
+        
+        $this->entityManager->flush();
+    }
     
     private function findModuleDirectory(string $moduleName): ?string
     {
         $srcDir = $this->projectDir . '/src';
         
-        $directPath = $srcDir . '/ModuloMusica';
-        if (is_dir($directPath)) {
-            return $directPath;
-        }
+        // $directPath = $srcDir . '/ModuloMusica';
+        // if (is_dir($directPath)) {
+        //     return $directPath;
+        // }
         
         $exactPath = $srcDir . '/' . $moduleName;
         if (is_dir($exactPath)) {

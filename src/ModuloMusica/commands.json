@@ -1,4 +1,0 @@
-{
-    "install": "cd {{projectDir}} && php bin/console musica:install --force",
-    "uninstall": "cd {{projectDir}} && php bin/console musica:uninstall --force"
-}
