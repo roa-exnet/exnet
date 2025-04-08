@@ -843,349 +843,390 @@ function addMessageToChatOrdered(message, scroll = true) {
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-    
-    class VoiceCallManager {
-        constructor(socket, userId, userName, websocketUrl) {
-            this.socket = socket;
-            this.userId = userId;
-            this.userName = userName;
-            this.websocketUrl = websocketUrl;
-            this.userToken = localStorage.getItem('exnet_chat_user_token');
-            
-            this.isCallActive = false;
-            this.activeRoom = null;
-            this.isMuted = false;
-            this.audioContext = null;
-            this.mediaStream = null;
-            this.audioProcessor = null;
-            this.audioPlayers = {};
-            
-            this.initSocketEvents();
-            
-            this.modal = document.getElementById('voice-call-modal');
-            this.callStatus = document.getElementById('call-status');
-            this.muteToggle = document.getElementById('mute-toggle');
-            this.endCallButton = document.getElementById('end-call');
-            this.remoteParticipantsContainer = document.getElementById('remote-participants');
 
-            this.initUIEvents();
-        }
+class VoiceCallManager {
+    constructor(socket, userId, userName, websocketUrl) {
+        this.socket = socket;
+        this.userId = userId;
+        this.userName = userName;
+        this.websocketUrl = websocketUrl;
+        this.userToken = localStorage.getItem('exnet_chat_user_token');
         
-        initSocketEvents() {
-            this.socket.on('voice_call_invite', (data) => {
-                console.log('Invitación a llamada recibida:', data);
-                this.showIncomingCallUI(data.roomId, data.callerId, data.callerName);
-            });
-            
-            this.socket.on('voice_call_joined', (data) => {
-                console.log('Usuario se unió a la llamada:', data);
+        this.isCallActive = false;
+        this.activeRoom = null;
+        this.isMuted = false;
+        this.audioContext = null;
+        this.mediaStream = null;
+        this.audioProcessor = null;
+        this.audioPlayers = {};
+        
+        this.initSocketEvents();
+        
+        this.modal = document.getElementById('voice-call-modal');
+        this.callStatus = document.getElementById('call-status');
+        this.muteToggle = document.getElementById('mute-toggle');
+        this.endCallButton = document.getElementById('end-call');
+        this.remoteParticipantsContainer = document.getElementById('remote-participants');
+        this.localParticipant = document.getElementById('local-participant');
+
+        this.initUIEvents();
+    }
+    
+    initSocketEvents() {
+        this.socket.on('voice_call_invite', (data) => {
+            console.log('Invitación a llamada recibida:', data);
+            this.showIncomingCallUI(data.roomId, data.callerId, data.callerName);
+        });
+        
+        this.socket.on('voice_call_joined', (data) => {
+            console.log('Usuario se unió a la llamada:', data);
+            if (data.userId !== this.userId.toString()) {
                 this.addParticipantElement(data.userId, data.userName);
                 this.updateCallStatus(`Llamada en curso - ${Object.keys(this.audioPlayers).length + 1} participantes`);
-            });
-            
-            this.socket.on('voice_call_left', (data) => {
-                console.log('Usuario abandonó la llamada:', data);
-                this.removeParticipantElement(data.userId);
-            });
-            
-            this.socket.on('voice_call_end', (data) => {
-                console.log('La llamada ha finalizado:', data);
-                this.endCall(false);
-            });
-            
-            this.socket.on('voice_audio_chunk', (data) => {
-                if (this.isCallActive && data.roomId === this.activeRoom && data.userId !== this.userId) {
-                    this.playAudioChunk(data.userId, data.userName, data.audioChunk);
-                }
-            });
-        }
+            }
+        });
         
-        initUIEvents() {
-            const closeButton = document.querySelector('.voice-call-close');
-            if (closeButton) {
-                closeButton.addEventListener('click', () => {
-                    if (confirm('¿Seguro que deseas salir de la llamada?')) {
-                        this.endCall(true);
-                    }
-                });
+        this.socket.on('voice_call_left', (data) => {
+            console.log('Usuario abandonó la llamada:', data);
+            this.removeParticipantElement(data.userId);
+        });
+        
+        this.socket.on('voice_call_end', (data) => {
+            console.log('La llamada ha finalizado:', data);
+            this.endCall(false);
+        });
+        
+        this.socket.on('voice_audio_chunk', (data) => {
+            if (this.isCallActive && data.roomId === this.activeRoom && data.userId !== this.userId.toString()) {
+                this.playAudioChunk(data.userId, data.userName, data.audioChunk);
             }
-            
-            if (this.muteToggle) {
-                this.muteToggle.addEventListener('click', () => {
-                    this.toggleMute();
-                });
-            }
-            
-            if (this.endCallButton) {
-                this.endCallButton.addEventListener('click', () => {
-                    this.endCall(true);
-                });
-            }
-            
-            window.addEventListener('beforeunload', (e) => {
-                if (this.isCallActive) {
+        });
+    }
+    
+    initUIEvents() {
+        const closeButton = document.querySelector('.voice-call-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                if (confirm('¿Seguro que deseas salir de la llamada?')) {
                     this.endCall(true);
                 }
             });
         }
         
-        async startCall(roomId) {
-            try {
-                console.log('Iniciando llamada en sala:', roomId);
-                
-                await this.requestMediaPermissions();
-                
-                const response = await fetch(`/chat/voice/call/${roomId}`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({
-                        token: this.userToken,
-                        userId: this.userId
-                    })
-                });
-                
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    console.error("La respuesta no es JSON:", await response.text());
-                    throw new Error("Respuesta inesperada del servidor. Verifica la consola para más detalles.");
-                }
-                
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error || 'Error al iniciar la llamada');
-                }
-                
-                this.activeRoom = roomId;
-                this.isCallActive = true;
-                
-                this.showCallUI();
-                
-                this.socket.emit('voice_call_start', {
-                    roomId: roomId,
-                    userId: this.userId,
-                    userName: this.userName,
-                    token: this.userToken
-                });
-                
-                this.socket.emit('voice_call_invite_all', {
-                    roomId: roomId,
-                    callerId: this.userId,
-                    callerName: this.userName
-                });
-                
-                this.startAudioTransmission(roomId);
-                
-                return true;
-            } catch (error) {
-                console.error('Error al iniciar la llamada:', error);
-                this.stopMediaStream();
-                return false;
-            }
+        if (this.muteToggle) {
+            this.muteToggle.addEventListener('click', () => {
+                this.toggleMute();
+            });
         }
         
-        async requestMediaPermissions() {
-            try {
-                this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
-                    video: false
-                });
-                
-                console.log('Permisos de audio concedidos');
-                return true;
-            } catch (error) {
-                console.error('Error al solicitar permisos de audio:', error);
-                
-                if (error.name === 'NotAllowedError') {
-                    alert('Para usar las llamadas de voz, debes permitir el acceso al micrófono.');
-                } else {
-                    alert('Error al acceder al micrófono: ' + error.message);
-                }
-                
-                throw error;
-            }
+        if (this.endCallButton) {
+            this.endCallButton.addEventListener('click', () => {
+                this.endCall(true);
+            });
         }
         
-        startAudioTransmission(roomId) {
-            try {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-                
-                this.audioProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
-                
-                this.audioProcessor.onaudioprocess = (e) => {
-                    if (this.isCallActive && !this.isMuted) {
-                        const inputBuffer = e.inputBuffer;
-                        const samples = inputBuffer.getChannelData(0);
-                        
-                        const sampleArray = Array.from(samples);
-                        const base64Data = btoa(String.fromCharCode.apply(null, 
-                            new Uint8Array(new Float32Array(sampleArray).buffer)
-                        ));
-                        
-                        this.socket.emit('voice_audio_chunk', {
-                            roomId: roomId,
-                            userId: this.userId,
-                            userName: this.userName,
-                            audioChunk: base64Data,
-                            token: this.userToken
-                        });
-                    }
-                };
-                
-                source.connect(this.audioProcessor);
-                this.audioProcessor.connect(this.audioContext.destination);
-                
-                console.log('Transmisión de audio iniciada');
-            } catch (error) {
-                console.error('Error al iniciar la transmisión de audio:', error);
+        window.addEventListener('beforeunload', (e) => {
+            if (this.isCallActive) {
+                this.endCall(true);
             }
-        }
-        
-        playAudioChunk(senderId, senderName, audioChunkBase64) {
-            try {
-                if (!this.audioContext) {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                const binaryString = atob(audioChunkBase64);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                
-                const audioData = new Float32Array(bytes.buffer);
-                
-                const buffer = this.audioContext.createBuffer(1, audioData.length, this.audioContext.sampleRate);
-                buffer.getChannelData(0).set(audioData);
-                
-                const source = this.audioContext.createBufferSource();
-                source.buffer = buffer;
-                
-                if (!this.audioPlayers[senderId]) {
-                    this.audioPlayers[senderId] = {
-                        name: senderName,
-                        sources: []
-                    };
-                    
-                    this.addParticipantElement(senderId, senderName);
-                }
-                
-                this.audioPlayers[senderId].sources.push(source);
-                
-                source.connect(this.audioContext.destination);
-                source.start(0);
-                
-                source.onended = () => {
-                    const index = this.audioPlayers[senderId].sources.indexOf(source);
-                    if (index !== -1) {
-                        this.audioPlayers[senderId].sources.splice(index, 1);
-                    }
-                };
-                
-                this.animateAudioIndicator(senderId);
-            } catch (error) {
-                console.error('Error al reproducir audio:', error);
-            }
-        }
-        
-        animateAudioIndicator(participantId) {
-            const participantElement = document.getElementById(`participant-${participantId}`);
-            if (participantElement) {
-                const audioWaves = participantElement.querySelectorAll('.audio-wave');
-                
-                audioWaves.forEach(wave => {
-                    wave.classList.add('active');
-                    setTimeout(() => {
-                        wave.classList.remove('active');
-                    }, 300);
-                });
-            }
-        }
-        
-        showIncomingCallUI(roomId, callerId, callerName) {
-            if (this.isCallActive && this.activeRoom) {
-                console.log('Ya hay una llamada activa. No mostrando diálogo de llamada entrante.');
-                return;
+        });
+    }
+    
+    async startCall(roomId) {
+        try {
+            console.log('Iniciando llamada en sala:', roomId);
+            
+            await this.requestMediaPermissions();
+            
+            const response = await fetch(`/chat/voice/call/${roomId}`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                    token: this.userToken,
+                    userId: this.userId
+                })
+            });
+            
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                console.error("La respuesta no es JSON:", await response.text());
+                throw new Error("Respuesta inesperada del servidor. Verifica la consola para más detalles.");
             }
             
-            const callResponseKey = `call_response_${roomId}_${callerId}`;
-            if (sessionStorage.getItem(callResponseKey)) {
-                console.log('Ya respondimos a esta llamada anteriormente.');
-                return;
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Error al iniciar la llamada');
             }
             
-            if (confirm(`Llamada entrante de ${callerName}. ¿Deseas aceptar?`)) {
-                sessionStorage.setItem(callResponseKey, 'accepted');
-                this.acceptCall(roomId, callerId, callerName);
+            this.activeRoom = roomId;
+            this.isCallActive = true;
+            
+            this.showCallUI();
+            
+            this.socket.emit('voice_call_start', {
+                roomId: roomId,
+                userId: this.userId,
+                userName: this.userName,
+                token: this.userToken
+            });
+            
+            this.socket.emit('voice_call_invite_all', {
+                roomId: roomId,
+                callerId: this.userId,
+                callerName: this.userName
+            });
+            
+            this.startAudioTransmission(roomId);
+            
+            return true;
+        } catch (error) {
+            console.error('Error al iniciar la llamada:', error);
+            this.stopMediaStream();
+            return false;
+        }
+    }
+    
+    async requestMediaPermissions() {
+        try {
+            this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: false
+            });
+            
+            console.log('Permisos de audio concedidos');
+            return true;
+        } catch (error) {
+            console.error('Error al solicitar permisos de audio:', error);
+            
+            if (error.name === 'NotAllowedError') {
+                alert('Para usar las llamadas de voz, debes permitir el acceso al micrófono.');
             } else {
-                sessionStorage.setItem(callResponseKey, 'rejected');
-                this.rejectCall(roomId, callerId);
+                alert('Error al acceder al micrófono: ' + error.message);
             }
+            
+            throw error;
+        }
+    }
+    
+    startAudioTransmission(roomId) {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+            
+            this.audioProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+            
+            this.audioProcessor.onaudioprocess = (e) => {
+                if (this.isCallActive && !this.isMuted) {
+                    const inputBuffer = e.inputBuffer;
+                    const samples = inputBuffer.getChannelData(0);
+                    
+                    const sampleArray = Array.from(samples);
+                    const base64Data = btoa(String.fromCharCode.apply(null, 
+                        new Uint8Array(new Float32Array(sampleArray).buffer)
+                    ));
+                    
+                    this.socket.emit('voice_audio_chunk', {
+                        roomId: roomId,
+                        userId: this.userId,
+                        userName: this.userName,
+                        audioChunk: base64Data,
+                        token: this.userToken
+                    });
+                }
+            };
+            
+            source.connect(this.audioProcessor);
+            this.audioProcessor.connect(this.audioContext.destination);
+            
+            console.log('Transmisión de audio iniciada');
+        } catch (error) {
+            console.error('Error al iniciar la transmisión de audio:', error);
+        }
+    }
+    
+    playAudioChunk(senderId, senderName, audioChunkBase64) {
+        try {
+            if (senderId === this.userId.toString()) {
+                console.log("Ignorando chunk de audio del usuario local");
+                return;
+            }
+            
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            const binaryString = atob(audioChunkBase64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            const audioData = new Float32Array(bytes.buffer);
+            
+            const buffer = this.audioContext.createBuffer(1, audioData.length, this.audioContext.sampleRate);
+            buffer.getChannelData(0).set(audioData);
+            
+            const source = this.audioContext.createBufferSource();
+            source.buffer = buffer;
+            
+            if (!this.audioPlayers[senderId]) {
+                this.audioPlayers[senderId] = {
+                    name: senderName,
+                    sources: []
+                };
+                
+                this.addParticipantElement(senderId, senderName);
+            }
+            
+            this.audioPlayers[senderId].sources.push(source);
+            
+            source.connect(this.audioContext.destination);
+            source.start(0);
+            
+            source.onended = () => {
+                const index = this.audioPlayers[senderId].sources.indexOf(source);
+                if (index !== -1) {
+                    this.audioPlayers[senderId].sources.splice(index, 1);
+                }
+            };
+            
+            this.animateAudioIndicator(senderId);
+        } catch (error) {
+            console.error('Error al reproducir audio:', error);
+        }
+    }
+    
+    animateAudioIndicator(participantId) {
+        const userId = this.userId.toString();
+        const particId = participantId.toString();
+        
+        if (particId === userId && this.localParticipant) {
+            const audioWaves = this.localParticipant.querySelectorAll('.audio-wave');
+            
+            audioWaves.forEach(wave => {
+                wave.classList.add('active');
+                setTimeout(() => {
+                    wave.classList.remove('active');
+                }, 300);
+            });
+            return;
         }
         
-        async acceptCall(roomId, callerId, callerName) {
-            try {
-                if (this.isCallActive) {
-                    console.log('Ya estamos en una llamada activa. No aceptando nueva llamada.');
-                    return false;
-                }
-                
-                await this.requestMediaPermissions();
-                
-                this.activeRoom = roomId;
-                this.isCallActive = true;
-                
-                this.showCallUI();
-                
-                this.socket.emit('voice_call_accept', {
-                    roomId: roomId,
-                    callerId: callerId,
-                    userId: this.userId,
-                    userName: this.userName,
-                    token: this.userToken
-                });
-                
-                this.startAudioTransmission(roomId);
-                
-                return true;
-            } catch (error) {
-                console.error('Error al aceptar la llamada:', error);
-                this.stopMediaStream();
+        const participantElement = document.getElementById(`participant-${participantId}`);
+        if (participantElement) {
+            const audioWaves = participantElement.querySelectorAll('.audio-wave');
+            
+            audioWaves.forEach(wave => {
+                wave.classList.add('active');
+                setTimeout(() => {
+                    wave.classList.remove('active');
+                }, 300);
+            });
+        }
+    }
+    
+    showIncomingCallUI(roomId, callerId, callerName) {
+        if (this.isCallActive && this.activeRoom) {
+            console.log('Ya hay una llamada activa. No mostrando diálogo de llamada entrante.');
+            return;
+        }
+        
+        const callResponseKey = `call_response_${roomId}_${callerId}`;
+        if (sessionStorage.getItem(callResponseKey)) {
+            console.log('Ya respondimos a esta llamada anteriormente.');
+            return;
+        }
+        
+        if (confirm(`Llamada entrante de ${callerName}. ¿Deseas aceptar?`)) {
+            sessionStorage.setItem(callResponseKey, 'accepted');
+            this.acceptCall(roomId, callerId, callerName);
+        } else {
+            sessionStorage.setItem(callResponseKey, 'rejected');
+            this.rejectCall(roomId, callerId);
+        }
+    }
+    
+    async acceptCall(roomId, callerId, callerName) {
+        try {
+            if (this.isCallActive) {
+                console.log('Ya estamos en una llamada activa. No aceptando nueva llamada.');
                 return false;
             }
-        }
-        
-        rejectCall(roomId, callerId) {
-            this.socket.emit('voice_call_reject', {
+            
+            await this.requestMediaPermissions();
+            
+            this.activeRoom = roomId;
+            this.isCallActive = true;
+            
+            this.showCallUI();
+            
+            this.socket.emit('voice_call_accept', {
                 roomId: roomId,
                 callerId: callerId,
                 userId: this.userId,
                 userName: this.userName,
                 token: this.userToken
             });
+            
+            this.startAudioTransmission(roomId);
+            
+            return true;
+        } catch (error) {
+            console.error('Error al aceptar la llamada:', error);
+            this.stopMediaStream();
+            return false;
+        }
+    }
+    
+    rejectCall(roomId, callerId) {
+        this.socket.emit('voice_call_reject', {
+            roomId: roomId,
+            callerId: callerId,
+            userId: this.userId,
+            userName: this.userName,
+            token: this.userToken
+        });
+    }
+    
+    showCallUI() {
+        if (this.modal) {
+            this.modal.style.display = 'block';
+            this.updateCallStatus('Llamada en curso');
         }
         
-        showCallUI() {
-            if (this.modal) {
-                this.modal.style.display = 'block';
-                this.updateCallStatus('Llamada en curso');
+        this.ensureLocalUserElement();
+        
+        this.addActiveCallIndicator();
+    }
+    
+    ensureLocalUserElement() {
+        if (this.localParticipant) {
+            this.localParticipant.style.display = 'flex';
+            
+            const nameElement = this.localParticipant.querySelector('.participant-name');
+            if (nameElement && nameElement.textContent !== 'Tú') {
+                nameElement.textContent = 'Tú';
             }
             
-            this.addSelfElement();        
-            this.addActiveCallIndicator();
+            return;
         }
         
-
-        addSelfElement() {
-            if (!this.remoteParticipantsContainer) return;
+        const userSpecificElement = document.getElementById(`participant-${this.userId}`);
+        if (userSpecificElement) {
+            const nameElement = userSpecificElement.querySelector('.participant-name');
+            if (nameElement && nameElement.textContent !== 'Tú') {
+                nameElement.textContent = 'Tú';
+            }
             
-            if (document.getElementById(`participant-${this.userId}`)) return;
-            
+            return;
+        }
+        
+        if (this.remoteParticipantsContainer) {
             const selfDiv = document.createElement('div');
             selfDiv.id = `participant-${this.userId}`;
             selfDiv.className = 'participant';
@@ -1200,35 +1241,45 @@ function addMessageToChatOrdered(message, scroll = true) {
             
             this.remoteParticipantsContainer.appendChild(selfDiv);
         }
+    }
+    
+    addActiveCallIndicator() {
+        const chatHeader = document.querySelector('.chat-header');
+        if (chatHeader && !document.querySelector('.active-call-indicator')) {
+            const indicator = document.createElement('span');
+            indicator.className = 'active-call-indicator';
+            indicator.innerHTML = '<i class="fas fa-phone"></i> Llamada activa';
+            chatHeader.appendChild(indicator);
+        }
+    }
+    
+    removeActiveCallIndicator() {
+        const indicator = document.querySelector('.active-call-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+    
+    updateCallStatus(status) {
+        if (this.callStatus) {
+            this.callStatus.textContent = status;
+        }
+    }
+    
+    addParticipantElement(participantId, participantName) {
+        const userId = this.userId.toString();
+        const particId = participantId.toString();
         
-        addActiveCallIndicator() {
-            const chatHeader = document.querySelector('.chat-header');
-            if (chatHeader && !document.querySelector('.active-call-indicator')) {
-                const indicator = document.createElement('span');
-                indicator.className = 'active-call-indicator';
-                indicator.innerHTML = '<i class="fas fa-phone"></i> Llamada activa';
-                chatHeader.appendChild(indicator);
-            }
+        if (particId === userId) {
+            this.ensureLocalUserElement();
+            return;
         }
         
-        removeActiveCallIndicator() {
-            const indicator = document.querySelector('.active-call-indicator');
-            if (indicator) {
-                indicator.remove();
-            }
+        if (document.getElementById(`participant-${participantId}`)) {
+            return;
         }
         
-        updateCallStatus(status) {
-            if (this.callStatus) {
-                this.callStatus.textContent = status;
-            }
-        }
-        
-        addParticipantElement(participantId, participantName) {
-            if (!this.remoteParticipantsContainer) return;
-            
-            if (document.getElementById(`participant-${participantId}`)) return;
-            
+        if (this.remoteParticipantsContainer) {
             const participantDiv = document.createElement('div');
             participantDiv.id = `participant-${participantId}`;
             participantDiv.className = 'participant';
@@ -1243,120 +1294,128 @@ function addMessageToChatOrdered(message, scroll = true) {
             
             this.remoteParticipantsContainer.appendChild(participantDiv);
         }
-        
-        removeParticipantElement(participantId) {
-            const participantElement = document.getElementById(`participant-${participantId}`);
-            if (participantElement) {
-                participantElement.remove();
-            }
-            
-            if (this.audioPlayers[participantId]) {
-                delete this.audioPlayers[participantId];
-            }
+    }
+    
+    removeParticipantElement(participantId) {
+        const participantElement = document.getElementById(`participant-${participantId}`);
+        if (participantElement) {
+            participantElement.remove();
         }
         
-        toggleMute() {
-            this.isMuted = !this.isMuted;
-            
-            if (this.muteToggle) {
-                if (this.isMuted) {
-                    this.muteToggle.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-                    this.muteToggle.classList.add('muted');
-                } else {
-                    this.muteToggle.innerHTML = '<i class="fas fa-microphone"></i>';
-                    this.muteToggle.classList.remove('muted');
-                }
+        if (this.audioPlayers[participantId]) {
+            delete this.audioPlayers[participantId];
+        }
+    }
+    
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        
+        if (this.muteToggle) {
+            if (this.isMuted) {
+                this.muteToggle.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                this.muteToggle.classList.add('muted');
+            } else {
+                this.muteToggle.innerHTML = '<i class="fas fa-microphone"></i>';
+                this.muteToggle.classList.remove('muted');
             }
         }
+    }
+    
+    endCall(notifyServer = true) {
+        if (!this.isCallActive) return;
         
-        endCall(notifyServer = true) {
-            if (!this.isCallActive) return;
-            
-            this.stopAudioProcessing();
-            this.stopMediaStream();
-            
-            if (notifyServer) {
-                try {
-                    fetch(`/chat/voice/call/${this.activeRoom}/end`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: this.userId,
-                            userName: this.userName,
-                            token: this.userToken
-                        })
-                    })
-                    .then(response => response.json())
-                    .catch(error => {
-                        console.error('Error al notificar el fin de la llamada:', error);
-                    });
-                    
-                    this.socket.emit('voice_call_end', {
-                        roomId: this.activeRoom,
+        this.stopAudioProcessing();
+        this.stopMediaStream();
+        
+        if (notifyServer) {
+            try {
+                fetch(`/chat/voice/call/${this.activeRoom}/end`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         userId: this.userId,
                         userName: this.userName,
                         token: this.userToken
-                    });
-                } catch (error) {
+                    })
+                })
+                .then(response => response.json())
+                .catch(error => {
                     console.error('Error al notificar el fin de la llamada:', error);
+                });
+                
+                this.socket.emit('voice_call_end', {
+                    roomId: this.activeRoom,
+                    userId: this.userId,
+                    userName: this.userName,
+                    token: this.userToken
+                });
+            } catch (error) {
+                console.error('Error al notificar el fin de la llamada:', error);
+            }
+        }
+        
+        this.audioPlayers = {};
+        
+        const oldRoomId = this.activeRoom;
+        this.activeRoom = null;
+        this.isCallActive = false;
+        
+        if (oldRoomId) {
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key && key.startsWith(`call_response_${oldRoomId}`)) {
+                    sessionStorage.removeItem(key);
                 }
             }
-            
-            this.audioPlayers = {};
-            
-            const oldRoomId = this.activeRoom;
-            this.activeRoom = null;
-            this.isCallActive = false;
-            
-            if (oldRoomId) {
-                for (let i = 0; i < sessionStorage.length; i++) {
-                    const key = sessionStorage.key(i);
-                    if (key && key.startsWith(`call_response_${oldRoomId}`)) {
-                        sessionStorage.removeItem(key);
-                    }
-                }
-            }
-            
-            this.hideCallUI();
-            
-            return true;
         }
         
-        stopAudioProcessing() {
-            if (this.audioProcessor) {
-                this.audioProcessor.disconnect();
-                this.audioProcessor = null;
-            }
-            
-            if (this.audioContext) {
-                this.audioContext.close().catch(error => {
-                    console.error('Error al cerrar el contexto de audio:', error);
-                });
-                this.audioContext = null;
-            }
+        this.hideCallUI();
+        
+        return true;
+    }
+    
+    stopAudioProcessing() {
+        if (this.audioProcessor) {
+            this.audioProcessor.disconnect();
+            this.audioProcessor = null;
         }
         
-        stopMediaStream() {
-            if (this.mediaStream) {
-                this.mediaStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                this.mediaStream = null;
-            }
-        }
-        
-        hideCallUI() {
-            if (this.modal) {
-                this.modal.style.display = 'none';
-            }
-            
-            if (this.remoteParticipantsContainer) {
-                this.remoteParticipantsContainer.innerHTML = '';
-            }
-            
-            this.removeActiveCallIndicator();
+        if (this.audioContext) {
+            this.audioContext.close().catch(error => {
+                console.error('Error al cerrar el contexto de audio:', error);
+            });
+            this.audioContext = null;
         }
     }
+    
+    stopMediaStream() {
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => {
+                track.stop();
+            });
+            this.mediaStream = null;
+        }
+    }
+    
+    hideCallUI() {
+        if (this.modal) {
+            this.modal.style.display = 'none';
+        }
+        
+        if (this.remoteParticipantsContainer) {
+            this.remoteParticipantsContainer.innerHTML = '';
+        }
+        
+        if (this.localParticipant) {
+            const nameElement = this.localParticipant.querySelector('.participant-name');
+            if (nameElement) {
+                nameElement.textContent = 'Tú';
+            }
+        }
+        
+        this.removeActiveCallIndicator();
+    }
+}
 });
 
 </script>
