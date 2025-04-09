@@ -1,0 +1,71 @@
+.backup-card {
+    transition: transform 0.2s ease-in-out;
+    margin-bottom: 1.5rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.backup-card:hover {
+    transform: translateY(-5px);
+}
+
+.backup-stats {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.backup-size {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.backup-date {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+#restoreModal .modal-content,
+#deleteModal .modal-content {
+    background-color: rgba(44, 62, 80, 0.95);
+    color: white;
+    border-radius: 8px;
+}
+
+#restoreModal .modal-body p,
+#restoreModal .modal-header h5,
+#deleteModal .modal-body p,
+#deleteModal .modal-header h5 {
+    color: white;
+}
+
+#restoreModal .btn-close,
+#deleteModal .btn-close {
+    filter: invert(1);
+}
+
+#deleteModal .modal-body strong {
+    color: white;
+}
+
+.backup-form-container {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.alert-info {
+    --bs-alert-color: var(--bs-info-text-emphasis)!important;
+    --bs-alert-bg: rgba(44, 62, 80, 0.95) !important;
+    --bs-alert-border-color: rgba(44, 62, 80, 0.95) !important;
+    --bs-alert-link-color: var(--bs-info-text-emphasis)!important;
+}
+
+.alert-danger {
+    --bs-alert-color: var(--bs-danger-text-emphasis)!important;
+    --bs-alert-bg: rgba(255, 255, 255, 0.1)!important;
+    --bs-alert-border-color: rgba(255, 255, 255, 0.1)!important;
+    --bs-alert-link-color: var(--bs-danger-text-emphasis)!important;
+}

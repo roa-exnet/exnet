@@ -1,0 +1,177 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Backups del Sistema{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/backups.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-section-title">Backups del Sistema</h1>
+        <div>
+            <a href="{{ path('backups_create') }}" class="exnet-btn exnet-btn-blue">
+                <i class="fas fa-plus"></i> Crear Backup
+            </a>
+        </div>
+    </div>
+    
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="backup-stats">
+                <h5><i class="fas fa-chart-pie me-2"></i> Estadísticas de Backups</h5>
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4>{{ stats.totalCount }}</h4>
+                            <p class="mb-0">Total Backups</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4>{{ stats.formattedTotalSize }}</h4>
+                            <p class="mb-0">Espacio Usado</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4>{{ stats.formattedDiskFreeSpace }}</h4>
+                            <p class="mb-0">Espacio Libre</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4>{% if stats.latestBackup %}{{ stats.latestBackup.createdAt|date('d/m/Y') }}{% else %}N/A{% endif %}</h4>
+                            <p class="mb-0">Último Backup</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        {% if backups|length > 0 %}
+            {% for backup in backups %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="backup-card p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5>
+                                    <i class="fas fa-database text-success me-2"></i>
+                                    {{ backup.name ?? backup.filename }}
+                                </h5>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('backups_download', {'id': backup.id}) }}">
+                                            <i class="fas fa-download me-2"></i> Descargar
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="showRestoreModal('{{ backup.id }}', '{{ backup.name ?? backup.filename }}', '{{ backup.type }}', '{{ csrf_token('restore_backup_' ~ backup.id) }}')">
+                                            <i class="fas fa-undo-alt me-2"></i> Restaurar
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="#" onclick="showDeleteModal('{{ backup.id }}', '{{ backup.name ?? backup.filename }}', '{{ csrf_token('delete_backup_' ~ backup.id) }}')">
+                                            <i class="fas fa-trash-alt me-2"></i> Eliminar
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        {% if backup.description %}
+                            <p class="mt-2 mb-2 text-white-50">{{ backup.description }}</p>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between mt-3">
+                            <span class="backup-size">{{ backup.formattedSize }}</span>
+                            <span class="backup-date">{{ backup.createdAt|date('d/m/Y H:i') }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No hay backups disponibles. ¡Crea uno nuevo haciendo clic en el botón "Crear Backup"!
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="restoreModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-warning me-2"></i> Restaurar Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Estás a punto de restaurar el backup <strong id="restoreBackupName"></strong>.</p>
+                <p class="text-danger">¡ADVERTENCIA! Esta acción sobrescribirá los datos actuales del sistema. Los datos no respaldados se perderán.</p>
+                
+                <div class="alert alert-danger">
+                    <p><strong>Escribe "RESTORE-BACKUP" para confirmar:</strong></p>
+                    <input type="text" class="form-control" id="confirmationInput" placeholder="RESTORE-BACKUP">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="restoreForm" method="POST">
+                    <input type="hidden" name="_token" value="">
+                    <input type="hidden" name="confirmation_token" id="confirmationToken">
+                    <button type="submit" class="btn btn-danger" id="confirmRestoreBtn" disabled>Restaurar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-trash-alt text-danger me-2"></i> Eliminar Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar el backup <strong id="deleteBackupName"></strong>?</p>
+                <p>Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST">
+                    <input type="hidden" name="_token" value="">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block imports %}
+    {{ parent() }}
+    <script src="{{ asset('/js/ModuloCoreJs/Other/backups.js') }}"></script>
+{% endblock %}

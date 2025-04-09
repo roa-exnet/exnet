@@ -1,0 +1,66 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Crear Backup{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/backups.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-section-title">Crear Nuevo Backup</h1>
+        <div>
+            <a href="{{ path('backups_index') }}" class="exnet-btn exnet-btn-outline-light">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+    
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    
+    <form method="POST" id="backupForm">
+        <div class="backup-form-container">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label for="name" class="form-label">Nombre del Backup</label>
+                        <input type="text" class="form-control" id="name" name="name" required 
+                               value="Backup BD {{ 'now'|date('Y-m-d H:i') }}" placeholder="Nombre descriptivo">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description" class="form-label">Descripción (Opcional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                  placeholder="Describe el propósito de este backup"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info" id="backupInfo">
+                <p><i class="fas fa-info-circle me-2"></i> Este backup incluirá todos los datos almacenados en la base de datos del sistema.</p>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between mt-4">
+            <button type="button" class="exnet-btn exnet-btn-outline-light" onclick="window.location.href='{{ path('backups_index') }}'">Cancelar</button>
+            <button type="submit" class="exnet-btn exnet-btn-blue" id="submitBtn">
+                <i class="fas fa-save me-2"></i> Crear Backup
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block imports %}
+    {{ parent() }}
+    <script src="{{ asset('/js/ModuloCoreJs/Other/backups.js') }}"></script>
+{% endblock %}

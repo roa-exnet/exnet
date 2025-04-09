@@ -8,6 +8,7 @@ parameters:
     jwt.auth_mode: 'jwt'
     jwt.cookie_name: 'exnet_auth_jwt'
     jwt.token_lifetime: 86400
+    app.backup_dir: '%kernel.project_dir%/var/backups'
 
 services:
     # default configuration for services in *this* file
@@ -52,6 +53,11 @@ services:
     App\ModuloCore\Service\JwtAuthService:
         arguments:
             $appSecret: '%kernel.secret%'
+
+    App\ModuloCore\Service\BackupService:
+        arguments:
+            $backupDir: '%app.backup_dir%'
+            $projectDir: '%kernel.project_dir%'
     
     App\ModuloCore\EventSubscriber\JwtAuthSubscriber:
         tags:
@@ -75,5 +81,5 @@ services:
     App\ModuloChat\Service\:
         resource: '../src/ModuloChat/Service/'
 
-    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------
                         
