@@ -24,6 +24,18 @@
     transition: var(--exnet-transition);
 }
 
+.exnet-container-transparent2 {
+    background-color: rgba(44, 62, 80, 0.95) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: var(--exnet-border-radius);
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--exnet-text-light);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: var(--exnet-transition);
+}
+
 .exnet-container-transparent:hover {
     background-color: rgba(44, 62, 80, 0.95) !important;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);

@@ -34,10 +34,8 @@ class SecurityController extends AbstractController
         Request $request
     ): Response
     {
-        // Verificar si ya hay un usuario autenticado (por JWT o IP)
         $user = $this->jwtAuthService->getAuthenticatedUser($request);
         
-        // Si ya hay un usuario autenticado, redirigir
         if ($user) {
             $redirect = $request->query->get('redirect');
             if ($redirect) {
@@ -46,22 +44,19 @@ class SecurityController extends AbstractController
             return $this->redirectToRoute('landing');
         }
         
-        // Verificar si la IP está registrada (login automático por IP)
         if ($this->ipAuthService->isIpRegistered()) {
             $ipUser = $this->ipAuthService->getCurrentUser();
             if ($ipUser) {
                 $response = $this->redirectToRoute('landing');
-                // Generar JWT para el usuario de IP
                 $this->jwtAuthService->addTokenCookie($response, $ipUser);
                 return $response;
             }
         }
         
-        // Si no hay autenticación, continuar con el flujo normal de login
         $error = $authenticationUtils->getLastAuthenticationError();
         $lastUsername = $authenticationUtils->getLastUsername();
 
-        return $this->render('security/login.html.twig', [
+        return $this->render('registration/register_ip.html.twig', [
             'last_username' => $lastUsername,
             'error' => $error,
             'currentIp' => $this->ipAuthService->getCurrentIp()
@@ -78,7 +73,6 @@ class SecurityController extends AbstractController
     public function jwtLogout(Request $request): Response
     {
         $response = $this->redirectToRoute('landing');
-        // Eliminar la cookie del JWT
         $this->jwtAuthService->removeTokenCookie($response);
         
         return $response;
@@ -89,7 +83,6 @@ class SecurityController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
         
-        // Si se proporciona un JWT en la solicitud, usamos eso
         $jwtToken = $data['jwt'] ?? null;
         if ($jwtToken) {
             $payload = $this->jwtAuthService->verifyToken($jwtToken);
@@ -114,7 +107,6 @@ class SecurityController extends AbstractController
             ], 401);
         }
         
-        // Compatibilidad con el sistema antiguo
         if (!isset($data['token'])) {
             return $this->json([
                 'success' => false,
