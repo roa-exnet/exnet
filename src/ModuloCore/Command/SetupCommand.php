@@ -58,10 +58,21 @@ class SetupCommand extends Command
                 4. Instala y configura los módulos esenciales
                 5. Configura la aplicación
 
-                Este comando está diseñado para ser interactivo y asistirle en cada paso.
+                Este comando puede ser interactivo o usar opciones para configuración automática.
                 EOT
             )
-            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la ejecución incluso si el sistema ya está configurado');
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la ejecución incluso si el sistema ya está configurado')
+            ->addOption('app-env', null, InputOption::VALUE_REQUIRED, 'Entorno de ejecución (dev, prod, test)', 'dev')
+            ->addOption('cors-url', null, InputOption::VALUE_REQUIRED, 'URL para CORS (* para todos)', '*')
+            ->addOption('ws-port', null, InputOption::VALUE_REQUIRED, 'Puerto para el servidor WebSocket', '3088')
+            ->addOption('admin-user', null, InputOption::VALUE_REQUIRED, 'Email del administrador', 'admin@example.com')
+            ->addOption('admin-name', null, InputOption::VALUE_REQUIRED, 'Nombre del administrador', 'Admin')
+            ->addOption('admin-lastname', null, InputOption::VALUE_REQUIRED, 'Apellidos del administrador', 'Usuario')
+            ->addOption('admin-password', null, InputOption::VALUE_REQUIRED, 'Contraseña del administrador', null)
+            ->addOption('admin-ip', null, InputOption::VALUE_REQUIRED, 'IP para autologueo del administrador', '127.0.0.1')
+            ->addOption('install-modules', null, InputOption::VALUE_REQUIRED, 'Instalar módulos adicionales (yes/no)', 'yes')
+            ->addOption('start-server', null, InputOption::VALUE_REQUIRED, 'Iniciar servidor web (yes/no)', 'yes')
+            ->addOption('server-port', null, InputOption::VALUE_REQUIRED, 'Puerto para el servidor web', '8080');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -101,20 +112,20 @@ class SetupCommand extends Command
         }
 
         // Paso 5: Configurar módulos esenciales
-        if (!$this->setupEssentialModules($io)) {
+        if (!$this->setupEssentialModules($io, $input)) {
             $io->error('Error configurando los módulos esenciales.');
             return Command::FAILURE;
         }
 
         // Paso 6: Configuraciones finales
-        if (!$this->finalSetup($io)) {
+        if (!$this->finalSetup($io, $input)) {
             $io->error('Error en la configuración final.');
             return Command::FAILURE;
         }
 
         $io->success([
             'Instalación completada con éxito.',
-            'Puede acceder al sistema en: http://localhost:8080',
+            'Puede acceder al sistema en: http://localhost:' . ($input->getOption('server-port') ?: '8080'),
             'Usuario admin creado. Use las credenciales que configuró durante la instalación.'
         ]);
 
@@ -193,21 +204,33 @@ class SetupCommand extends Command
         
         // Configurar entorno
         $envOptions = ['dev', 'prod', 'test'];
-        $question = new ChoiceQuestion(
-            'Seleccione el entorno de ejecución:',
-            $envOptions,
-            0 // dev es el valor por defecto
-        );
-        $environment = $io->askQuestion($question);
+        $environment = $input->getOption('app-env');
+        if (!in_array($environment, $envOptions, true)) {
+            $question = new ChoiceQuestion(
+                'Seleccione el entorno de ejecución:',
+                $envOptions,
+                0 // dev es el valor por defecto
+            );
+            $environment = $io->askQuestion($question);
+        }
         $this->updateEnvVariable('APP_ENV', $environment, $envLocalFile);
+        $io->note("Entorno configurado: $environment");
         
         // Configurar URL CORS
-        $corsUrl = $io->ask('URL para CORS (separados por coma si hay varios, * para permitir todos)', '*');
+        $corsUrl = $input->getOption('cors-url');
+        if ($corsUrl === null) {
+            $corsUrl = $io->ask('URL para CORS (separados por coma si hay varios, * para permitir todos)', '*');
+        }
         $this->updateEnvVariable('CORS_ALLOW_ORIGIN', $corsUrl, $envLocalFile);
+        $io->note("URL CORS configurada: $corsUrl");
         
         // Configurar puerto para WebSocket
-        $wsPort = $io->ask('Puerto para el servidor WebSocket', '3088');
+        $wsPort = $input->getOption('ws-port');
+        if ($wsPort === null) {
+            $wsPort = $io->ask('Puerto para el servidor WebSocket', '3088');
+        }
         $this->updateEnvVariable('WS_SERVER_URL', 'ws://localhost:' . $wsPort, $envLocalFile);
+        $io->note("Puerto WebSocket configurado: $wsPort");
         
         $io->success('Configuración del entorno completada.');
         return true;
@@ -375,7 +398,6 @@ class SetupCommand extends Command
                     ,
                     password VARCHAR(255) NOT NULL, 
                     nombre VARCHAR(255) NOT NULL,
-
                     apellidos VARCHAR(255) NOT NULL, 
                     created_at DATETIME NOT NULL --(DC2Type:datetime_immutable)
                     , 
@@ -455,36 +477,70 @@ class SetupCommand extends Command
     {
         $io->section('Creación de usuario administrador');
         
-        $email = $io->ask('Email del administrador', 'admin@example.com', function ($email) {
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                throw new \RuntimeException('El email no es válido.');
-            }
-            
-            $existingUser = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
-            if ($existingUser) {
-                throw new \RuntimeException('Este email ya está en uso.');
-            }
-            
-            return $email;
-        });
-        
-        $nombre = $io->ask('Nombre', 'Admin');
-        $apellidos = $io->ask('Apellidos', 'Usuario');
-        
-        $helper = $this->getHelper('question');
-        $question = new Question('Contraseña (no se mostrará): ');
-        $question->setHidden(true);
-        $question->setHiddenFallback(false);
-        $password = $helper->ask($input, $output, $question);
-        
-        $confirmQuestion = new Question('Confirme la contraseña: ');
-        $confirmQuestion->setHidden(true);
-        $confirmQuestion->setHiddenFallback(false);
-        $confirmPassword = $helper->ask($input, $output, $confirmQuestion);
-        
-        if ($password !== $confirmPassword) {
-            $io->error('Las contraseñas no coinciden.');
+        // Obtener valores de las opciones o preguntar interactivamente
+        $email = $input->getOption('admin-user');
+        if ($email === null) {
+            $email = $io->ask('Email del administrador', 'admin@example.com', function ($email) {
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new \RuntimeException('El email no es válido.');
+                }
+                return $email;
+            });
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $io->error('El email proporcionado no es válido.');
             return false;
+        }
+        
+        // Verificar si el email ya está en uso
+        $existingUser = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if ($existingUser) {
+            $io->error('Este email ya está en uso.');
+            return false;
+        }
+        
+        $nombre = $input->getOption('admin-name');
+        if ($nombre === null) {
+            $nombre = $io->ask('Nombre', 'Admin');
+        }
+        
+        $apellidos = $input->getOption('admin-lastname');
+        if ($apellidos === null) {
+            $apellidos = $io->ask('Apellidos', 'Usuario');
+        }
+        
+        $ipAddress = $input->getOption('admin-ip');
+        if ($ipAddress === null) {
+            $ipAddress = $io->ask('IP para autologueo del administrador (deje en blanco para usar localhost)', '127.0.0.1', function ($ip) {
+                if (empty($ip)) {
+                    return '127.0.0.1';
+                }
+                if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                    throw new \RuntimeException('La IP no es válida.');
+                }
+                return $ip;
+            });
+        } elseif (!filter_var($ipAddress, FILTER_VALIDATE_IP)) {
+            $io->error('La IP proporcionada no es válida.');
+            return false;
+        }
+        
+        $password = $input->getOption('admin-password');
+        if ($password === null) {
+            $helper = $this->getHelper('question');
+            $question = new Question('Contraseña (no se mostrará): ');
+            $question->setHidden(true);
+            $question->setHiddenFallback(false);
+            $password = $helper->ask($input, $output, $question);
+            
+            $confirmQuestion = new Question('Confirme la contraseña: ');
+            $confirmQuestion->setHidden(true);
+            $confirmQuestion->setHiddenFallback(false);
+            $confirmPassword = $helper->ask($input, $output, $confirmQuestion);
+            
+            if ($password !== $confirmPassword) {
+                $io->error('Las contraseñas no coinciden.');
+                return false;
+            }
         }
         
         try {
@@ -492,9 +548,22 @@ class SetupCommand extends Command
             $user->setEmail($email);
             $user->setNombre($nombre);
             $user->setApellidos($apellidos);
-            $user->setRoles(['ROLE_ADMIN']);
             $user->setCreatedAt(new \DateTimeImmutable());
             $user->setIsActive(true);
+            
+            // Verificar si es el primer usuario
+            $userCount = $this->entityManager->getRepository(User::class)->count([]);
+            if ($userCount === 0) {
+                $user->setRoles(['ROLE_ADMIN']);
+                $io->note('Este es el primer usuario, se asignará el rol de Administrador.');
+            } else {
+                $user->setRoles(['ROLE_USER']);
+                $io->note('Usuario registrado con rol de Usuario regular.');
+            }
+            
+            // Establecer la IP para autologueo
+            $user->setIpAddress($ipAddress);
+            $io->note("IP registrada para autologueo: $ipAddress");
             
             $hashedPassword = $this->passwordHasher->hashPassword($user, $password);
             $user->setPassword($hashedPassword);
@@ -510,7 +579,7 @@ class SetupCommand extends Command
         }
     }
 
-    private function setupEssentialModules(SymfonyStyle $io): bool
+    private function setupEssentialModules(SymfonyStyle $io, InputInterface $input): bool
     {
         $io->section('Configuración de módulos esenciales');
         
@@ -564,11 +633,19 @@ class SetupCommand extends Command
         }
         
         // Preguntar sobre la instalación de otros módulos
-        $question = new ConfirmationQuestion('¿Desea configurar los módulos adicionales ahora? (recomendado) [s/n]', true);
-        if ($io->askQuestion($question)) {
-            // Aquí podríamos implementar la instalación de otros módulos
+        $installModules = $input->getOption('install-modules');
+        $shouldInstallModules = $installModules === 'yes';
+        
+        if ($installModules === null) {
+            $question = new ConfirmationQuestion('¿Desea configurar los módulos adicionales ahora? (recomendado) [s/n]', true);
+            $shouldInstallModules = $io->askQuestion($question);
+        }
+        
+        if ($shouldInstallModules) {
             $io->note('La funcionalidad para instalar módulos adicionales desde este comando está en desarrollo.');
             $io->note('Por ahora, puede instalar módulos adicionales desde la interfaz web en: /modulos/marketplace');
+        } else {
+            $io->note('No se instalarán módulos adicionales.');
         }
         
         return true;
@@ -597,7 +674,7 @@ class SetupCommand extends Command
         return $menuElement;
     }
 
-    private function finalSetup(SymfonyStyle $io): bool
+    private function finalSetup(SymfonyStyle $io, InputInterface $input): bool
     {
         $io->section('Configuración final');
         
@@ -633,10 +710,20 @@ class SetupCommand extends Command
             }
         }
         
-        // Preguntar si desea iniciar el servidor
-        $question = new ConfirmationQuestion('¿Desea iniciar el servidor web ahora? [s/n]', true);
-        if ($io->askQuestion($question)) {
-            $port = $io->ask('Puerto para el servidor web', '8080');
+        // Iniciar servidor web
+        $startServer = $input->getOption('start-server');
+        $shouldStartServer = $startServer === 'yes';
+        
+        if ($startServer === null) {
+            $question = new ConfirmationQuestion('¿Desea iniciar el servidor web ahora? [s/n]', true);
+            $shouldStartServer = $io->askQuestion($question);
+        }
+        
+        if ($shouldStartServer) {
+            $port = $input->getOption('server-port');
+            if ($port === null) {
+                $port = $io->ask('Puerto para el servidor web', '8080');
+            }
             
             $io->note('Iniciando servidor web en http://localhost:' . $port);
             $io->note('Presione Ctrl+C para detener el servidor.');
