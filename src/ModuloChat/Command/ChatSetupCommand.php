@@ -16,7 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 #[AsCommand(
     name: 'modulochat:setup',
-    description: 'Configurar el módulo de chat: configura configuraciones, base de datos y genera migraciones'
+    description: 'Configurar el módulo de chat: configura configuraciones y crea tablas directamente'
 )]
 class ChatSetupCommand extends Command
 {
@@ -32,7 +32,6 @@ class ChatSetupCommand extends Command
     {
         $this
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la instalación incluso si el módulo ya está instalado')
-            ->addOption('skip-migrations', null, InputOption::VALUE_NONE, 'Omitir la generación y ejecución de migraciones')
             ->addOption('skip-menu', null, InputOption::VALUE_NONE, 'Omitir la creación de elementos de menú')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Confirmar automáticamente todas las preguntas')
             ->setHelp(<<<EOT
@@ -44,19 +43,16 @@ class ChatSetupCommand extends Command
                 4. Actualiza la configuración de doctrine.yaml para incluir las entidades del módulo de chat.
                 5. Registra el módulo en la tabla de módulos de la aplicación.
                 6. Crea elementos de menú para acceder al módulo de chat.
-                7. Genera una nueva migración para incluir las entidades del chat.
-                8. Ejecuta la migración para aplicar los cambios en la base de datos.
+                7. Crea las tablas del módulo de chat directamente mediante SQL.
 
                 Opciones:
                   --force, -f             Forzar la instalación incluso si el módulo ya está instalado
-                  --skip-migrations       Omitir la generación y ejecución de migraciones
                   --skip-menu             Omitir la creación de elementos de menú
                   --yes, -y               Confirmar automáticamente todas las preguntas
 
                 Ejemplo de uso:
 
                 <info>php bin/console modulochat:setup</info>
-                <info>php bin/console modulochat:setup --skip-migrations</info>
                 <info>php bin/console modulochat:setup --force</info>
                 <info>php bin/console modulochat:setup --yes</info>
                 EOT
@@ -94,31 +90,15 @@ class ChatSetupCommand extends Command
             $this->createMenuItems($io);
         }
         
-        // Omitir migraciones si se solicita
-        if ($input->getOption('skip-migrations')) {
-            $io->note('Las migraciones han sido omitidas según los parámetros de entrada.');
-            $io->success('Configuración del Módulo de Chat completada exitosamente (sin migraciones).');
-            return Command::SUCCESS;
-        }
-        
-        // Confirmación para generar migraciones
-        if (!$input->getOption('yes') && !$io->confirm('¿Deseas generar y ejecutar la migración de la base de datos ahora?', true)) {
-            $io->note('Operaciones de base de datos omitidas. Puedes ejecutarlas manualmente más tarde.');
+        // Confirmación para crear tablas
+        if (!$input->getOption('yes') && !$io->confirm('¿Deseas crear las tablas del módulo de chat ahora?', true)) {
+            $io->note('Creación de tablas omitida. Puedes crearlas manualmente más tarde.');
             $io->success('Configuración de archivos completada.');
             return Command::SUCCESS;
         }
         
-        // 7. Generar migración
-        $migrationSuccess = $this->generateMigration($io);
-        if (!$migrationSuccess) {
-            return Command::FAILURE;
-        }
-        
-        // 8. Ejecutar migración
-        $executionSuccess = $this->executeMigration($input, $io);
-        if (!$executionSuccess) {
-            return Command::FAILURE;
-        }
+        // 7. Crear tablas directamente
+        $this->createTables($io);
         
         $io->success('¡Módulo de Chat configurado exitosamente!');
         $io->note('Puedes acceder al chat en la ruta /chat');
@@ -332,7 +312,7 @@ EOT;
                 $twigContent
             );
             file_put_contents($twigYamlPath, $twigContent);
-            $io->success('Las plantillas Twig del módulo de chat han sido descomentadas.');
+            $io->success('Las plantillas Twig del módulo de chat han been descomentadas.');
             return;
         }
         
@@ -518,44 +498,82 @@ EOT;
         }
     }
     
-    private function generateMigration(SymfonyStyle $io): bool
+    private function createTables(SymfonyStyle $io): void
     {
-        $io->section('Generando migración...');
-        $process = new Process(['php', 'bin/console', 'make:migration']);
-        $process->setTimeout(120); // 2 minutos de timeout
-        $process->run(function ($type, $buffer) use ($io) {
-            $io->write($buffer);
-        });
+        $io->section('Creando tablas del módulo de chat...');
         
-        if (!$process->isSuccessful()) {
-            $io->error('Error al generar la migración. Puedes intentarlo manualmente más tarde.');
-            return false;
+        try {
+            $connection = $this->entityManager->getConnection();
+            
+            // Clear cache before creating tables
+            $io->section('Limpiando la caché antes de crear tablas...');
+            $cacheClearProcess = new Process(['php', 'bin/console', 'cache:clear']);
+            $cacheClearProcess->setTimeout(120); // 2 minutos de timeout
+            $cacheClearProcess->run(function ($type, $buffer) use ($io) {
+                $io->write($buffer);
+            });
+
+            if (!$cacheClearProcess->isSuccessful()) {
+                $io->warning('No se pudo limpiar la caché. Continuando con la creación de tablas...');
+            } else {
+                $io->success('Caché limpiada exitosamente.');
+            }
+
+            // SQL to create the chat table
+            $chatTableSql = <<<SQL
+            CREATE TABLE IF NOT EXISTS chat (
+                id VARCHAR(255) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                created_at DATETIME NOT NULL,
+                closed_at DATETIME DEFAULT NULL,
+                type VARCHAR(20) NOT NULL DEFAULT 'private',
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                PRIMARY KEY (id)
+            );
+SQL;
+
+            // SQL to create the chat_message table
+            $chatMessageTableSql = <<<SQL
+            CREATE TABLE IF NOT EXISTS chat_message (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id VARCHAR(255) NOT NULL,
+                sender_identifier VARCHAR(255) NOT NULL,
+                sender_name VARCHAR(255) DEFAULT NULL,
+                content TEXT NOT NULL,
+                sent_at DATETIME NOT NULL,
+                read_at DATETIME DEFAULT NULL,
+                message_type VARCHAR(50) NOT NULL DEFAULT 'text',
+                metadata TEXT DEFAULT NULL
+            );
+SQL;
+
+            // SQL to create the chat_participant table
+            $chatParticipantTableSql = <<<SQL
+            CREATE TABLE IF NOT EXISTS chat_participant (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id VARCHAR(255) NOT NULL,
+                participant_identifier VARCHAR(255) NOT NULL,
+                participant_name VARCHAR(255) DEFAULT NULL,
+                joined_at DATETIME NOT NULL,
+                left_at DATETIME DEFAULT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                role VARCHAR(50) NOT NULL DEFAULT 'member'
+            );
+SQL;
+
+            // Execute SQL statements
+            $connection->executeStatement($chatTableSql);
+            $io->success('Tabla chat creada exitosamente.');
+            
+            $connection->executeStatement($chatMessageTableSql);
+            $io->success('Tabla chat_message creada exitosamente.');
+            
+            $connection->executeStatement($chatParticipantTableSql);
+            $io->success('Tabla chat_participant creada exitosamente.');
+            
+        } catch (\Exception $e) {
+            $io->error('Error al crear las tablas: ' . $e->getMessage());
+            throw $e;
         }
-        
-        $io->success('Migración generada para las entidades del chat.');
-        return true;
-    }
-    
-    private function executeMigration(InputInterface $input, SymfonyStyle $io): bool
-    {
-        if (!$input->getOption('yes') && !$io->confirm('¿Deseas ejecutar la migración ahora?', true)) {
-            $io->note('Migración no ejecutada. Puedes ejecutarla manualmente más tarde.');
-            return true;
-        }
-        
-        $io->section('Ejecutando migración...');
-        $process = new Process(['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction']);
-        $process->setTimeout(300); // 5 minutos de timeout
-        $process->run(function ($type, $buffer) use ($io) {
-            $io->write($buffer);
-        });
-        
-        if (!$process->isSuccessful()) {
-            $io->error('Error al ejecutar la migración. Puedes intentarlo manualmente más tarde.');
-            return false;
-        }
-        
-        $io->success('Migración ejecutada. Las tablas del chat han sido creadas en la base de datos.');
-        return true;
     }
 }

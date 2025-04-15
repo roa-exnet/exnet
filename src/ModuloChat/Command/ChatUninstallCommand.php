@@ -7,12 +7,10 @@ use App\ModuloCore\Entity\MenuElement;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Process\Process;
 
 #[AsCommand(
     name: 'modulochat:uninstall',
@@ -44,8 +42,7 @@ class ChatUninstallCommand extends Command
                    - doctrine.yaml
                 2. Elimina el registro del módulo en la base de datos
                 3. Elimina los elementos de menú asociados
-                4. Genera una migración para eliminar las tablas de la base de datos
-                5. Ejecuta la migración para eliminar las tablas
+                4. Elimina las tablas de la base de datos directamente mediante SQL
 
                 Opciones:
                   --keep-tables     No eliminar las tablas de la base de datos
@@ -76,10 +73,6 @@ class ChatUninstallCommand extends Command
             return Command::SUCCESS;
         }
         
-        // Primero desactivar el módulo para evitar errores durante la desinstalación
-        $io->section('Desactivando el módulo de chat');
-        $this->runCommand('modulochat:deactivate', $io, $output);
-        
         // Eliminar configuraciones
         if (!$keepConfig) {
             $io->section('Eliminando configuraciones');
@@ -103,38 +96,15 @@ class ChatUninstallCommand extends Command
             if (!$force && !$io->confirm('¿Estás seguro de que deseas eliminar todas las tablas relacionadas con el chat? Esta acción es irreversible y eliminará todos los datos.', false)) {
                 $io->warning('Se ha omitido la eliminación de tablas por elección del usuario.');
             } else {
-                $success = $this->generateTableRemovalMigration($io);
-                if ($success) {
-                    $this->executeTableRemovalMigration($io, $force);
-                }
+                $this->dropTables($io);
             }
         } else {
             $io->note('Se ha omitido la eliminación de tablas según las opciones seleccionadas.');
         }
         
-        $io->success('El módulo de chat ha sido desinstalado correctamente.');
+        $io->success('El módulo de chat ha sido desinstalado completamente.');
         
         return Command::SUCCESS;
-    }
-    
-    private function runCommand(string $command, SymfonyStyle $io, OutputInterface $output): bool
-    {
-        try {
-            $application = $this->getApplication();
-            if (!$application) {
-                $io->error('No se pudo acceder a la aplicación para ejecutar el comando.');
-                return false;
-            }
-            
-            $command = $application->find($command);
-            $args = new ArrayInput([]);
-            $returnCode = $command->run($args, $output);
-            
-            return $returnCode === 0;
-        } catch (\Exception $e) {
-            $io->error('Error al ejecutar el comando: ' . $e->getMessage());
-            return false;
-        }
     }
     
     private function removeServicesConfig(SymfonyStyle $io): void
@@ -202,7 +172,7 @@ class ChatUninstallCommand extends Command
         
         if ($removed) {
             file_put_contents($twigYamlPath, $twigContent);
-            $io->success('Configuración del módulo de chat eliminada de twig.yaml.');
+            $io->success('Configuración del módulo de chat eliminada completamente de twig.yaml.');
         } else {
             $io->note('No se encontró configuración para eliminar en twig.yaml.');
         }
@@ -263,94 +233,24 @@ class ChatUninstallCommand extends Command
         }
     }
     
-    private function generateTableRemovalMigration(SymfonyStyle $io): bool
-    {
-        // Crear un archivo de migración personalizado
-        $migrationDir = 'migrations';
-        if (!is_dir($migrationDir)) {
-            mkdir($migrationDir, 0777, true);
-        }
-        
-        $timestamp = date('YmdHis');
-        $className = "RemoveChatTables{$timestamp}";
-        $migrationFile = "{$migrationDir}/Version{$timestamp}.php";
-        
-        $migrationContent = $this->getMigrationTemplate($className);
-        
-        file_put_contents($migrationFile, $migrationContent);
-        $io->success("Migración para eliminar tablas generada: {$migrationFile}");
-        
-        return true;
-    }
-    
-    private function getMigrationTemplate(string $className): string
-    {
-        return <<<EOT
-<?php
-
-declare(strict_types=1);
-
-namespace DoctrineMigrations;
-
-use Doctrine\DBAL\Schema\Schema;
-use Doctrine\Migrations\AbstractMigration;
-
-final class {$className} extends AbstractMigration
-{
-    public function getDescription(): string
-    {
-        return 'Eliminar tablas del módulo Chat';
-    }
-
-    public function up(Schema \$schema): void
-    {
-        // Eliminar tablas en orden seguro (primero las que tienen claves foráneas)
-        \$this->addSql('DROP TABLE IF EXISTS chat_message');
-        \$this->addSql('DROP TABLE IF EXISTS chat_participant');
-        \$this->addSql('DROP TABLE IF EXISTS chat');
-    }
-
-    public function down(Schema \$schema): void
-    {
-        // Este método puede quedarse vacío
-        \$this->addSql('CREATE TABLE chat (id VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL, created_at DATETIME NOT NULL --(DC2Type:datetime_immutable)
-        , closed_at DATETIME DEFAULT NULL --(DC2Type:datetime_immutable)
-        , type VARCHAR(20) NOT NULL, is_active BOOLEAN NOT NULL, PRIMARY KEY(id))');
-        \$this->addSql('CREATE TABLE chat_participant (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, chat_id VARCHAR(255) NOT NULL, participant_identifier VARCHAR(255) NOT NULL, participant_name VARCHAR(255) DEFAULT NULL, joined_at DATETIME NOT NULL --(DC2Type:datetime_immutable)
-        , left_at DATETIME DEFAULT NULL --(DC2Type:datetime_immutable)
-        , is_active BOOLEAN NOT NULL, role VARCHAR(50) NOT NULL, CONSTRAINT FK_E8ED9C891A9A7125 FOREIGN KEY (chat_id) REFERENCES chat (id) NOT DEFERRABLE INITIALLY IMMEDIATE)');
-        \$this->addSql('CREATE TABLE chat_message (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, chat_id VARCHAR(255) NOT NULL, sender_identifier VARCHAR(255) NOT NULL, sender_name VARCHAR(255) DEFAULT NULL, content CLOB NOT NULL, sent_at DATETIME NOT NULL --(DC2Type:datetime_immutable)
-        , read_at DATETIME DEFAULT NULL --(DC2Type:datetime_immutable)
-        , message_type VARCHAR(50) NOT NULL, metadata CLOB DEFAULT NULL --(DC2Type:json)
-        , CONSTRAINT FK_FAB3FC161A9A7125 FOREIGN KEY (chat_id) REFERENCES chat (id) NOT DEFERRABLE INITIALLY IMMEDIATE)');
-    }
-}
-EOT;
-    }
-    
-    private function executeTableRemovalMigration(SymfonyStyle $io, bool $force): void
+    private function dropTables(SymfonyStyle $io): void
     {
         try {
-            $command = ['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'];
-            if ($force) {
-                $command[] = '--allow-no-migration';
-            }
+            $connection = $this->entityManager->getConnection();
             
-            $process = new Process($command);
-            $process->setTimeout(300); // 5 minutos
+            // Drop tables in the correct order to avoid dependency issues
+            $connection->executeStatement('DROP TABLE IF EXISTS chat_message');
+            $io->success('Tabla chat_message eliminada.');
             
-            $io->note('Ejecutando migración para eliminar tablas...');
-            $process->run(function ($type, $buffer) use ($io) {
-                $io->write($buffer);
-            });
+            $connection->executeStatement('DROP TABLE IF EXISTS chat_participant');
+            $io->success('Tabla chat_participant eliminada.');
             
-            if ($process->isSuccessful()) {
-                $io->success('Las tablas del módulo Chat han sido eliminadas correctamente.');
-            } else {
-                $io->error('Error al ejecutar la migración. Detalles: ' . $process->getErrorOutput());
-            }
+            $connection->executeStatement('DROP TABLE IF EXISTS chat');
+            $io->success('Tabla chat eliminada.');
+            
         } catch (\Exception $e) {
-            $io->error('Error durante la eliminación de tablas: ' . $e->getMessage());
+            $io->error('Error al eliminar las tablas: ' . $e->getMessage());
+            throw $e;
         }
     }
 }
