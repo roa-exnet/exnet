@@ -19,6 +19,7 @@ doctrine:
                 dir: '%kernel.project_dir%/src/ModuloCore/Entity'
                 prefix: App\ModuloCore\Entity
                 alias: ModuloCore
+
             ModuloExplorador:
                 type: attribute
                 is_bundle: false
