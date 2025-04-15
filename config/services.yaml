@@ -69,17 +69,18 @@ services:
             $entityManager: '@doctrine.orm.entity_manager'
             $parameterBag: '@parameter_bag'
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-                                                                                                                               
-                                    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
     App\ModuloChat\Controller\:
         resource: '../src/ModuloChat/Controller'
-
+        tags: ['controller.service_arguments']
         
     App\ModuloChat\Command\:
         resource: '../src/ModuloChat/Command'
-
+        tags: ['console.command']
+        
     App\ModuloChat\Service\:
         resource: '../src/ModuloChat/Service/'
-
-    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------
-                        
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        

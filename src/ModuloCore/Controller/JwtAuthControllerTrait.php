@@ -42,7 +42,7 @@ trait JwtAuthControllerTrait
                 ], Response::HTTP_UNAUTHORIZED);
             }
             
-            return $this->redirectToRoute('app_login', [
+            return $this->redirectToRoute('app_register_ip', [
                 'redirect' => $request->getUri()
             ]);
         }
@@ -63,7 +63,7 @@ trait JwtAuthControllerTrait
                 ], Response::HTTP_UNAUTHORIZED);
             }
             
-            return $this->redirectToRoute('app_login', [
+            return $this->redirectToRoute('app_register_ip', [
                 'redirect' => $request->getUri()
             ]);
         }

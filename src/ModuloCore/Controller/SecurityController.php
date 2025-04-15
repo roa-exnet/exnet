@@ -10,22 +10,115 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 class SecurityController extends AbstractController
 {
     private IpAuthService $ipAuthService;
+    private UserPasswordHasherInterface $passwordHasher;
     private EntityManagerInterface $entityManager;
     private JwtAuthService $jwtAuthService;
 
     public function __construct(
         IpAuthService $ipAuthService,
+        UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $entityManager,
         JwtAuthService $jwtAuthService
     ) {
         $this->ipAuthService = $ipAuthService;
+        $this->passwordHasher = $passwordHasher;
         $this->entityManager = $entityManager;
         $this->jwtAuthService = $jwtAuthService;
+    }
+
+    #[Route('/register-ip', name: 'app_register_ip')]
+    public function registerIp(Request $request): Response
+    {
+        if ($this->ipAuthService->isIpRegistered()) {
+            $user = $this->ipAuthService->getCurrentUser();
+            
+            $redirect = $request->query->get('redirect');
+            $response = $redirect ? $this->redirect($redirect) : $this->redirectToRoute('landing');
+            
+            if ($user) {
+                $this->jwtAuthService->addTokenCookie($response, $user);
+            }
+            
+            return $response;
+        }
+        
+        $currentIp = $this->ipAuthService->getCurrentIp();
+        
+        if ($request->isMethod('POST')) {
+            $email = $request->request->get('email');
+            $nombre = $request->request->get('nombre');
+            $apellidos = $request->request->get('apellidos');
+            
+            $errors = [];
+            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Email inválido';
+            }
+            if (empty($nombre)) {
+                $errors[] = 'El nombre es requerido';
+            }
+            if (empty($apellidos)) {
+                $errors[] = 'Los apellidos son requeridos';
+            }
+            
+            if (empty($errors)) {
+                $userRepository = $this->entityManager->getRepository(User::class);
+                
+                $existingUser = $userRepository->findOneBy(['email' => $email]);
+                
+                if ($existingUser) {
+                    $this->ipAuthService->registerUserIp($existingUser);
+                    
+                    $redirectUrl = $request->query->get('redirect');
+                    $response = $redirectUrl ? $this->redirect($redirectUrl) : $this->redirectToRoute('landing');
+                    
+                    $this->jwtAuthService->addTokenCookie($response, $existingUser);
+                    
+                    return $response;
+                } else {
+                    $user = new User();
+                    $user->setEmail($email);
+                    $user->setNombre($nombre);
+                    $user->setApellidos($apellidos);
+                    $user->setRoles(['ROLE_USER']);
+                    $user->setPassword($this->passwordHasher->hashPassword(
+                        $user,
+                        uniqid()
+                    ));
+                    $user->setCreatedAt(new \DateTimeImmutable());
+                    $user->setIsActive(true);
+                    
+                    $user->setIpAddress($currentIp);
+                    
+                    $this->entityManager->persist($user);
+                    $this->entityManager->flush();
+                    
+                    $redirectUrl = $request->query->get('redirect');
+                    $response = $redirectUrl ? $this->redirect($redirectUrl) : $this->redirectToRoute('landing');
+                    
+                    $this->jwtAuthService->addTokenCookie($response, $user);
+                    
+                    return $response;
+                }
+            }
+            
+            return $this->render('registration/register_ip.html.twig', [
+                'currentIp' => $currentIp,
+                'errors' => $errors,
+                'email' => $email,
+                'nombre' => $nombre,
+                'apellidos' => $apellidos
+            ]);
+        }
+        
+        return $this->render('registration/register_ip.html.twig', [
+            'currentIp' => $currentIp
+        ]);
     }
 
     #[Route('/login', name: 'app_login')]
