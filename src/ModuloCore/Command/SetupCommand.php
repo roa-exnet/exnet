@@ -36,7 +36,6 @@ class SetupCommand extends Command
     private string $projectDir;
     private Filesystem $filesystem;
 
-
     public function __construct(
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
@@ -130,7 +129,8 @@ class SetupCommand extends Command
         }
 
         // Paso 7: Levantar reino keycloak, escribir .env y clave pública en key.txt
-        $realmName = "testardo";
+        $randomId = substr(str_replace(['+', '/', '='], '', base64_encode(random_bytes(8))), 0, 10);
+        $realmName = 'realm-' . $randomId;
         $keycloakService = new KeycloakRealmService($this->httpClient);
 
         $io->section('Paso 7: Instalando realm en Keycloak...');
@@ -149,7 +149,6 @@ class SetupCommand extends Command
         }
         
         $output->writeln('<info>Realm instalado correctamente: ' . $result['realm'] . '</info>');
-        
 
         $io->success([
             'Instalación completada con éxito.',

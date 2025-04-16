@@ -261,13 +261,14 @@
   position: absolute;
   bottom: 65px;
   left: 50%;
+  max-height: 6%;
   transform: translateX(-50%);
   max-width: 80%;
   min-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  animation: pulse 1.5s infinite;
+  transition: opacity 0.3s ease-in-out;
 }
 
 @keyframes pulse {
