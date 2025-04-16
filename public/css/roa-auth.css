@@ -299,3 +299,32 @@
         margin: 5px 10px;
     }
 }
+
+.exnet-container-transparent2 {
+    max-width: 450px;
+    margin: 0 auto;
+}
+.ip-info {
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: var(--exnet-border-radius);
+    margin-bottom: 15px;
+    color: var(--exnet-text-light);
+}
+.ip-info .ip-address {
+    font-weight: bold;
+    color: var(--exnet-accent);
+}
+.exnet-form-control {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--exnet-text-light);
+}
+.exnet-form-control:focus {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--exnet-primary);
+    color: var(--exnet-text-light);
+}
+.exnet-form-label {
+    color: var(--exnet-text-light);
+}

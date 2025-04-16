@@ -5,7 +5,11 @@
 
 {% block stylesheets %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    {# <link rel="stylesheet" href="{{ asset('css/roa-auth.css') }}"> #}
+    <link rel="stylesheet" href="{{ asset('css/general.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/roa-auth.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -13,60 +17,56 @@
 {% endblock %}
 
 {% block body %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-sm roa-card">
-                <div class="card-header bg-primary text-white roa-card-header">
-                    <h2 class="h4 mb-0">Registro Rápido por IP</h2>
+<div class="exnet-vh-centered">
+    <div class="exnet-container-transparent2">
+        <div class="exnet-card-header">
+            <h2 class="h4 mb-0">Registro Rápido por IP</h2>
+        </div>
+        <div class="exnet-card-body">
+            <div class="ip-info">
+                <p>Tu dirección IP <span class="ip-address">{{ currentIp }}</span> no está registrada en EXNET.</p>
+                <p>Completa este formulario para acceso por IP privada (VPN).</p>
+            </div>
+
+            {% if errors is defined and errors %}
+                <div class="exnet-alert exnet-alert-danger">
+                    <ul class="mb-0">
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
-                <div class="card-body p-4 roa-card-body">
-                    <div class="ip-info">
-                        <p>Tu dirección IP <span class="ip-address">{{ currentIp }}</span> no está registrada en EXNET.</p>
-                        <p>Completa este formulario para acceso por IP privada (VPN).</p>
-                    </div>
+            {% endif %}
 
-                    {% if errors is defined and errors %}
-                        <div class="alert alert-danger roa-alert roa-alert-danger">
-                            <ul class="mb-0">
-                                {% for error in errors %}
-                                    <li>{{ error }}</li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    {% endif %}
-
-                    <form method="post">
-                        <div class="mb-3 roa-form-group">
-                            <label for="email" class="form-label roa-form-label">Email</label>
-                            <input type="email" name="email" id="email" class="form-control roa-form-control" 
-                                   value="{{ email|default('') }}" required autofocus>
-                        </div>
-                        
-                        <div class="mb-3 roa-form-group">
-                            <label for="nombre" class="form-label roa-form-label">Nombre</label>
-                            <input type="text" name="nombre" id="nombre" class="form-control roa-form-control" 
-                                   value="{{ nombre|default('') }}" required>
-                        </div>
-                        
-                        <div class="mb-3 roa-form-group">
-                            <label for="apellidos" class="form-label roa-form-label">Apellidos</label>
-                            <input type="text" name="apellidos" id="apellidos" class="form-control roa-form-control" 
-                                   value="{{ apellidos|default('') }}" required>
-                        </div>
-
-                        <button class="btn btn-primary w-100 roa-btn roa-btn-primary roa-btn-block" type="submit">
-                            Registrarse
-                        </button>
-                    </form>
-
-                    <div class="mt-4 text-center roa-text-center roa-mt-3">
-                        <p class="small text-muted">
-                            Al registrarte, aceptas que tu dirección IP {{ currentIp }} será asociada a tu cuenta 
-                            para permitir el acceso automático.
-                        </p>
-                    </div>
+            <form method="post">
+                <div class="mb-3">
+                    <label for="email" class="exnet-form-label">Email</label>
+                    <input type="email" name="email" id="email" class="form-control exnet-form-control" 
+                           value="{{ email|default('') }}" required autofocus>
                 </div>
+
+                <div class="mb-3">
+                    <label for="nombre" class="exnet-form-label">Nombre</label>
+                    <input type="text" name="nombre" id="nombre" class="form-control exnet-form-control" 
+                           value="{{ nombre|default('') }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="apellidos" class="exnet-form-label">Apellidos</label>
+                    <input type="text" name="apellidos" id="apellidos" class="form-control exnet-form-control" 
+                           value="{{ apellidos|default('') }}" required>
+                </div>
+
+                <button class="btn exnet-bg-primary w-100 text-white" type="submit">
+                    Registrarse
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <p class="exnet-text-light small">
+                    Al registrarte, aceptas que tu dirección IP {{ currentIp }} será asociada a tu cuenta 
+                    para permitir el acceso automático.
+                </p>
             </div>
         </div>
     </div>
