@@ -20,6 +20,8 @@ use Symfony\Component\Process\Process;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Dotenv\Dotenv;
+use App\ModuloCore\Service\KeycloakRealmService;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsCommand(
     name: 'exnet:setup',
@@ -29,17 +31,21 @@ class SetupCommand extends Command
 {
     private EntityManagerInterface $entityManager;
     private UserPasswordHasherInterface $passwordHasher;
+    private HttpClientInterface $httpClient;
     private ParameterBagInterface $parameterBag;
     private string $projectDir;
     private Filesystem $filesystem;
 
+
     public function __construct(
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
-        ParameterBagInterface $parameterBag
+        ParameterBagInterface $parameterBag,
+        HttpClientInterface $httpClient
     ) {
         $this->entityManager = $entityManager;
         $this->passwordHasher = $passwordHasher;
+        $this->httpClient = $httpClient;
         $this->parameterBag = $parameterBag;
         $this->projectDir = $parameterBag->get('kernel.project_dir');
         $this->filesystem = new Filesystem();
@@ -122,6 +128,28 @@ class SetupCommand extends Command
             $io->error('Error en la configuración final.');
             return Command::FAILURE;
         }
+
+        // Paso 7: Levantar reino keycloak, escribir .env y clave pública en key.txt
+        $realmName = "testardo";
+        $keycloakService = new KeycloakRealmService($this->httpClient);
+
+        $io->section('Paso 7: Instalando realm en Keycloak...');
+        $result = $keycloakService->instalarRealm($realmName);
+
+        if (!$result['success']) {
+            $io->error('Error al instalar el realm: ' . $result['error']);
+            return Command::FAILURE;
+        }
+
+        $io->success('Realm instalado correctamente: ' . $result['realm']);
+
+        if (!$result['success']) {
+            $output->writeln('<error>Error al instalar el realm: ' . $result['error'] . '</error>');
+            return Command::FAILURE;
+        }
+        
+        $output->writeln('<info>Realm instalado correctamente: ' . $result['realm'] . '</info>');
+        
 
         $io->success([
             'Instalación completada con éxito.',

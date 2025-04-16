@@ -1,0 +1,218 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Canción - Admin Música - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .form-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+        }
+        .form-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            margin-bottom: 5px;
+            display: block;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+        }
+        .form-select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #333;
+            color: white;
+        }
+        .form-check-input {
+            margin-right: 5px;
+        }
+        .btn-submit {
+            background-color: #8e44ad;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .preview-container {
+            margin-top: 15px;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 4px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Editar Canción</h1>
+        <div>
+            <a href="{{ path('musica_admin') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <form method="post" action="{{ path('musica_admin_editar_cancion', {'id': cancion.id}) }}">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="titulo" class="form-label">Título *</label>
+                        <input type="text" id="titulo" name="titulo" class="form-control" value="{{ cancion.titulo }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="artista" class="form-label">Artista</label>
+                        <input type="text" id="artista" name="artista" class="form-control" value="{{ cancion.artista }}">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="album" class="form-label">Álbum</label>
+                        <input type="text" id="album" name="album" class="form-control" value="{{ cancion.album }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="genero" class="form-label">Género</label>
+                        <select id="genero" name="genero" class="form-select">
+                            <option value="">Sin género</option>
+                            {% for genero in generos %}
+                                <option value="{{ genero.id }}" {% if cancion.genero and cancion.genero.id == genero.id %}selected{% endif %}>{{ genero.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="anio" class="form-label">Año</label>
+                        <input type="number" id="anio" name="anio" class="form-control" min="1900" max="{{ "now"|date("Y") }}" value="{{ cancion.anio }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="duracion" class="form-label">Duración (segundos)</label>
+                        <input type="number" id="duracion" name="duracion" class="form-control" min="1" value="{{ cancion.duracion }}">
+                        <small class="text-muted">Ej: 180 para una canción de 3 minutos</small>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="esPublico" class="form-check-label mt-4">
+                            <input type="checkbox" id="esPublico" name="esPublico" class="form-check-input" {% if cancion.esPublico %}checked{% endif %}>
+                            Público (visible para todos los usuarios)
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group mt-3">
+                <label for="descripcion" class="form-label">Descripción</label>
+                <textarea id="descripcion" name="descripcion" class="form-control">{{ cancion.descripcion }}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="url" class="form-label">URL del Audio *</label>
+                <input type="url" id="url" name="url" class="form-control" placeholder="https://example.com/cancion.mp3" value="{{ cancion.url }}" required>
+                <small class="text-muted">Enlace directo al archivo de audio (MP3, M4A, OGG)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="imagen" class="form-label">URL de la Imagen</label>
+                <input type="url" id="imagen" name="imagen" class="form-control" placeholder="https://example.com/imagen.jpg" value="{{ cancion.imagen }}" oninput="previewImage(this.value)">
+                <small class="text-muted">Enlace a una imagen de portada (preferiblemente cuadrada)</small>
+                
+                <div id="imagePreviewContainer" class="preview-container" {% if not cancion.imagen %}style="display: none;"{% endif %}>
+                    <img id="imagePreview" src="{{ cancion.imagen }}" alt="Preview" class="image-preview">
+                </div>
+            </div>
+            
+            <div class="mt-4 text-end">
+                <a href="{{ path('musica_admin') }}" class="btn-cancel">Cancelar</a>
+                <button type="submit" class="btn-submit">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function previewImage(src) {
+        const preview = document.getElementById('imagePreview');
+        const container = document.getElementById('imagePreviewContainer');
+        
+        if (src) {
+            preview.src = src;
+            container.style.display = 'block';
+        } else {
+            preview.src = '';
+            container.style.display = 'none';
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const duracionInput = document.getElementById('duracion');
+        
+        duracionInput.addEventListener('focusout', function() {
+            const value = this.value.trim();
+            
+            if (value.includes(':')) {
+                const parts = value.split(':');
+                if (parts.length === 2) {
+                    const minutes = parseInt(parts[0], 10);
+                    const seconds = parseInt(parts[1], 10);
+                    
+                    if (!isNaN(minutes) && !isNaN(seconds)) {
+                        this.value = (minutes * 60) + seconds;
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -39,6 +39,11 @@ class Modulo
     #[ORM\Column(length: 255)]
     private ?string $ruta = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $token = null;
+    
+    
+
     #[ORM\Column]
     private ?bool $estado = null;
 
@@ -161,5 +166,17 @@ class Modulo
         $this->estado = $estado;
 
         return $this;
+    }
+
+    public function setToken(string $token): static
+    {
+        $this->token = $token;
+
+        return $this;
+    }
+
+    public function getToken(): ?string
+    {
+        return $this->token;
     }
 }

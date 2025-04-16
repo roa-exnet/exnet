@@ -22,13 +22,6 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class KeycloakAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
-    private string $jwksUrl;
-
-    public function __construct(string $realmUrl)
-    {
-        $this->jwksUrl = $realmUrl . '/protocol/openid-connect/certs';
-    }
-
     public function supports(Request $request): ?bool
     {
         return true;
@@ -36,37 +29,26 @@ class KeycloakAuthenticator extends AbstractAuthenticator implements Authenticat
 
     public function authenticate(Request $request): Passport
     {
+        $token = $request->cookies->get('module_token');
 
-        $tokenPath = __DIR__ . '/Data/token.txt';
-
-        if (!file_exists($tokenPath)) {
-            throw new CustomUserMessageAuthenticationException('No se encontró el archivo token.txt.');
-        }
-        
-        $tokenData = json_decode(file_get_contents($tokenPath), true);
-        $token = $tokenData['access_token'] ?? null;
         if (!$token) {
-            throw new CustomUserMessageAuthenticationException('No se encontró un token válido en token.txt.');
+            throw new CustomUserMessageAuthenticationException('Token ausente en cookie.');
         }
-    
+
         try {
             $decoded = $this->validateJwt($token);
             $decodedArray = $this->convertToArray($decoded);
-    
-            $roles = $decodedArray['resource_access']['prodengine']['roles'] ?? [];
+
             $username = $decodedArray['preferred_username'] ?? 'anonymous';
-    
+            $roles = $decodedArray['realm_access']['roles'] ?? [];
+
             return new SelfValidatingPassport(
-                new UserBadge($username, function ($userIdentifier) use ($roles) {
-                    return new KeycloakUser($userIdentifier, $roles);
-                })
+                new UserBadge($username, fn($userIdentifier) => new KeycloakUser($userIdentifier, $roles))
             );
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             throw new CustomUserMessageAuthenticationException('Token inválido o expirado.');
         }
     }
-    
-    
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
@@ -75,41 +57,28 @@ class KeycloakAuthenticator extends AbstractAuthenticator implements Authenticat
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        // return new RedirectResponse('/login');
         return new JsonResponse(['error' => $exception->getMessage()], Response::HTTP_UNAUTHORIZED);
     }
 
     private function validateJwt(string $token): array
     {
         $keyPath = __DIR__ . '/Data/key.txt';
-    
         if (!file_exists($keyPath)) {
             throw new \Exception('No se encontró key.txt');
         }
-    
+
         $keyPem = file_get_contents($keyPath);
-        
         return (array) JWT::decode($token, new Key($keyPem, 'RS256'));
     }
 
     private function convertToArray($data)
     {
-        if (is_object($data)) {
-            $data = (array) $data;
-        }
-        if (is_array($data)) {
-            foreach ($data as $key => $value) {
-                $data[$key] = $this->convertToArray($value);
-            }
-        }
-        return $data;
+        return is_object($data) ? $this->convertToArray((array)$data) :
+               (is_array($data) ? array_map([$this, 'convertToArray'], $data) : $data);
     }
-    public function start(Request $request, AuthenticationException $authException = null): RedirectResponse|JsonResponse
+
+    public function start(Request $request, AuthenticationException $authException = null): JsonResponse
     {
-        $firewall = $request->attributes->get('_firewall_context');
-        dd($firewall);
         return new JsonResponse(['error' => 'Acceso no autorizado'], 401);
     }
-    
-    
 }
