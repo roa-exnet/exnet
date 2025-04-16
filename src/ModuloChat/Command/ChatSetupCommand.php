@@ -414,27 +414,36 @@ EOT;
     private function registerModule(SymfonyStyle $io): void
     {
         try {
+            $moduleFilePath = __DIR__;
+            $modulePath = dirname($moduleFilePath);
+            
+            if (basename($modulePath) === 'ModuloChat') {
+                $absolutePath = $modulePath;
+            } else {
+                $absolutePath = 'src/ModuloChat';
+                $io->warning('No se pudo determinar la ruta absoluta del módulo. Usando: ' . $absolutePath);
+            }
+            
             $moduloRepository = $this->entityManager->getRepository(Modulo::class);
             $chatModule = $moduloRepository->findOneBy(['nombre' => 'Chat']);
-
+    
             if ($chatModule) {
-                // Si el módulo ya existe, lo activamos
                 $chatModule->setEstado(true);
-                $io->note('El módulo Chat ya existe en la base de datos. Se ha activado.');
+                $chatModule->setRuta($absolutePath);
+                $io->note('El módulo Chat ya existe en la base de datos. Se ha activado y actualizado su ruta a: ' . $absolutePath);
             } else {
-                // Si no existe, lo creamos
                 $modulo = new Modulo();
                 $modulo->setNombre('Chat');
                 $modulo->setDescripcion('Módulo de chat en tiempo real para la comunicación entre usuarios');
                 $modulo->setIcon('fas fa-comments');
-                $modulo->setRuta('/chat');
+                $modulo->setRuta($absolutePath);
                 $modulo->setEstado(true);
                 $modulo->setInstallDate(new \DateTimeImmutable());
-
+    
                 $this->entityManager->persist($modulo);
-                $io->success('Se ha registrado el módulo Chat en la base de datos.');
+                $io->success('Se ha registrado el módulo Chat en la base de datos con ruta: ' . $absolutePath);
             }
-
+    
             $this->entityManager->flush();
         } catch (\Exception $e) {
             $io->error('Error al registrar el módulo en la base de datos: ' . $e->getMessage());
