@@ -1,0 +1,32 @@
+{# src/ModuloChat/templates/voice_call.html.twig #}
+
+<div id="voice-call-modal" class="voice-call-modal">
+    <div class="voice-call-content">
+        <div class="voice-call-header">
+            <h3 id="call-status">Iniciando llamada...</h3>
+            <span class="voice-call-close">&times;</span>
+        </div>
+        <div class="voice-call-body">
+            <div class="participant-info">
+                <div id="local-participant" class="participant">
+                    <div class="audio-indicator">
+                        <div class="audio-wave"></div>
+                        <div class="audio-wave"></div>
+                        <div class="audio-wave"></div>
+                    </div>
+                    <div class="participant-name">Tú</div>
+                </div>
+                <div id="remote-participants" class="remote-participants">
+                </div>
+            </div>
+            <div class="call-controls">
+                <button id="mute-toggle" class="control-button">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button id="end-call" class="control-button end-call">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
