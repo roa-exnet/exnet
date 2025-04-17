@@ -26,22 +26,6 @@ doctrine:
                 prefix: App\ModuloCore\Entity
                 alias: ModuloCore
 
-            # ----------- modulochat -------
-
-            ModuloChat:
-
-                type: attribute
-
-                is_bundle: false
-
-                dir: '%kernel.project_dir%/src/ModuloChat/Entity'
-
-                prefix: 'App\ModuloChat\Entity'
-
-                alias: ModuloChat
-
-            # ----------- modulochat -------
-
         controller_resolver:
             auto_mapping: false
 when@test:

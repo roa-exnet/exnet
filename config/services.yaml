@@ -77,20 +77,4 @@ services:
         autowire: true
         autoconfigure: true
         public: true
-    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------
-# ----------- modulochat -------
-    App\ModuloChat\Controller\:
-        resource: '../src/ModuloChat/Controller'
-        tags: ['controller.service_arguments']
-
-    App\ModuloChat\Command\:
-        resource: '../src/ModuloChat/Command'
-        tags: ['console.command']
-
-    App\ModuloChat\Service\:
-        resource: '../src/ModuloChat/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-# ----------- modulochat -------        
-    
+    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        

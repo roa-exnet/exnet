@@ -3,16 +3,9 @@ modulo_core_controllers:
         path: ../src/ModuloCore/Controller/
         namespace: App\ModuloCore\Controller
     type: attribute
-# ----------- modulochat -------
-modulo_chat_controllers:
-    resource:
-        path: ../src/ModuloChat/Controller/
-        namespace: App\ModuloChat\Controller
-    type: attribute
 
 modulo_musica_controllers:
     resource:
         path: ../src/ModuloMusica/Controller/
         namespace: App\ModuloMusica\Controller
     type: attribute
-# ----------- modulochat -------
