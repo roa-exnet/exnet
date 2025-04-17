@@ -399,141 +399,144 @@
                 });
             }
             
-            function installModule(module, category, downloadToken = null) {
-                currentModule = module;
-                currentCategory = category;
+function installModule(module, category, downloadToken = null) {
+    currentModule = module;
+    currentCategory = category;
 
-                const container = document.getElementById('marketplace-container');
-                container.innerHTML = `
-                    <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                        <div class="exnet-loader" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
-                        <h4 class="text-white mb-3">Instalando módulo ${module.name}</h4>
-                        <p class="text-white-50">Este proceso puede tardar unos minutos. No cierres esta página.</p>
+    const container = document.getElementById('marketplace-container');
+    container.innerHTML = `
+        <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+            <div class="exnet-loader" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
+            <h4 class="text-white mb-3">Instalando módulo ${module.name}</h4>
+            <p class="text-white-50">Este proceso puede tardar unos minutos. No cierres esta página.</p>
+        </div>
+    `;
+    
+    fetch('/api/modulos/install', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            moduleType: category,
+            filename: module.filename,
+            downloadToken: downloadToken
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.message || `Error HTTP: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log("Respuesta completa de la API:", data);
+        console.log("¿Contiene commandOutput?", !!data.commandOutput);
+        
+        if (data.success) {
+            // Determinar si el comando falló (commandSuccess === false)
+            const commandFailed = data.commandSuccess === false;
+            
+            let resultMessage = `
+                <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                    <i class="fas fa-${commandFailed ? 'exclamation-triangle text-warning' : 'check-circle text-success'}" 
+                       style="font-size: 40px; margin-bottom: 20px;"></i>
+                    <h4 class="text-white mb-3">
+                        ${commandFailed ? '⚠️ Módulo instalado con advertencias' : '✅ Módulo instalado correctamente!'}
+                    </h4>
+                    <p class="text-white-50">${data.message}</p>
+            `;
+            
+            // Siempre mostrar la sección de salida del comando, incluso si está vacía
+            resultMessage += `
+                <div class="mt-4 p-3 bg-dark rounded w-100">
+                    <h5 class="text-white d-flex align-items-center">
+                        <span class="badge ${commandFailed ? 'bg-danger' : 'bg-success'} me-2">
+                            ${commandFailed ? 'Error' : 'Éxito'}
+                        </span>
+                        Resultado del comando de instalación:
+                    </h5>
+                    <div class="bg-black p-2 rounded" style="max-height: 300px; overflow-y: auto;">
+                        <pre class="${commandFailed ? 'text-danger' : 'text-light'} mb-0" style="white-space: pre-wrap;">${data.commandOutput || 'No se recibió ninguna salida del comando.'}</pre>
                     </div>
-                `;
-                
-                fetch('/api/modulos/install', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        moduleType: category,
-                        filename: module.filename,
-                        downloadToken: downloadToken
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(data => {
-                            throw new Error(data.message || `Error HTTP: ${response.status}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        const commandFailed = data.commandSuccess === false;
-                        let resultMessage = `
-                            <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                                <i class="fas fa-${commandFailed ? 'exclamation-triangle text-warning' : 'check-circle text-success'}" 
-                                   style="font-size: 40px; margin-bottom: 20px;"></i>
-                                <h4 class="text-white mb-3">
-                                    ${commandFailed ? '⚠️ Módulo instalado con advertencias' : '✅ Módulo instalado correctamente!'}
-                                </h4>
-                                <p class="text-white-50">${data.message}</p>
-                        `;
-                        
-                        if (data.commandOutput) {
-                            resultMessage += `
-                                <div class="mt-4 p-3 bg-dark rounded w-100">
-                                    <h5 class="text-white d-flex align-items-center">
-                                        <span class="badge ${commandFailed ? 'bg-danger' : 'bg-success'} me-2">
-                                            ${commandFailed ? 'Error' : 'Éxito'}
-                                        </span>
-                                        Resultado del comando de instalación:
-                                    </h5>
-                                    <div class="bg-black p-2 rounded" style="max-height: 200px; overflow-y: auto;">
-                                        <pre class="${commandFailed ? 'text-danger' : 'text-light'} mb-0" style="white-space: pre-wrap;">${data.commandOutput}</pre>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        resultMessage += `
-                            <div class="d-flex gap-3 mt-4">
-                                <button class="exnet-btn exnet-btn-blue" onclick="window.location.href='/modulos'">
-                                    <i class="fas fa-list me-2"></i> Ver módulos instalados
-                                </button>
-                                ${commandFailed ? `
-                                    <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
-                                        <i class="fas fa-sync me-2"></i> Volver a marketplace
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-                        `;
-                        
-                        container.innerHTML = resultMessage;
-                        
-                        if (!commandFailed) {
-                            setTimeout(() => {
-                                window.location.href = '/modulos';
-                            }, 5000);
-                        }
-                    } else {
-                        let errorMessage = `
-                            <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                                <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
-                                <h4 class="text-white mb-3">❌ Error al instalar el módulo</h4>
-                                <p class="text-white-50">${data.message || 'Se produjo un error durante la instalación'}</p>
-                        `;
-                        
-                        if (data.commandOutput) {
-                            errorMessage += `
-                                <div class="mt-4 p-3 bg-dark rounded w-100">
-                                    <h5 class="text-white">Detalles del error:</h5>
-                                    <div class="bg-black p-2 rounded" style="max-height: 200px; overflow-y: auto;">
-                                        <pre class="text-danger mb-0" style="white-space: pre-wrap;">${data.commandOutput}</pre>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        errorMessage += `
-                            <div class="d-flex gap-3 mt-4">
-                                <button class="exnet-btn exnet-btn-outline-light" onclick="installModule(currentModule, currentCategory${downloadToken ? `, '${downloadToken}'` : ''})">
-                                    <i class="fas fa-sync me-2"></i> Reintentar instalación
-                                </button>
-                                <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
-                                    <i class="fas fa-arrow-left me-2"></i> Volver a marketplace
-                                </button>
-                            </div>
-                        </div>
-                        `;
-                        
-                        container.innerHTML = errorMessage;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error en la instalación:', error);
-                    container.innerHTML = `
-                        <div class="d-flex justify-content-center p-5 flex-column align-items-center">
-                            <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
-                            <h4 class="text-white mb-3">Error de conexión</h4>
-                            <p class="text-white-50">No se pudo conectar con el servidor para instalar el módulo: ${error.message}</p>
-                            <div class="d-flex gap-3 mt-4">
-                                <button class="exnet-btn exnet-btn-outline-light" onclick="installModule(currentModule, currentCategory${downloadToken ? `, '${downloadToken}'` : ''})">
-                                    <i class="fas fa-sync me-2"></i> Reintentar instalación
-                                </button>
-                                <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
-                                    <i class="fas fa-arrow-left me-2"></i> Volver a marketplace
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
+                </div>
+            `;
+            
+            resultMessage += `
+                <div class="d-flex gap-3 mt-4">
+                    <button class="exnet-btn exnet-btn-blue" onclick="window.location.href='/modulos'">
+                        <i class="fas fa-list me-2"></i> Ver módulos instalados
+                    </button>
+                    ${commandFailed ? `
+                        <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
+                            <i class="fas fa-sync me-2"></i> Volver a marketplace
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            `;
+            
+            container.innerHTML = resultMessage;
+            
+            if (!commandFailed) {
+                setTimeout(() => {
+                    window.location.href = '/modulos';
+                }, 5000);
             }
+        } else {
+            let errorMessage = `
+                <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                    <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
+                    <h4 class="text-white mb-3">❌ Error al instalar el módulo</h4>
+                    <p class="text-white-50">${data.message || 'Se produjo un error durante la instalación'}</p>
+            `;
+            
+            // Siempre mostrar la sección de salida del comando, incluso si está vacía
+            errorMessage += `
+                <div class="mt-4 p-3 bg-dark rounded w-100">
+                    <h5 class="text-white">Detalles del error:</h5>
+                    <div class="bg-black p-2 rounded" style="max-height: 300px; overflow-y: auto;">
+                        <pre class="text-danger mb-0" style="white-space: pre-wrap;">${data.commandOutput || 'No se recibió información detallada del error.'}</pre>
+                    </div>
+                </div>
+            `;
+            
+            errorMessage += `
+                <div class="d-flex gap-3 mt-4">
+                    <button class="exnet-btn exnet-btn-outline-light" onclick="installModule(currentModule, currentCategory${downloadToken ? `, '${downloadToken}'` : ''})">
+                        <i class="fas fa-sync me-2"></i> Reintentar instalación
+                    </button>
+                    <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
+                        <i class="fas fa-arrow-left me-2"></i> Volver a marketplace
+                    </button>
+                </div>
+            </div>
+            `;
+            
+            container.innerHTML = errorMessage;
+        }
+    })
+    .catch(error => {
+        console.error('Error en la instalación:', error);
+        container.innerHTML = `
+            <div class="d-flex justify-content-center p-5 flex-column align-items-center">
+                <i class="fas fa-times-circle text-danger" style="font-size: 40px; margin-bottom: 20px;"></i>
+                <h4 class="text-white mb-3">Error de conexión</h4>
+                <p class="text-white-50">No se pudo conectar con el servidor para instalar el módulo: ${error.message}</p>
+                <div class="d-flex gap-3 mt-4">
+                    <button class="exnet-btn exnet-btn-outline-light" onclick="installModule(currentModule, currentCategory${downloadToken ? `, '${downloadToken}'` : ''})">
+                        <i class="fas fa-sync me-2"></i> Reintentar instalación
+                    </button>
+                    <button class="exnet-btn exnet-btn-outline-light" onclick="window.location.reload()">
+                        <i class="fas fa-arrow-left me-2"></i> Volver a marketplace
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
         });
     </script>
 {% endblock %}

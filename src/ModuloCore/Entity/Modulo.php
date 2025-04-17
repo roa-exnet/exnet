@@ -41,11 +41,12 @@ class Modulo
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $token = null;
-    
-    
 
     #[ORM\Column]
     private ?bool $estado = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $version = null;
 
     public function __construct()
     {
@@ -178,5 +179,17 @@ class Modulo
     public function getToken(): ?string
     {
         return $this->token;
+    }
+
+    public function getVersion(): ?string
+    {
+        return $this->version;
+    }
+
+    public function setVersion(?string $version): static
+    {
+        $this->version = $version;
+
+        return $this;
     }
 }
