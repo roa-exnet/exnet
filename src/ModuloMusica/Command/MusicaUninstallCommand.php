@@ -155,13 +155,12 @@ class MusicaUninstallCommand extends Command
     
     private function removeServicesConfig(SymfonyStyle $io): void
     {
-        $servicesYamlPath = 'config/services.yaml';
-        $servicesContent = file_get_contents($servicesYamlPath);
-    
-        $pattern = '/#START\s*-+.*?ModuloMusica[\s\S]*?#END\s*-+.*?ModuloMusica.*?(\r?\n)?/s';
-        if (preg_match($pattern, $servicesContent)) {
-            $newContent = preg_replace($pattern, '', $servicesContent);
-            file_put_contents($servicesYamlPath, $newContent);
+        $path = 'config/services.yaml';
+        $content = file_get_contents($path);
+        $pattern = '/^[ \t]*#START\s*-+\s*ModuloMusica.*?^[ \t]*#END\s*-+\s*ModuloMusica.*(?:\r?\n)?/sm';
+        if (preg_match($pattern, $content)) {
+            $newContent = preg_replace($pattern, '', $content);
+            file_put_contents($path, $newContent);
             $io->success('Configuración del módulo de música eliminada de services.yaml.');
         } else {
             $io->note('No se encontró configuración para eliminar en services.yaml.');
