@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 #[Route('/chat', name: 'chat_')]
 class ChatController extends AbstractController
@@ -26,12 +27,13 @@ class ChatController extends AbstractController
     public function __construct(
         ChatService $chatService, 
         EntityManagerInterface $entityManager,
-        IpAuthService $ipAuthService
+        IpAuthService $ipAuthService,
+        ParameterBagInterface $parameterBag
     ) {
         $this->chatService = $chatService;
         $this->entityManager = $entityManager;
         $this->ipAuthService = $ipAuthService;
-        $this->websocketUrl = 'https://websockettest.exnet.cloud';
+        $this->websocketUrl = $parameterBag->get('websocket_url');;
     }
     
     #[Route('/', name: 'index')]

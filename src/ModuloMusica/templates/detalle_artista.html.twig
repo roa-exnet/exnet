@@ -1,0 +1,280 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ artista }} - Música Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .artist-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 30px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .artist-header {
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .artist-banner {
+            height: 250px;
+            border-radius: 8px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            margin-bottom: 20px;
+            background-color: #333;
+            background-image: linear-gradient(45deg, #8e44ad, #3498db);
+        }
+        .artist-title {
+            font-size: 40px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .artist-details {
+            display: flex;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #888;
+        }
+        .artist-detail-item {
+            margin-right: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .artist-detail-item i {
+            margin-right: 5px;
+        }
+        .albums-container {
+            margin-top: 30px;
+        }
+        .album-section {
+            margin-bottom: 40px;
+        }
+        .album-header {
+            display: flex;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .album-cover {
+            width: 120px;
+            height: 120px;
+            border-radius: 6px;
+            margin-right: 20px;
+        }
+        .album-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .album-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .album-year {
+            font-size: 14px;
+            color: #aaa;
+        }
+        .songs-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+        }
+        .songs-table th, .songs-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .songs-table th {
+            color: #aaa;
+            font-weight: normal;
+            font-size: 14px;
+        }
+        .songs-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .song-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .song-title-cell {
+            display: flex;
+            align-items: center;
+        }
+        .song-thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+        .accordion-header {
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 2px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .accordion-header:hover {
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        .accordion-content {
+            display: none;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 0 0 8px 8px;
+            margin-bottom: 15px;
+        }
+        .accordion-header.active {
+            background-color: rgba(142, 68, 173, 0.3);
+            border-radius: 8px 8px 0 0;
+        }
+        .accordion-header.active + .accordion-content {
+            display: block;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Artista</h1>
+        <div>
+            <a href="{{ path('musica_index') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="artist-container">
+        <div class="artist-header">
+            <div class="artist-banner"></div>
+            <h1 class="artist-title">{{ artista }}</h1>
+            
+            <div class="artist-details">
+                <div class="artist-detail-item">
+                    <i class="fas fa-music"></i>
+                    {{ canciones|length }} canciones
+                </div>
+                
+                <div class="artist-detail-item">
+                    <i class="fas fa-compact-disc"></i>
+                    {{ albumes|keys|length }} álbumes
+                </div>
+            </div>
+        </div>
+        
+        <div class="albums-container">
+            {% if albumes|length > 3 %}
+                {% for album, data in albumes %}
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-compact-disc me-2"></i>
+                                    <strong>{{ album }}</strong>
+                                    {% if data.anio %}({{ data.anio }}){% endif %}
+                                </div>
+                                <span>{{ data.canciones|length }} canciones</span>
+                            </div>
+                        </div>
+                        <div class="accordion-content">
+                            <table class="songs-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>Título</th>
+                                        <th style="width: 10%;">Duración</th>
+                                        <th style="width: 80px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cancion in data.canciones %}
+                                        <tr class="song-row" onclick="window.location='{{ path('musica_cancion_detalle', {'id': cancion.id}) }}'">
+                                            <td>{{ loop.index }}</td>
+                                            <td>{{ cancion.titulo }}</td>
+                                            <td>{{ cancion.duracionFormateada }}</td>
+                                            <td class="text-end">
+                                                <a href="{{ path('musica_reproductor', {'id': cancion.id}) }}" class="btn btn-sm btn-outline-light" onclick="event.stopPropagation();">
+                                                    <i class="fas fa-play"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                {% for album, data in albumes %}
+                    <div class="album-section">
+                        <div class="album-header">
+                            <img src="{{ data.imagen ?: 'https://via.placeholder.com/120x120?text=Álbum' }}" alt="{{ album }}" class="album-cover">
+                            <div class="album-info">
+                                <h2 class="album-title">{{ album }}</h2>
+                                {% if data.anio %}
+                                    <div class="album-year">{{ data.anio }}</div>
+                                {% endif %}
+                                <a href="{{ path('musica_album_detalle', {'artista': artista, 'album': album}) }}" class="btn btn-sm btn-outline-light mt-2" style="width: fit-content;">
+                                    Ver álbum completo
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <table class="songs-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Título</th>
+                                    <th style="width: 10%;">Duración</th>
+                                    <th style="width: 80px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cancion in data.canciones %}
+                                    <tr class="song-row" onclick="window.location='{{ path('musica_cancion_detalle', {'id': cancion.id}) }}'">
+                                        <td>{{ loop.index }}</td>
+                                        <td>{{ cancion.titulo }}</td>
+                                        <td>{{ cancion.duracionFormateada }}</td>
+                                        <td class="text-end">
+                                            <a href="{{ path('musica_reproductor', {'id': cancion.id}) }}" class="btn btn-sm btn-outline-light" onclick="event.stopPropagation();">
+                                                <i class="fas fa-play"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleAccordion(header) {
+        header.classList.toggle('active');
+        
+        if (header.classList.contains('active')) {
+            const allHeaders = document.querySelectorAll('.accordion-header');
+            allHeaders.forEach(h => {
+                if (h !== header && h.classList.contains('active')) {
+                    h.classList.remove('active');
+                }
+            });
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const firstAccordion = document.querySelector('.accordion-header');
+        if (firstAccordion) {
+            firstAccordion.classList.add('active');
+        }
+    });
+</script>
+{% endblock %}

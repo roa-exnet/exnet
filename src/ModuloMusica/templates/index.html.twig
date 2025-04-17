@@ -1,0 +1,345 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Música - Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .music-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .page-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .music-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .music-card {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        .music-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .music-thumbnail {
+            position: relative;
+            width: 100%;
+            padding-bottom: 100%;
+            overflow: hidden;
+        }
+        .music-thumbnail img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .music-info {
+            padding: 12px;
+        }
+        .music-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .music-artist {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .music-meta {
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+        }
+        .filter-container {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .filter-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .genre-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .genre-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            background-color: #333;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .genre-badge:hover {
+            background-color: #444;
+        }
+        .genre-badge.active {
+            background-color: #8e44ad;
+        }
+        .play-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .music-thumbnail:hover .play-icon {
+            opacity: 1;
+        }
+        .sidebar {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            padding: 15px;
+            height: 100%;
+        }
+        .sidebar-section {
+            margin-bottom: 25px;
+        }
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 8px;
+        }
+        .playlist-item {
+            display: flex;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            transition: background-color 0.2s;
+        }
+        .playlist-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .playlist-info {
+            margin-left: 10px;
+        }
+        .playlist-name {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        .playlist-count {
+            font-size: 12px;
+            color: #888;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Música</h1>
+        <div>
+            {% if is_granted('ROLE_ADMIN') %}
+                <a href="{{ path('musica_admin') }}" class="exnet-btn-small me-2">Admin</a>
+            {% endif %}
+            <a href="{{ path('musica_playlist_nueva') }}" class="exnet-btn-small">
+                <i class="fas fa-plus"></i> Nueva Playlist
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-9">
+            <div class="filter-container">
+                <div class="filter-title">Filtrar por género</div>
+                <div class="genre-filter">
+                    <a href="{{ path('musica_index') }}" class="genre-badge {% if not generoActual %}active{% endif %}">
+                        Todos
+                    </a>
+                    {% for genero in generos %}
+                        <a href="{{ path('musica_index', {'genero': genero.id}) }}" 
+                           class="genre-badge {% if generoActual == genero.id ~ '' %}active{% endif %}"
+                            {% if genero.icono %}<i class="{{ genero.icono }} me-1"></i>{% endif %}
+                            {{ genero.nombre }}
+                        </a>
+                    {% endfor %}
+                </div>
+                
+                <form method="get" action="{{ path('musica_index') }}" class="mt-3">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control" placeholder="Buscar por título, artista o álbum..." value="{{ busqueda ?? '' }}">
+                        <button type="submit" class="btn btn-primary">Buscar</button>
+                        {% if busqueda %}
+                            <a href="{{ path('musica_index') }}" class="btn btn-secondary">Limpiar</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+
+            <div class="music-container">
+                <h2 class="page-title">
+                    {% if busqueda %}
+                        Resultados para "{{ busqueda }}"
+                    {% elseif generoActual %}
+                        {% set currentGenero = null %}
+                        {% for genero in generos %}
+                            {% if genero.id == generoActual|number_format(0, '', '') %}
+                                {% set currentGenero = genero %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if currentGenero %}
+                            {{ currentGenero.nombre }}
+                        {% else %}
+                            Todas las canciones
+                        {% endif %}
+                    {% else %}
+                        Todas las canciones
+                    {% endif %}
+                </h2>
+                
+                {% if canciones|length > 0 %}
+                    <div class="music-grid">
+                        {% for cancion in canciones %}
+                            <div class="music-card">
+                                <a href="{{ path('musica_cancion_detalle', {'id': cancion.id}) }}">
+                                    <div class="music-thumbnail">
+                                        <img src="{{ cancion.imagen ?: 'https://via.placeholder.com/200x200?text=Sin+imagen' }}" alt="{{ cancion.titulo }}">
+                                        <div class="play-icon">
+                                            <i class="fas fa-play fa-lg text-white"></i>
+                                        </div>
+                                    </div>
+                                    <div class="music-info">
+                                        <div class="music-title">{{ cancion.titulo }}</div>
+                                        <div class="music-artist">
+                                            {% if cancion.artista %}
+                                                <a href="{{ path('musica_artista_detalle', {'artista': cancion.artista}) }}" class="text-decoration-none text-light">
+                                                    {{ cancion.artista }}
+                                                </a>
+                                            {% else %}
+                                                Artista desconocido
+                                            {% endif %}
+                                        </div>
+                                        <div class="music-meta">
+                                            <span>{{ cancion.duracionFormateada }}</span>
+                                            {% if cancion.anio %}
+                                                <span>{{ cancion.anio }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No se encontraron canciones{% if busqueda %} para "{{ busqueda }}"{% endif %}.
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="music-container">
+                        <h3 class="sidebar-title">Top Artistas</h3>
+                        <ul class="list-unstyled">
+                            {% for artista in topArtistas %}
+                                <li class="mb-2">
+                                    <a href="{{ path('musica_artista_detalle', {'artista': artista.artista}) }}" class="text-decoration-none text-light d-flex justify-content-between">
+                                        <span>{{ artista.artista }}</span>
+                                        <span class="badge bg-secondary">{{ artista.canciones_count }} canciones</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li>No hay artistas disponibles.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="music-container">
+                        <h3 class="sidebar-title">Top Álbumes</h3>
+                        <ul class="list-unstyled">
+                            {% for album in topAlbumes %}
+                                <li class="mb-2">
+                                    <a href="{{ path('musica_album_detalle', {'artista': album.artista, 'album': album.album}) }}" class="text-decoration-none text-light d-flex justify-content-between">
+                                        <span>{{ album.album }} <small class="text-muted">({{ album.artista }})</small></span>
+                                        <span class="badge bg-secondary">{{ album.canciones_count }} canciones</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li>No hay álbumes disponibles.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">Mis Playlists</h3>
+                    {% if playlists|length > 0 %}
+                        <ul class="list-unstyled">
+                            {% for playlist in playlists %}
+                                <li>
+                                    <a href="{{ path('musica_playlist_detalle', {'id': playlist.id}) }}" class="playlist-item text-decoration-none text-light">
+                                        <i class="fas fa-list-ul mt-1"></i>
+                                        <div class="playlist-info">
+                                            <div class="playlist-name">{{ playlist.nombre }}</div>
+                                            <div class="playlist-count">{{ playlist.canciones|length }} canciones</div>
+                                        </div>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No tienes playlists creadas.</p>
+                        <a href="{{ path('musica_playlist_nueva') }}" class="btn btn-sm btn-outline-light">Crear Playlist</a>
+                    {% endif %}
+                </div>
+                
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">Géneros</h3>
+                    <ul class="list-unstyled">
+                        {% for genero in generos %}
+                            <li class="mb-2">
+                                <a href="{{ path('musica_genero_detalle', {'id': genero.id}) }}" class="text-decoration-none text-light">
+                                    {% if genero.icono %}<i class="{{ genero.icono }} me-2"></i>{% endif %}
+                                    {{ genero.nombre }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

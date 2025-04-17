@@ -1,0 +1,367 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ cancion.titulo }} - Música Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style>
+        .song-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 30px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .song-header {
+            display: flex;
+            margin-bottom: 30px;
+        }
+        .song-cover {
+            width: 250px;
+            height: 250px;
+            border-radius: 8px;
+            margin-right: 30px;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        .song-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .song-type {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        .song-title {
+            font-size: 40px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .song-meta {
+            margin-bottom: 20px;
+        }
+        .song-artist {
+            font-size: 20px;
+            color: #ddd;
+            margin-bottom: 5px;
+        }
+        .song-album {
+            font-size: 16px;
+            color: #aaa;
+        }
+        .song-details {
+            display: flex;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #888;
+        }
+        .song-detail-item {
+            margin-right: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .song-detail-item i {
+            margin-right: 5px;
+        }
+        .song-description {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            max-width: 800px;
+        }
+        .song-actions {
+            display: flex;
+            gap: 15px;
+        }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-play {
+            background-color: #8e44ad;
+            color: white;
+        }
+        .btn-play:hover {
+            background-color: #9b59b6;
+            color: white;
+        }
+        .btn-add {
+            background-color: transparent;
+            color: white;
+            border: 2px solid #8e44ad;
+        }
+        .btn-add:hover {
+            background-color: rgba(142, 68, 173, 0.1);
+            color: white;
+        }
+        .action-btn i {
+            margin-right: 8px;
+        }
+        .playlist-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #252525;
+            min-width: 200px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        .dropdown-content.show {
+            display: block;
+        }
+        .dropdown-item {
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .dropdown-item:hover {
+            background-color: #333;
+        }
+        .dropdown-divider {
+            height: 1px;
+            background-color: #444;
+            margin: 5px 0;
+        }
+        .more-songs-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: white;
+        }
+        .songs-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+        }
+        .songs-table th, .songs-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .songs-table th {
+            color: #aaa;
+            font-weight: normal;
+            font-size: 14px;
+        }
+        .songs-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .song-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .song-title-cell {
+            display: flex;
+            align-items: center;
+        }
+        .song-thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Detalle de Canción</h1>
+        <div>
+            <a href="{{ path('musica_index') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="song-container">
+        <div class="song-header">
+            <img src="{{ cancion.imagen ?: 'https://via.placeholder.com/250x250?text=Sin+imagen' }}" alt="{{ cancion.titulo }}" class="song-cover">
+            
+            <div class="song-info">
+                <div class="song-type">Canción</div>
+                <h1 class="song-title">{{ cancion.titulo }}</h1>
+                
+                <div class="song-meta">
+                    {% if cancion.artista %}
+                        <div class="song-artist">
+                            <a href="{{ path('musica_artista_detalle', {'artista': cancion.artista}) }}" class="text-decoration-none text-light">
+                                {{ cancion.artista }}
+                            </a>
+                        </div>
+                    {% endif %}
+                    
+                    {% if cancion.album %}
+                        <div class="song-album">
+                            <a href="{{ path('musica_album_detalle', {'artista': cancion.artista, 'album': cancion.album}) }}" class="text-decoration-none text-light">
+                                {{ cancion.album }}
+                            </a>
+                            {% if cancion.anio %} ({{ cancion.anio }}){% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="song-details">
+                    {% if cancion.genero %}
+                        <div class="song-detail-item">
+                            <i class="fas fa-tag"></i>
+                            <a href="{{ path('musica_genero_detalle', {'id': cancion.genero.id}) }}" class="text-decoration-none text-light">
+                                {{ cancion.genero.nombre }}
+                            </a>
+                        </div>
+                    {% endif %}
+                    
+                    {% if cancion.duracion %}
+                        <div class="song-detail-item">
+                            <i class="fas fa-clock"></i>
+                            {{ cancion.duracionFormateada }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="song-detail-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        Añadido el {{ cancion.creadoEn|date('d/m/Y') }}
+                    </div>
+                </div>
+                
+                {% if cancion.descripcion %}
+                    <div class="song-description">
+                        {{ cancion.descripcion|nl2br }}
+                    </div>
+                {% endif %}
+                
+                <div class="song-actions">
+                    <a href="{{ path('musica_reproductor', {'id': cancion.id}) }}" class="action-btn btn-play">
+                        <i class="fas fa-play"></i> Reproducir
+                    </a>
+                    
+                    <div class="playlist-dropdown">
+                        <button class="action-btn btn-add" id="addToPlaylistBtn">
+                            <i class="fas fa-plus"></i> Añadir a Playlist
+                        </button>
+                        <div class="dropdown-content" id="playlistDropdown">
+                            {% if playlists|length > 0 %}
+                                {% for playlist in playlists %}
+                                    <form method="post" action="{{ path('musica_playlist_agregar_cancion', {'id': playlist.id}) }}">
+                                        <input type="hidden" name="cancion_id" value="{{ cancion.id }}">
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="fas fa-list me-2"></i> {{ playlist.nombre }}
+                                        </button>
+                                    </form>
+                                {% endfor %}
+                                <div class="dropdown-divider"></div>
+                            {% endif %}
+                            <a href="{{ path('musica_playlist_nueva') }}" class="dropdown-item">
+                                <i class="fas fa-plus-circle me-2"></i> Crear nueva playlist
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if playlistsConCancion|length > 0 %}
+        <div class="more-songs-container">
+            <h2 class="section-title">Aparece en estas playlists</h2>
+            <div class="row">
+                {% for playlist in playlistsConCancion %}
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ path('musica_playlist_detalle', {'id': playlist.id}) }}" class="card bg-dark text-white text-decoration-none">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ playlist.nombre }}</h5>
+                                <p class="card-text text-muted">{{ playlist.canciones|length }} canciones</p>
+                                <small class="text-muted">{{ playlist.creadorNombre }}</small>
+                            </div>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if cancionesArtista|length > 0 %}
+        <div class="more-songs-container">
+            <h2 class="section-title">Más de {{ cancion.artista }}</h2>
+            
+            <table class="songs-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Título</th>
+                        <th>Álbum</th>
+                        <th style="width: 15%;">Duración</th>
+                        <th style="width: 10%;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for otraCancion in cancionesArtista|slice(0, 10) %}
+                        <tr class="song-row" onclick="window.location='{{ path('musica_cancion_detalle', {'id': otraCancion.id}) }}'">
+                            <td>
+                                <div class="song-title-cell">
+                                    <img src="{{ otraCancion.imagen ?: 'https://via.placeholder.com/40x40?text=Sin+imagen' }}" alt="{{ otraCancion.titulo }}" class="song-thumb">
+                                    <div>{{ otraCancion.titulo }}</div>
+                                </div>
+                            </td>
+                            <td>{{ otraCancion.album ?: '-' }}</td>
+                            <td>{{ otraCancion.duracionFormateada }}</td>
+                            <td class="text-end">
+                                <a href="{{ path('musica_reproductor', {'id': otraCancion.id}) }}" class="btn btn-sm btn-outline-light" onclick="event.stopPropagation();">
+                                    <i class="fas fa-play"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if cancionesArtista|length > 10 %}
+                <div class="text-center mt-3">
+                    <a href="{{ path('musica_artista_detalle', {'artista': cancion.artista}) }}" class="btn btn-sm btn-outline-light">
+                        Ver todas las canciones de {{ cancion.artista }}
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
+        const playlistDropdown = document.getElementById('playlistDropdown');
+        
+        addToPlaylistBtn.addEventListener('click', function() {
+            playlistDropdown.classList.toggle('show');
+        });
+        
+        window.addEventListener('click', function(event) {
+            if (!event.target.matches('#addToPlaylistBtn') && !playlistDropdown.contains(event.target)) {
+                playlistDropdown.classList.remove('show');
+            }
+        });
+    });
+</script>
+{% endblock %}

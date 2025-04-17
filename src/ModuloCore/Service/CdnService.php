@@ -24,7 +24,7 @@ class CdnService
     ) {
         $this->httpClient = $httpClient;
         $this->entityManager = $entityManager;
-        $this->cdnBaseUrl = 'https://cdn.exnet.cloud'; // O tu URL de CDN
+        $this->cdnBaseUrl = $parameterBag->get('cdn_base_url');
         $this->projectDir = $parameterBag->get('kernel.project_dir');
         $this->filesystem = new Filesystem();
     }
@@ -66,11 +66,9 @@ class CdnService
                 }
 
                 foreach ($modules as $module) {
-                    // Asegurarse que 'filename' existe en el array $module antes de usarlo
                     if (!isset($module['filename'])) {
-                        // Loggear o manejar el caso donde 'filename' falta
                         error_log("Módulo sin 'filename' en marketplace API: " . json_encode($module));
-                        continue; // Saltar este módulo si no tiene filename
+                        continue;
                     }
                      $moduleName = $module['name'] ?? basename($module['filename'], '.zip');
                      $normalizedName = strtolower($moduleName);
@@ -97,7 +95,7 @@ class CdnService
                         'description' => $module['description'] ?? 'Módulo para Exnet',
                         'version' => $module['version'] ?? '1.0.0',
                         'price' => $module['price'] ?? 'free',
-                        'downloadUrl' => $module['downloadUrl'] ?? null, // Asegurarse que downloadUrl está presente
+                        'downloadUrl' => $module['downloadUrl'] ?? null,
                         'installed' => $isInstalled,
                         'installCommand' => $module['installCommand'] ?? null
                     ];
@@ -146,7 +144,7 @@ class CdnService
         $installCommandOutput .= "Módulo: $filename\n";
         $installCommandOutput .= "Tipo: $moduleType\n";
         $installCommandOutput .= "Fecha/Hora: " . date('Y-m-d H:i:s') . "\n\n";
-        $moduleDirectoryPath = null; // Inicializar path
+        $moduleDirectoryPath = null;
 
         try {
             $baseModuleName = str_replace('.zip', '', $filename);
@@ -155,25 +153,7 @@ class CdnService
             $moduloRepository = $this->entityManager->getRepository(Modulo::class);
             $existingModulo = null;
 
-            // Búsqueda de módulo existente...
             $existingModulo = $moduloRepository->findOneBy(['nombre' => $baseModuleName]);
-
-            // if (!$existingModulo) {
-            //      $queryBuilder = $moduloRepository->createQueryBuilder('m')
-            //         ->where('LOWER(m.nombre) = :name')
-            //         ->orWhere('LOWER(m.nombre) = :nameWithModulo');
-
-            //      if (strpos($normalizedName, 'modulo') === 0) {
-            //          $nameWithoutPrefix = substr($normalizedName, 6);
-            //          $queryBuilder->setParameter('name', $nameWithoutPrefix)
-            //                       ->setParameter('nameWithModulo', 'modulo' . $nameWithoutPrefix);
-            //      } else {
-            //           $queryBuilder->setParameter('name', $normalizedName)
-            //                        ->setParameter('nameWithModulo', 'modulo' . $normalizedName);
-            //      }
-            //      $existingModulo = $queryBuilder->getQuery()->getOneOrNullResult();
-            // }
-
 
             if ($existingModulo) {
                 $now = new \DateTimeImmutable();
@@ -189,7 +169,6 @@ class CdnService
                 ];
             }
 
-            // Obtener información del módulo desde la API
             $moduleInfo = null;
             try {
                 $moduleInfoUrl = $this->cdnBaseUrl . '/api/module-info/' . $moduleType . '/' . $filename;
@@ -331,17 +310,14 @@ class CdnService
                 }
             }
 
-            // --- Ejecutar el Comando (si se encontró alguno) ---
-             $commandSuccess = true; // Asumir éxito si no hay comando que ejecutar
+             $commandSuccess = true;
 
             if ($installCommand) {
                 $installCommandOutput .= "\nComando de instalación final a usar: '$installCommand'\n";
 
-                // Asegurarse de tener el path correcto del directorio (ya debería estar en $moduleDirectoryPath)
                 if (!$moduleDirectoryPath || !is_dir($moduleDirectoryPath)) {
-                    $moduleDirectoryPath = $this->findModuleDirectoryPath($baseModuleName, $installCommandOutput); // Buscar de nuevo por si acaso
+                    $moduleDirectoryPath = $this->findModuleDirectoryPath($baseModuleName, $installCommandOutput);
                      if(!$moduleDirectoryPath || !is_dir($moduleDirectoryPath)) {
-                         // Error crítico si no se encuentra el directorio para ejecutar el comando
                          return [
                              'success' => false,
                              'message' => 'Error crítico: No se encontró el directorio del módulo para ejecutar el comando.',
@@ -367,19 +343,17 @@ class CdnService
 
                 error_log('Ejecutando comando: ' . $installCommand . ' en ' . $moduleDirectoryPath);
 
-                // Crear el process adecuado
                 if (strpos($installCommand, '&&') !== false || strpos($installCommand, '||') !== false ||
                     strpos($installCommand, '>') !== false || strpos($installCommand, '|') !== false) {
                     $installCommandOutput .= "Usando Process::fromShellCommandline\n";
-                    $process = Process::fromShellCommandline($installCommand, $moduleDirectoryPath); // Directorio como segundo argumento
+                    $process = Process::fromShellCommandline($installCommand, $moduleDirectoryPath);
                 } else {
                     $installCommandOutput .= "Usando Process con array de argumentos\n";
                     $commandParts = explode(' ', $installCommand);
                     $installCommandOutput .= "Partes del comando: " . json_encode($commandParts) . "\n";
-                    $process = new Process($commandParts, $moduleDirectoryPath); // Directorio como segundo argumento
+                    $process = new Process($commandParts, $moduleDirectoryPath);
                 }
 
-                // $process->setWorkingDirectory($moduleDirectoryPath); // Ya no es necesario si se pasa en el constructor
                 $process->setTimeout(300);
                 $process->setEnv([
                     'PATH' => getenv('PATH'),
@@ -391,7 +365,7 @@ class CdnService
                     $process->run(function ($type, $buffer) use (&$installCommandOutput) {
                         $prefix = (Process::ERR === $type) ? 'ERROR > ' : 'OUTPUT > ';
                         $installCommandOutput .= $prefix . $buffer;
-                        error_log($prefix . $buffer); // Loguear salida en tiempo real
+                        error_log($prefix . $buffer);
                     });
 
                     $commandSuccess = $process->isSuccessful();
@@ -401,9 +375,8 @@ class CdnService
 
                     if (!$commandSuccess) {
                         error_log('Comando falló con código: ' . $process->getExitCode());
-                        // La salida de error ya se capturó en el callback
                          return [
-                             'success' => false, // Marcar la instalación general como fallida si el comando falla
+                             'success' => false,
                              'message' => 'Error al ejecutar el comando de instalación',
                              'commandSuccess' => false,
                              'commandOutput' => $installCommandOutput
@@ -423,63 +396,48 @@ class CdnService
                      ];
                 }
             } else {
-                // Si no se encontró ningún comando en ninguna fuente
                 $installCommandOutput .= "\n=== NO HAY COMANDO DE INSTALACIÓN ===\n";
                 $installCommandOutput .= "No se encontró ningún comando de instalación válido en module.json, API o commands.json.\n";
                 $installCommandOutput .= "\nRevisión final de la información del módulo:\n";
                 $installCommandOutput .= "moduleJson (final): " . json_encode($moduleJson, JSON_PRETTY_PRINT) . "\n";
                 $installCommandOutput .= "moduleInfo (API): " . json_encode($moduleInfo, JSON_PRETTY_PRINT) . "\n";
-                 // Considerar si esto debe ser un error o un éxito sin comando
-                 // Por ahora, se considera éxito, pero sin ejecución de comando.
             }
 
 
-            // --- Finalización (Migraciones y Respuesta) ---
-            // Ejecutar migraciones si está indicado y el comando (si hubo) fue exitoso
+
             if ($commandSuccess && isset($moduleJson['migrate']) && $moduleJson['migrate'] === true) {
                  $installCommandOutput .= "\n=== EJECUTANDO MIGRACIONES ===\n";
                  $migrateResult = $this->runMigrations();
                  $installCommandOutput .= "Resultado de migraciones: " . ($migrateResult ? "Exitoso" : "Fallido") . "\n";
-                 // Podrías querer marcar como fallido si las migraciones fallan
-                 // if (!$migrateResult) { $commandSuccess = false; }
             }
 
-             // Guardar entidad Modulo en la base de datos local si todo fue bien (o según tu criterio)
-             if ($commandSuccess) { // O ajusta esta condición si quieres guardar incluso si el comando falla
-                //  $newModulo = new Modulo();
-                //  $newModulo->setNombre($moduleJson['name'] ?? $baseModuleName);
-                //  $newModulo->setDescripcion($moduleJson['description'] ?? 'Descripción no disponible');
-                //  $newModulo->setIcon($moduleJson['icon'] ?? 'fas fa-question-circle');
-                //  $newModulo->setRuta($moduleJson['route'] ?? '/' . strtolower($baseModuleName));
-                //  $newModulo->setEstado(true); // Activo por defecto al instalar
-                //  $newModulo->setVersion($moduleJson['version'] ?? '1.0.0');
-                //  $newModulo->setInstallDate(new \DateTimeImmutable());
-
-                //  $this->entityManager->persist($newModulo);
-                //  $this->entityManager->flush();
-                 $installCommandOutput .= "\nEntidad Modulo creada/actualizada en la base de datos local.\n";
-             }
-
-
+             if ($commandSuccess) {
+                $installCommandOutput .= "\nEntidad Modulo creada/actualizada en la base de datos local.\n";
+            }
+        
+            $cacheClear = new Process(['php', 'bin/console', 'cache:clear']);
+            $cacheClear->setWorkingDirectory($this->projectDir);
+            $cacheClear->run();
+            $installCommandOutput .= "\nCache cleared:\n" . $cacheClear->getOutput();
+        
             return [
-                'success' => true, // La operación general se considera exitosa si llegamos aquí sin errores críticos
+                'success' => true,
                 'message' => $installCommand ? ($commandSuccess ? 'Módulo instalado y comando ejecutado correctamente' : 'Módulo instalado, pero hubo un error al ejecutar el comando') : 'Módulo instalado correctamente (sin comando de instalación)',
                 'module' => $moduleJson,
-                'commandSuccess' => $commandSuccess, // Indica si el comando *específicamente* tuvo éxito
+                'commandSuccess' => $commandSuccess,
                 'commandOutput' => $installCommandOutput
             ];
 
         } catch (\Exception $e) {
-            $errorOutput = $installCommandOutput; // Preservar lo que se haya logueado
+            $errorOutput = $installCommandOutput;
             $errorOutput .= "\n\n=== ERROR DE EXCEPCIÓN GENERAL ===\n";
             $errorOutput .= "Mensaje: " . $e->getMessage() . "\n";
             $errorOutput .= "Archivo: " . $e->getFile() . " (línea " . $e->getLine() . ")\n";
             $errorOutput .= "Traza:\n" . $e->getTraceAsString() . "\n";
 
             error_log("Error general en instalación de módulo: " . $e->getMessage());
-            error_log("Trace: " . $e->getTraceAsString()); // Loguear traza completa
+            error_log("Trace: " . $e->getTraceAsString());
 
-            // Intentar limpiar archivo temporal si aún existe
             if (isset($tempFile) && $this->filesystem->exists($tempFile)) {
                  $this->filesystem->remove($tempFile);
             }
@@ -497,7 +455,6 @@ class CdnService
     {
         $srcDir = $this->projectDir . '/src';
 
-        // Intenta encontrar el directorio basado en el nombre base del módulo
         $exactPath = $srcDir . '/' . $baseModuleName;
         if (is_dir($exactPath)) {
             $installCommandOutput .= "Directorio del módulo encontrado (exacto): $exactPath\n";
@@ -506,8 +463,7 @@ class CdnService
 
         $installCommandOutput .= "Directorio exacto '$exactPath' no encontrado, buscando alternativas...\n";
 
-        // Podrías añadir lógica para buscar carpetas que contengan el nombre, como 'ModuloChat' vs 'chat'
-        $normalizedBaseName = strtolower(str_replace('modulo', '', $baseModuleName)); // ej: 'chat'
+        $normalizedBaseName = strtolower(str_replace('modulo', '', $baseModuleName));
 
         $directories = scandir($srcDir);
         if($directories === false) {
@@ -521,11 +477,10 @@ class CdnService
                 $normalizedDir = strtolower(str_replace('modulo', '', $dir));
                 $installCommandOutput .= "Verificando directorio: $dir (normalizado: $normalizedDir)\n";
 
-                // Comprobación más flexible
-                if ($normalizedDir === $normalizedBaseName || // ej: chat === chat
-                    strtolower($dir) === strtolower($baseModuleName) || // ej: modulochat === ModuloChat
-                    stripos($dir, $baseModuleName) !== false ||         // ej: ModuloChat_Algo contiene ModuloChat
-                    stripos($baseModuleName, $dir) !== false)          // ej: ModuloChat contiene Chat (menos probable)
+                if ($normalizedDir === $normalizedBaseName ||
+                    strtolower($dir) === strtolower($baseModuleName) || 
+                    stripos($dir, $baseModuleName) !== false ||
+                    stripos($baseModuleName, $dir) !== false)
                  {
                      $installCommandOutput .= "Usando directorio (alternativo): $itemPath\n";
                     return $itemPath;
@@ -544,16 +499,16 @@ class CdnService
         try {
             $process = new Process(['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction']);
             $process->setWorkingDirectory($this->projectDir);
-            $process->setTimeout(300); // Aumentar el timeout para migraciones
+            $process->setTimeout(300);
 
             $output = '';
             $process->run(function ($type, $buffer) use (&$output) {
                  $prefix = (Process::ERR === $type) ? 'ERROR > ' : 'OUTPUT > ';
                  $output .= $prefix.$buffer;
-                 error_log('Migración: ' . $buffer); // Log a archivo de error
+                 error_log('Migración: ' . $buffer);
             });
 
-             error_log("Resultado ejecución migraciones:\n" . $output); // Loguear salida completa de migraciones
+             error_log("Resultado ejecución migraciones:\n" . $output);
 
             return $process->isSuccessful();
         } catch (\Exception $e) {

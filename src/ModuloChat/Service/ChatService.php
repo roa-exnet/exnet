@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 class ChatService
 {
@@ -16,11 +17,11 @@ class ChatService
     private HttpClientInterface $httpClient;
     private string $websocketUrl;
 
-    public function __construct(EntityManagerInterface $entityManager)
+    public function __construct(EntityManagerInterface $entityManager, ParameterBagInterface $parameterBag)
     {
         $this->entityManager = $entityManager;
         // Configuración directa del servidor WebSocket
-        $this->websocketUrl = 'https://websockettest.exnet.cloud';
+        $this->websocketUrl = $parameterBag->get('websocket_url');;
         $this->httpClient = HttpClient::create(['timeout' => 10]);
     }
 
