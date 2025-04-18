@@ -22,6 +22,7 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Dotenv\Dotenv;
 use App\ModuloCore\Service\KeycloakRealmService;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Doctrine\ORM\Tools\SchemaTool;
 
 #[AsCommand(
     name: 'exnet:setup',
@@ -134,6 +135,15 @@ class SetupCommand extends Command
         $keycloakService = new KeycloakRealmService($this->httpClient);
 
         $io->section('Paso 7: Instalando realm en Keycloak...');
+        
+        // Eliminar variables existentes de KEYCLOAK_URL y KEYCLOAK_REALM
+        $envFile = $this->projectDir . '/.env';
+        $envLocalFile = $this->projectDir . '/.env.local';
+        
+        $io->note('Eliminando configuración previa de Keycloak si existe...');
+        $this->removeEnvVariables(['KEYCLOAK_URL', 'KEYCLOAK_REALM'], $envFile);
+        $this->removeEnvVariables(['KEYCLOAK_URL', 'KEYCLOAK_REALM'], $envLocalFile);
+        
         $result = $keycloakService->instalarRealm($realmName);
 
         if (!$result['success']) {
@@ -142,13 +152,20 @@ class SetupCommand extends Command
         }
 
         $io->success('Realm instalado correctamente: ' . $result['realm']);
-
-        if (!$result['success']) {
-            $output->writeln('<error>Error al instalar el realm: ' . $result['error'] . '</error>');
-            return Command::FAILURE;
-        }
         
-        $output->writeln('<info>Realm instalado correctamente: ' . $result['realm'] . '</info>');
+        // Verificar si las variables fueron escritas por el servicio, si no, escribirlas manualmente
+        if (!isset($_ENV['KEYCLOAK_URL']) || !isset($_ENV['KEYCLOAK_REALM'])) {
+            $io->note('Asegurando que las variables de Keycloak estén configuradas correctamente...');
+            
+            // Usar los valores del resultado o predeterminados
+            $keycloakUrl = $result['keycloak_url'] ?? rtrim($this->apiUrl ?? $_ENV['API_URL'] ?? '', '/');
+            $keycloakRealm = $result['realm'] ?? $realmName;
+            
+            $this->updateEnvVariable('KEYCLOAK_URL', $keycloakUrl, $envLocalFile);
+            $this->updateEnvVariable('KEYCLOAK_REALM', $keycloakRealm, $envLocalFile);
+            
+            $io->note("Variables de Keycloak actualizadas: URL=$keycloakUrl, REALM=$keycloakRealm");
+        }
 
         $io->success([
             'Instalación completada con éxito.',
@@ -288,6 +305,27 @@ class SetupCommand extends Command
             file_put_contents($envFile, "{$name}=\"{$escaped}\"" . PHP_EOL);
         }
     }
+    
+    /**
+     * Elimina variables específicas del archivo .env o .env.local para luego reemplazarlas
+     */
+    private function removeEnvVariables(array $variableNames, string $envFile): void
+    {
+        if (file_exists($envFile)) {
+            $content = file_get_contents($envFile);
+            
+            foreach ($variableNames as $name) {
+                // Buscar la variable y eliminarla (línea completa)
+                $pattern = "/^{$name}=.*(\r?\n)?/m";
+                $content = preg_replace($pattern, '', $content);
+            }
+            
+            // Eliminar líneas vacías adicionales que puedan haberse creado
+            $content = preg_replace("/(\r?\n){2,}/", PHP_EOL . PHP_EOL, $content);
+            
+            file_put_contents($envFile, $content);
+        }
+    }
 
     private function setupDatabase(SymfonyStyle $io): bool
     {
@@ -342,160 +380,96 @@ class SetupCommand extends Command
             chmod($dbFile, 0666); // Asegurar permisos adecuados
         }
         
-        // Ahora vamos a crear un esquema limpio usando doctrine:schema:create en lugar de migraciones
-        $io->note('Creando esquema de base de datos...');
-        $process = new Process(['php', 'bin/console', 'doctrine:schema:create', '--no-interaction']);
-        $process->setWorkingDirectory($this->projectDir);
-        $process->run();
+        // Ahora vamos a crear un esquema limpio usando SchemaTool de Doctrine
+        $io->note('Creando esquema de base de datos usando Doctrine...');
         
-        if (!$process->isSuccessful()) {
-            // Si falla, intentamos con otro enfoque
-            $io->warning('No se pudo crear el esquema directamente. Intentando con migraciones...');
-            
-            // Intentamos borrar directamente las tablas de migración si existen
-            try {
-                $connection = $this->entityManager->getConnection();
-                $connection->executeQuery('DROP TABLE IF EXISTS doctrine_migration_versions');
-                $io->note('Eliminadas tablas de migración previas.');
-            } catch (\Exception $e) {
-                $io->note('No se encontraron tablas de migración previas para eliminar.');
-            }
-            
-            // Generamos una migración limpia
-            $io->note('Generando migraciones frescas...');
-            $process = new Process(['php', 'bin/console', 'make:migration']);
-            $process->setWorkingDirectory($this->projectDir);
-            $process->run();
-            
-            if (!$process->isSuccessful() && 
-                !str_contains($process->getOutput(), 'No changes detected') && 
-                !str_contains($process->getErrorOutput(), 'No changes detected')) {
-                $io->error(['Error al generar migraciones:', $process->getErrorOutput()]);
-                return false;
-            }
-            
-            // Ejecutamos la migración
-            $io->note('Ejecutando migraciones...');
-            $process = new Process(['php', 'bin/console', 'doctrine:migrations:migrate', '--no-interaction']);
+        try {
+            // Intentamos primero con doctrine:schema:create para mayor simplicidad
+            $process = new Process(['php', 'bin/console', 'doctrine:schema:create', '--no-interaction']);
             $process->setWorkingDirectory($this->projectDir);
             $process->run();
             
             if (!$process->isSuccessful()) {
-                $io->error(['Error al ejecutar migraciones:', $process->getErrorOutput()]);
+                $io->warning('No se pudo crear el esquema con doctrine:schema:create. Intentando métodos alternativos...');
                 
-                // Como último recurso, intentamos una solución más directa
-                $io->warning('Intentando solución alternativa...');
-                $this->createTablesDirectly($io);
+                // Si falla, intentamos con SchemaTool directamente
+                if (!$this->createTablesWithDoctrine($io)) {
+                    return false;
+                }
+            } else {
+                $io->note('Esquema de base de datos creado correctamente con doctrine:schema:create.');
             }
-        } else {
-            $io->note('Esquema de base de datos creado correctamente.');
-        }
-        
-        // Verificamos si las tablas principales existen
-        try {
-            $connection = $this->entityManager->getConnection();
-            $tableExists = $connection->executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='user'")->fetchOne();
             
-            if ($tableExists) {
-                $io->success('Base de datos SQLite configurada correctamente.');
+            // Verificar si las tablas se crearon correctamente
+            $connection = $this->entityManager->getConnection();
+            $tablesQuery = "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user', 'modulo', 'menu_element')";
+            $tables = $connection->executeQuery($tablesQuery)->fetchFirstColumn();
+            
+            if (count($tables) >= 3) {
+                $io->success('Tablas principales verificadas: ' . implode(', ', $tables));
                 return true;
             } else {
-                $io->warning('No se pudo verificar la existencia de las tablas principales.');
-                return $this->createTablesDirectly($io);
+                $io->warning('Algunas tablas principales podrían no haberse creado correctamente.');
+                $io->note('Tablas actuales: ' . implode(', ', $tables));
+                $io->note('Intentando crear tablas faltantes...');
+                
+                return $this->createTablesWithDoctrine($io);
             }
         } catch (\Exception $e) {
-            $io->error(['Error al verificar las tablas:', $e->getMessage()]);
+            $io->error('Error al configurar la base de datos: ' . $e->getMessage());
             return false;
         }
     }
     
-    private function createTablesDirectly(SymfonyStyle $io): bool
+    private function createTablesWithDoctrine(SymfonyStyle $io): bool
     {
-        $io->note('Creando tablas directamente...');
+        $io->note('Creando tablas usando SchemaTool de Doctrine...');
         
         try {
-            $connection = $this->entityManager->getConnection();
+            // Utilizamos SchemaTool de Doctrine para crear las tablas a partir de las entidades
+            $em = $this->entityManager;
+            $metadataFactory = $em->getMetadataFactory();
             
-            // Crear tabla user
-            $connection->executeQuery('
-                CREATE TABLE IF NOT EXISTS "user" (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
-                    email VARCHAR(180) NOT NULL,
-                    roles CLOB NOT NULL --(DC2Type:json)
-                    ,
-                    password VARCHAR(255) NOT NULL, 
-                    nombre VARCHAR(255) NOT NULL,
-                    apellidos VARCHAR(255) NOT NULL, 
-                    created_at DATETIME NOT NULL --(DC2Type:datetime_immutable)
-                    , 
-                    last_login DATETIME DEFAULT NULL --(DC2Type:datetime_immutable)
-                    , 
-                    is_active BOOLEAN NOT NULL, 
-                    ip_address VARCHAR(45) DEFAULT NULL
-                )
-            ');
+            // Obtenemos las clases de entidades del ModuloCore
+            $classList = [
+                User::class,
+                Modulo::class,
+                MenuElement::class
+            ];
             
-            // Crear índice único en email
-            $connection->executeQuery('CREATE UNIQUE INDEX IF NOT EXISTS UNIQ_8D93D649E7927C74 ON "user" (email)');
+            $metadata = [];
+            foreach ($classList as $className) {
+                $metadata[] = $metadataFactory->getMetadataFor($className);
+            }
             
-            // Crear tabla modulo
-            $connection->executeQuery('
-                CREATE TABLE IF NOT EXISTS modulo (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
-                    nombre VARCHAR(255) NOT NULL, 
-                    descripcion VARCHAR(255) NOT NULL, 
-                    install_date DATETIME DEFAULT NULL --(DC2Type:datetime_immutable)
-                    , 
-                    uninstall_date DATETIME DEFAULT NULL --(DC2Type:datetime_immutable)
-                    , 
-                    icon VARCHAR(255) NOT NULL, 
-                    ruta VARCHAR(255) NOT NULL, 
-                    estado BOOLEAN NOT NULL
-                )
-            ');
+            // Creamos el esquema utilizando SchemaTool
+            $schemaTool = new SchemaTool($em);
+            $schemaTool->createSchema($metadata);
             
-            // Crear tabla menu_element
-            $connection->executeQuery('
-                CREATE TABLE IF NOT EXISTS menu_element (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
-                    icon VARCHAR(255) NOT NULL, 
-                    type VARCHAR(255) NOT NULL, 
-                    parent_id INTEGER DEFAULT NULL, 
-                    ruta VARCHAR(255) NOT NULL, 
-                    enabled BOOLEAN NOT NULL, 
-                    nombre VARCHAR(255) NOT NULL
-                )
-            ');
+            $io->success('Tablas creadas correctamente usando SchemaTool de Doctrine.');
             
-            // Crear tabla de relación menu_element_modulo
-            $connection->executeQuery('
-                CREATE TABLE IF NOT EXISTS menu_element_modulo (
-                    menu_element_id INTEGER NOT NULL, 
-                    modulo_id INTEGER NOT NULL, 
-                    PRIMARY KEY(menu_element_id, modulo_id),
-                    CONSTRAINT FK_A48FEF9F3F0A914D FOREIGN KEY (menu_element_id) REFERENCES menu_element (id) ON DELETE CASCADE,
-                    CONSTRAINT FK_A48FEF9FC07F55F5 FOREIGN KEY (modulo_id) REFERENCES modulo (id) ON DELETE CASCADE
-                )
-            ');
+            // Adicionalmente, creamos la tabla de migraciones si no existe
+            $connection = $em->getConnection();
+            $migrationsTable = $connection->executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='doctrine_migration_versions'")->fetchOne();
             
-            // Crear índices para la tabla de relación
-            $connection->executeQuery('CREATE INDEX IF NOT EXISTS IDX_A48FEF9F3F0A914D ON menu_element_modulo (menu_element_id)');
-            $connection->executeQuery('CREATE INDEX IF NOT EXISTS IDX_A48FEF9FC07F55F5 ON menu_element_modulo (modulo_id)');
+            if (!$migrationsTable) {
+                $io->note('Creando tabla de migraciones...');
+                
+                $connection->executeStatement('
+                    CREATE TABLE IF NOT EXISTS doctrine_migration_versions (
+                        version VARCHAR(191) NOT NULL, 
+                        executed_at DATETIME DEFAULT NULL, 
+                        execution_time INTEGER DEFAULT NULL, 
+                        PRIMARY KEY(version)
+                    )
+                ');
+                
+                $io->note('Tabla de migraciones creada correctamente.');
+            }
             
-            // Crear tabla de migraciones
-            $connection->executeQuery('
-                CREATE TABLE IF NOT EXISTS doctrine_migration_versions (
-                    version VARCHAR(191) NOT NULL, 
-                    executed_at DATETIME DEFAULT NULL, 
-                    execution_time INTEGER DEFAULT NULL, 
-                    PRIMARY KEY(version)
-                )
-            ');
-            
-            $io->success('Tablas creadas correctamente de forma directa.');
             return true;
         } catch (\Exception $e) {
-            $io->error(['Error al crear tablas directamente:', $e->getMessage()]);
+            $io->error('Error al crear tablas usando SchemaTool: ' . $e->getMessage());
             return false;
         }
     }
@@ -634,8 +608,7 @@ class SetupCommand extends Command
                     'menu', 
                     0, 
                     '/', 
-                    $coreModule, 
-                    0
+                    $coreModule
                 );
                 
                 // Elemento de menú Respaldos
@@ -645,8 +618,7 @@ class SetupCommand extends Command
                     'menu', 
                     0, 
                     '/backups', 
-                    $coreModule, 
-                    1
+                    $coreModule
                 );
                 
                 $this->entityManager->flush();
@@ -684,8 +656,7 @@ class SetupCommand extends Command
         string $type, 
         int $parentId, 
         string $ruta, 
-        Modulo $modulo, 
-        int $orden = 0
+        Modulo $modulo
     ): MenuElement {
         $menuElement = new MenuElement();
         $menuElement->setNombre($nombre);

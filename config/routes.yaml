@@ -10,10 +10,9 @@ modulo_chat_controllers:
         namespace: App\ModuloChat\Controller
     type: attribute
 
-# ----------- modulochat -------
-
-modulo_musica_controllers:
+modulo_streaming_controllers:
     resource:
-        path: ../src/ModuloMusica/Controller/
-        namespace: App\ModuloMusica\Controller
+        path: ../src/ModuloStreaming/Controller/
+        namespace: App\ModuloStreaming\Controller
     type: attribute
+# ----------- modulochat -------

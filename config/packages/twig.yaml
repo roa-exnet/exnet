@@ -2,6 +2,9 @@ twig:
     paths:
         # ----------- modulochat -------
         '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat
+        # ----------- modulochat -------
+        # ----------- modulochat -------
         '%kernel.project_dir%/src/ModuloMusica/templates': ModuloMusica
+        '%kernel.project_dir%/src/ModuloStreaming/templates': ModuloStreaming
         # ----------- modulochat -------
         '%kernel.project_dir%/src/ModuloCore/templates': null
