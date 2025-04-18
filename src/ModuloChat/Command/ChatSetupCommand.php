@@ -13,6 +13,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Doctrine\ORM\EntityManagerInterface;
+use App\ModuloCore\Service\KeycloakModuleService;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsCommand(
     name: 'modulochat:setup',
@@ -21,10 +24,14 @@ use Doctrine\ORM\EntityManagerInterface;
 class ChatSetupCommand extends Command
 {
     private EntityManagerInterface $entityManager;
+    private HttpClientInterface $httpClient;
+    private ParameterBagInterface $parameterBag;
 
-    public function __construct(EntityManagerInterface $entityManager)
+    public function __construct(EntityManagerInterface $entityManager, HttpClientInterface $httpClient, ParameterBagInterface $parameterBag)
     {
         $this->entityManager = $entityManager;
+        $this->httpClient = $httpClient;
+        $this->parameterBag = $parameterBag;
         parent::__construct();
     }
 
@@ -102,6 +109,42 @@ class ChatSetupCommand extends Command
             $io->warning('Error limpiando la caché: ' . $process->getErrorOutput());
         }
     
+        // 8. Crear cliente y licencia de keycloak para el modulo
+        $io->section('Paso 8: Registrar licencia del módulo');
+
+        $moduleFilePath = __DIR__;
+        $modulePath = dirname($moduleFilePath);
+
+        $settingsPath = $modulePath . "/settings.json";
+
+        if (!file_exists($settingsPath)) {
+            $io->error('No se encontró settings.json en la ruta: ' . $settingsPath);
+            return Command::FAILURE;
+        }
+
+
+        $settings = json_decode(file_get_contents($settingsPath), true);
+        $moduloNombre = $settings['name'] ?? null;
+        $io->success('nombre del modulo: ' . $moduloNombre);
+        if (!$moduloNombre) {
+            $io->error('El archivo settings.json no contiene un campo "nombre".');
+            return Command::FAILURE;
+        }
+
+        $moduleService = new \App\ModuloCore\Service\KeycloakModuleService(
+            $this->httpClient,
+            $this->entityManager->getConnection(),
+            $this->parameterBag
+        );
+
+        $res = $moduleService->registrarLicencia($moduloNombre);
+        if ($res['success']) {
+            $io->success('Licencia registrada exitosamente');
+        } else {
+            $io->error('Error registrando licencia: ' . $res['error']);
+            return Command::FAILURE;
+        }
+
         return Command::SUCCESS;
     }
 

@@ -10,6 +10,9 @@ parameters:
     jwt.cookie_name: 'exnet_auth_jwt'
     jwt.token_lifetime: 86400
     app.backup_dir: '%kernel.project_dir%/var/backups'
+    API_URL: '%env(API_URL)%'
+    KEYCLOAK_REALM: '%env(KEYCLOAK_REALM)%'
+    KEYCLOAK_URL: '%env(KEYCLOAK_URL)%'
 
 services:
     # default configuration for services in *this* file
@@ -29,7 +32,8 @@ services:
     #START -----------------------------------------------------  ModuloCore -------------------------------------------------------------------------
     App\ModuloCore\Controller\:
         resource: '../src/ModuloCore/Controller'
-    
+        tags: ['controller.service_arguments']
+
     App\ModuloCore\EventSubscriber\MenuSubscriber:
         tags: ['kernel.event_subscriber']
                   

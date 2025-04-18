@@ -1,5 +1,5 @@
 <?php
-namespace App\ModuloCore\Security;
+namespace App\ModuloCore\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -12,13 +12,13 @@ class CookieController
     #[Route('/generar-cookie/{modulo}', name: 'generar_cookie', methods: ['GET'])]
     public function generarCookie(string $modulo, EntityManagerInterface $em): Response
     {
-        $conn = $em->getcConnection();
+        $conn = $em->getConnection();
 
-        $stmt = $conn->prepare('SELECT token FROM modulo WHERE nombre = :nombre');
+        $stmt = $conn->prepare('SELECT token FROM licencia WHERE nombre = :nombre');
         $result = $stmt->executeQuery(['nombre' => $modulo])->fetchAssociative();
 
         if (!$result || !isset($result['token'])) {
-            return new Response('Módulo no encontrado', 404);
+            return new Response('Licencia no encontrada o no valida para el módulo', 404);
         }
 
         $response = new Response('Cookie generada');
