@@ -14,6 +14,7 @@ use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Psr\Log\LoggerInterface;
 
 class CdnController extends AbstractController
 {
@@ -23,16 +24,19 @@ class CdnController extends AbstractController
     private EntityManagerInterface $entityManager;
     private string $projectDir;
     private Filesystem $filesystem;
+    private ?LoggerInterface $logger;
     
     public function __construct(
         CdnService $cdnService,
         EntityManagerInterface $entityManager,
-        ParameterBagInterface $parameterBag
+        ParameterBagInterface $parameterBag,
+        LoggerInterface $logger = null
     ) {
         $this->cdnService = $cdnService;
         $this->entityManager = $entityManager;
         $this->projectDir = $parameterBag->get('kernel.project_dir');
         $this->filesystem = new Filesystem();
+        $this->logger = $logger;
     }
 
     #[Route('/modulos/marketplace', name: 'modulos_marketplace')]
@@ -151,6 +155,7 @@ class CdnController extends AbstractController
             
             return $this->json($result);
         } catch (\Exception $e) {
+            $this->logError("Error en apiUninstallModule: " . $e->getMessage());
             return $this->json([
                 'success' => false,
                 'message' => 'Error al procesar la solicitud: ' . $e->getMessage(),
@@ -172,6 +177,17 @@ class CdnController extends AbstractController
                 ], 404);
             }
 
+            // Primero intentamos obtener la URL desde settings.json
+            $moduleAttributes = $this->cdnService->getModuleAttributes($modulo);
+            
+            if (isset($moduleAttributes['route']) && !empty($moduleAttributes['route'])) {
+                return $this->json([
+                    'success' => true,
+                    'url' => $moduleAttributes['route']
+                ]);
+            }
+
+            // Si no hay ruta en settings.json, intentamos con el menú como respaldo
             $menuElements = $modulo->getMenuElements();
 
             if ($menuElements->isEmpty()) {
@@ -197,61 +213,189 @@ class CdnController extends AbstractController
                 'url' => $firstMenuElement ? $firstMenuElement->getRuta() : null
             ]);
         } catch (\Exception $e) {
+            $this->logError("Error en getModuleUrl: " . $e->getMessage());
             return $this->json([
                 'success' => false,
                 'message' => 'Error al obtener la URL del módulo: ' . $e->getMessage()
             ], 500);
         }
     }
+    
+    #[Route('/api/modulos/{id}/details', name: 'api_get_module_details', methods: ['GET'])]
+    public function getModuleDetails(int $id): JsonResponse
+    {
+        try {
+            $modulo = $this->entityManager->getRepository(Modulo::class)->find($id);
+            
+            if (!$modulo) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Módulo no encontrado'
+                ], 404);
+            }
+            
+            // Obtener atributos del settings.json
+            $moduleAttributes = $this->cdnService->getModuleAttributes($modulo);
+            
+            // Añadir la información básica del modelo
+            $moduleDetails = array_merge([
+                'id' => $modulo->getId(),
+                'nombre' => $modulo->getNombre(),
+                'descripcion' => $modulo->getDescripcion(),
+                'installDate' => $modulo->getInstallDate() ? $modulo->getInstallDate()->format('Y-m-d H:i:s') : null,
+                'uninstallDate' => $modulo->getUninstallDate() ? $modulo->getUninstallDate()->format('Y-m-d H:i:s') : null,
+                'icon' => $modulo->getIcon(),
+                'ruta' => $modulo->getRuta(),
+                'estado' => $modulo->isEstado(),
+                'version' => $modulo->getVersion(),
+            ], $moduleAttributes);
+            
+            return $this->json([
+                'success' => true,
+                'module' => $moduleDetails
+            ]);
+        } catch (\Exception $e) {
+            $this->logError("Error en getModuleDetails: " . $e->getMessage());
+            return $this->json([
+                'success' => false,
+                'message' => 'Error al obtener detalles del módulo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     private function executeUninstallCommandAndRemoveFiles(Modulo $modulo): array
     {
+        $commandOutput = "=== DESINSTALACIÓN DE MÓDULO ===\n";
+        $commandOutput .= "Módulo: " . $modulo->getNombre() . "\n";
+        $commandOutput .= "Fecha/Hora: " . date('Y-m-d H:i:s') . "\n\n";
+        
         try {
             $moduleDirectory = $modulo->getRuta();
-            $commandsJsonPath = $moduleDirectory ? $moduleDirectory . '/commands.json' : null;
-            $commandOutput = '';
-            $commandSuccess = false;
-
-            if ($commandsJsonPath && $this->filesystem->exists($commandsJsonPath)) {
-                $commandsJson = json_decode(file_get_contents($commandsJsonPath), true);
-                $uninstallCommand = $commandsJson['uninstall'] ?? null;
-
-                if ($uninstallCommand) {
-                    $process = new Process(explode(' ', $uninstallCommand));
-                    $process->setWorkingDirectory($this->projectDir);
-                    $process->run();
-
-                    if ($process->isSuccessful()) {
-                        $commandOutput = $process->getOutput();
-                        $commandSuccess = true;
+            $commandOutput .= "Directorio del módulo: " . ($moduleDirectory ?? 'No especificado') . "\n";
+            
+            // Primero intentar buscar en settings.json
+            $uninstallCommand = null;
+            $settingsJsonPath = $moduleDirectory ? rtrim($moduleDirectory, '/') . '/settings.json' : null;
+            
+            if ($settingsJsonPath && $this->filesystem->exists($settingsJsonPath)) {
+                $commandOutput .= "Encontrado archivo settings.json: $settingsJsonPath\n";
+                try {
+                    $settingsJson = json_decode(file_get_contents($settingsJsonPath), true);
+                    if (json_last_error() === JSON_ERROR_NONE && isset($settingsJson['uninstallCommand']) && !empty($settingsJson['uninstallCommand'])) {
+                        $uninstallCommand = $settingsJson['uninstallCommand'];
+                        $commandOutput .= "Comando de desinstalación encontrado en settings.json: $uninstallCommand\n";
                     } else {
-                        $commandOutput = $process->getErrorOutput();
-                        $commandSuccess = false;
+                        $commandOutput .= "No se encontró un comando de desinstalación en settings.json\n";
+                    }
+                } catch (\Exception $e) {
+                    $commandOutput .= "Error al leer settings.json: " . $e->getMessage() . "\n";
+                }
+            } else {
+                $commandOutput .= "No se encontró el archivo settings.json\n";
+            }
+            
+            // Si no se encontró en settings.json, buscar en commands.json como respaldo
+            if (!$uninstallCommand) {
+                $commandsJsonPath = $moduleDirectory ? $moduleDirectory . '/commands.json' : null;
+                $commandOutput .= "Buscando en commands.json: " . ($commandsJsonPath ?? 'Ruta no disponible') . "\n";
+                
+                if ($commandsJsonPath && $this->filesystem->exists($commandsJsonPath)) {
+                    $commandOutput .= "Encontrado archivo commands.json\n";
+                    try {
+                        $commandsJson = json_decode(file_get_contents($commandsJsonPath), true);
+                        if (json_last_error() === JSON_ERROR_NONE && isset($commandsJson['uninstall']) && !empty($commandsJson['uninstall'])) {
+                            $uninstallCommand = $commandsJson['uninstall'];
+                            $commandOutput .= "Comando de desinstalación encontrado en commands.json: $uninstallCommand\n";
+                        } else {
+                            $commandOutput .= "No se encontró un comando de desinstalación en commands.json\n";
+                        }
+                    } catch (\Exception $e) {
+                        $commandOutput .= "Error al leer commands.json: " . $e->getMessage() . "\n";
+                    }
+                } else {
+                    $commandOutput .= "No se encontró el archivo commands.json\n";
+                }
+            }
+
+            $commandSuccess = false;
+            
+            if ($uninstallCommand) {
+                $commandOutput .= "\n=== EJECUTANDO COMANDO DE DESINSTALACIÓN ===\n";
+                $commandOutput .= "Comando: $uninstallCommand\n";
+                
+                // Preparar el comando con las variables de sustitución
+                $originalCommand = $uninstallCommand;
+                $uninstallCommand = str_replace(
+                    ['{{moduleDir}}', '{{projectDir}}'],
+                    [$moduleDirectory, $this->projectDir],
+                    $uninstallCommand
+                );
+                
+                if ($originalCommand !== $uninstallCommand) {
+                    $commandOutput .= "Comando con variables sustituidas: '$uninstallCommand'\n";
+                }
+                
+                // Determinar cómo ejecutar el comando
+                if (strpos($uninstallCommand, '&&') !== false || strpos($uninstallCommand, '||') !== false ||
+                    strpos($uninstallCommand, '>') !== false || strpos($uninstallCommand, '|') !== false) {
+                    $process = Process::fromShellCommandline($uninstallCommand, $this->projectDir);
+                } else {
+                    $commandParts = explode(' ', $uninstallCommand);
+                    $process = new Process($commandParts, $this->projectDir);
+                }
+                
+                $process->setTimeout(300);
+                
+                try {
+                    $process->run(function ($type, $buffer) use (&$commandOutput) {
+                        $prefix = (Process::ERR === $type) ? 'ERROR > ' : 'OUTPUT > ';
+                        $commandOutput .= $prefix . $buffer;
+                    });
+                    
+                    $commandSuccess = $process->isSuccessful();
+                    $commandOutput .= "\nCódigo de salida: " . $process->getExitCode() . "\n";
+                    $commandOutput .= "Comando exitoso: " . ($commandSuccess ? 'Sí' : 'No') . "\n";
+                    
+                    if (!$commandSuccess) {
                         return [
                             'success' => false,
-                            'commandSuccess' => $commandSuccess,
+                            'commandSuccess' => false,
                             'message' => 'Error al ejecutar el comando de desinstalación',
                             'commandOutput' => $commandOutput
                         ];
                     }
-                } else {
-                    $commandOutput = 'No se encontró un comando de desinstalación en commands.json';
+                } catch (\Exception $e) {
+                    $commandOutput .= "\nError al ejecutar el comando: " . $e->getMessage() . "\n";
+                    return [
+                        'success' => false,
+                        'commandSuccess' => false,
+                        'message' => 'Excepción al ejecutar el comando de desinstalación: ' . $e->getMessage(),
+                        'commandOutput' => $commandOutput
+                    ];
                 }
             } else {
-                $commandOutput = 'No se encontró el archivo commands.json en el directorio del módulo';
+                $commandOutput .= "\nNo se encontró un comando de desinstalación. Continuando con la eliminación de archivos y registros.\n";
             }
 
+            // Limpiar relaciones del módulo
+            $commandOutput .= "\n=== LIMPIANDO RELACIONES DEL MÓDULO ===\n";
             $this->limpiarRelacionesModulo($modulo);
+            $commandOutput .= "Relaciones del módulo eliminadas de la base de datos.\n";
 
+            // Eliminar el módulo de la base de datos
+            $commandOutput .= "\n=== ELIMINANDO MÓDULO DE LA BASE DE DATOS ===\n";
             $this->entityManager->remove($modulo);
             $this->entityManager->flush();
+            $commandOutput .= "Registro del módulo eliminado de la base de datos.\n";
 
+            // Eliminar archivos del módulo
             if ($moduleDirectory && $this->filesystem->exists($moduleDirectory)) {
+                $commandOutput .= "\n=== ELIMINANDO ARCHIVOS DEL MÓDULO ===\n";
                 try {
                     $this->filesystem->remove($moduleDirectory);
-                    $commandOutput .= "\nCarpeta del módulo ($moduleDirectory) eliminada correctamente.";
+                    $commandOutput .= "Carpeta del módulo ($moduleDirectory) eliminada correctamente.\n";
                 } catch (\Exception $e) {
-                    $commandOutput .= "\nError al eliminar la carpeta del módulo: " . $e->getMessage();
+                    $commandOutput .= "Error al eliminar la carpeta del módulo: " . $e->getMessage() . "\n";
                     return [
                         'success' => false,
                         'commandSuccess' => $commandSuccess,
@@ -260,8 +404,15 @@ class CdnController extends AbstractController
                     ];
                 }
             } else {
-                $commandOutput .= "\nNo se encontró la carpeta del módulo en la ruta especificada: $moduleDirectory";
+                $commandOutput .= "\nNo se encontró la carpeta del módulo en la ruta especificada: $moduleDirectory\n";
             }
+
+            // Limpiar la caché
+            $commandOutput .= "\n=== LIMPIANDO CACHÉ ===\n";
+            $cacheClear = new Process(['php', 'bin/console', 'cache:clear']);
+            $cacheClear->setWorkingDirectory($this->projectDir);
+            $cacheClear->run();
+            $commandOutput .= "Caché limpiada.\n";
 
             return [
                 'success' => true,
@@ -270,10 +421,11 @@ class CdnController extends AbstractController
                 'commandOutput' => $commandOutput
             ];
         } catch (\Exception $e) {
+            $this->logError("Error en executeUninstallCommandAndRemoveFiles: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => 'Error al desinstalar el módulo: ' . $e->getMessage(),
-                'commandOutput' => $commandOutput,
+                'commandOutput' => $commandOutput . "\n\nERROR DE EXCEPCIÓN: " . $e->getMessage(),
                 'stackTrace' => $e->getTraceAsString()
             ];
         }
@@ -291,61 +443,29 @@ class CdnController extends AbstractController
         $this->entityManager->flush();
     }
     
-    private function findModuleDirectory(string $moduleName): ?string
+    /**
+     * Métodos auxiliares para registro de logs
+     */
+    private function logInfo(string $message): void
     {
-        $srcDir = $this->projectDir . '/src';
-        
-        // $directPath = $srcDir . '/ModuloMusica';
-        // if (is_dir($directPath)) {
-        //     return $directPath;
-        // }
-        
-        $exactPath = $srcDir . '/' . $moduleName;
-        if (is_dir($exactPath)) {
-            return $exactPath;
+        if ($this->logger) {
+            $this->logger->info($message);
         }
-        
-        $moduloPath = $srcDir . '/Modulo' . $moduleName;
-        if (is_dir($moduloPath)) {
-            return $moduloPath;
-        }
-        
-        $normalizedName = $this->normalizeString($moduleName);
-        
-        $dirContents = scandir($srcDir);
-        
-        foreach ($dirContents as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            
-            $itemPath = $srcDir . '/' . $item;
-            
-            if (is_dir($itemPath)) {
-                $normalizedItemName = $this->normalizeString($item);
-                
-                if ($normalizedItemName === $normalizedName || 
-                    $normalizedItemName === 'modulo' . $normalizedName ||
-                    strpos($normalizedItemName, $normalizedName) !== false) {
-                    return $itemPath;
-                }
-            }
-        }
-        
-        return null;
     }
     
-    private function normalizeString(string $string): string
+    private function logWarning(string $message): void
     {
-        $string = strtolower($string);
-        
-        $replacements = [
-            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-            'ä' => 'a', 'ë' => 'e', 'ï' => 'i', 'ö' => 'o', 'ü' => 'u',
-            'à' => 'a', 'è' => 'e', 'ì' => 'i', 'ò' => 'o', 'ù' => 'u',
-            'ñ' => 'n', 'ç' => 'c'
-        ];
-        
-        return str_replace(array_keys($replacements), array_values($replacements), $string);
+        if ($this->logger) {
+            $this->logger->warning($message);
+        }
+    }
+    
+    private function logError(string $message): void
+    {
+        if ($this->logger) {
+            $this->logger->error($message);
+        } else {
+            error_log($message);
+        }
     }
 }

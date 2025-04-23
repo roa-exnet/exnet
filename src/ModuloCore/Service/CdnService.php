@@ -8,6 +8,7 @@ use Symfony\Component\Process\Process;
 use App\ModuloCore\Entity\Modulo;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Psr\Log\LoggerInterface;
 
 class CdnService
 {
@@ -16,19 +17,64 @@ class CdnService
     private EntityManagerInterface $entityManager;
     private string $projectDir;
     private Filesystem $filesystem;
+    private ?LoggerInterface $logger;
 
     public function __construct(
         HttpClientInterface $httpClient,
         EntityManagerInterface $entityManager,
-        ParameterBagInterface $parameterBag
+        ParameterBagInterface $parameterBag,
+        LoggerInterface $logger = null
     ) {
         $this->httpClient = $httpClient;
         $this->entityManager = $entityManager;
-        $this->cdnBaseUrl = $parameterBag->get('cdn_base_url');
+        $this->cdnBaseUrl = $parameterBag->get('cdn_base_url', 'https://cdn.exnet.cloud');
         $this->projectDir = $parameterBag->get('kernel.project_dir');
         $this->filesystem = new Filesystem();
+        $this->logger = $logger;
     }
 
+    public function getModuleAttributes(Modulo $modulo): array
+    {
+        $moduleAttributes = [
+            'name' => $modulo->getNombre(),
+            'description' => $modulo->getDescripcion(),
+            'version' => $modulo->getVersion() ?? '1.0.0',
+            'icon' => $modulo->getIcon(),
+            'route' => $modulo->getRuta()
+        ];
+        
+        $modulePath = $modulo->getRuta();
+        if ($modulePath && $this->filesystem->exists($modulePath)) {
+            $settingsPath = rtrim($modulePath, '/') . '/settings.json';
+            
+            if ($this->filesystem->exists($settingsPath)) {
+                try {
+                    $settingsJson = file_get_contents($settingsPath);
+                    $settings = json_decode($settingsJson, true);
+                    
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($settings)) {
+                        $moduleAttributes = array_merge($moduleAttributes, $settings);
+                        
+                        $this->logInfo("Leídos atributos de settings.json para el módulo {$modulo->getNombre()}");
+                    } else {
+                        $this->logWarning("Error al decodificar settings.json para el módulo {$modulo->getNombre()}: " . json_last_error_msg());
+                    }
+                } catch (\Exception $e) {
+                    $this->logError("Excepción al leer settings.json del módulo {$modulo->getNombre()}: " . $e->getMessage());
+                }
+            } else {
+                $this->logInfo("No se encontró settings.json para el módulo {$modulo->getNombre()} en: $settingsPath");
+            }
+        } else {
+            $this->logWarning("La ruta del módulo {$modulo->getNombre()} no existe: $modulePath");
+        }
+        
+        return $moduleAttributes;
+    }
+
+    /**
+     * Obtiene la lista de módulos disponibles del mercado
+     */
     public function getAvailableModules(): array
     {
         try {
@@ -49,11 +95,11 @@ class CdnService
             $installedModuleMap = [];
             foreach ($installedModules as $module) {
                 $name = strtolower($module->getNombre());
-                $installedModuleMap[$name] = true;
+                $installedModuleMap[$name] = $module;
 
                 if (strpos($name, 'modulo') === 0) {
                     $normalizedName = substr($name, 6);
-                    $installedModuleMap[$normalizedName] = true;
+                    $installedModuleMap[$normalizedName] = $module;
                 }
             }
 
@@ -67,11 +113,12 @@ class CdnService
 
                 foreach ($modules as $module) {
                     if (!isset($module['filename'])) {
-                        error_log("Módulo sin 'filename' en marketplace API: " . json_encode($module));
+                        $this->logError("Módulo sin 'filename' en marketplace API: " . json_encode($module));
                         continue;
                     }
-                     $moduleName = $module['name'] ?? basename($module['filename'], '.zip');
-                     $normalizedName = strtolower($moduleName);
+                    
+                    $moduleName = $module['name'] ?? basename($module['filename'], '.zip');
+                    $normalizedName = strtolower($moduleName);
 
                     if (strpos($normalizedName, 'modulo') === 0) {
                         $normalizedNameWithoutPrefix = substr($normalizedName, 6);
@@ -81,6 +128,14 @@ class CdnService
 
                     $isInstalled = isset($installedModuleMap[$normalizedName]) ||
                                    isset($installedModuleMap[$normalizedNameWithoutPrefix]);
+                    
+                    $moduleAttributes = [];
+                    if ($isInstalled) {
+                        $installedModule = $installedModuleMap[$normalizedName] ?? $installedModuleMap[$normalizedNameWithoutPrefix] ?? null;
+                        if ($installedModule) {
+                            $moduleAttributes = $this->getModuleAttributes($installedModule);
+                        }
+                    }
 
                     $moduleIdentifier = $moduleType . '_' . $normalizedName;
                     if (isset($processedModules[$moduleIdentifier])) {
@@ -89,7 +144,7 @@ class CdnService
 
                     $processedModules[$moduleIdentifier] = true;
 
-                    $marketplace[$moduleType][] = [
+                    $marketplace[$moduleType][] = array_merge([
                         'name' => $moduleName,
                         'filename' => $module['filename'],
                         'description' => $module['description'] ?? 'Módulo para Exnet',
@@ -98,7 +153,7 @@ class CdnService
                         'downloadUrl' => $module['downloadUrl'] ?? null,
                         'installed' => $isInstalled,
                         'installCommand' => $module['installCommand'] ?? null
-                    ];
+                    ], $isInstalled ? $moduleAttributes : []);
                 }
             }
 
@@ -110,7 +165,7 @@ class CdnService
 
             return $marketplace;
         } catch (\Exception $e) {
-            error_log("Error en getAvailableModules: " . $e->getMessage());
+            $this->logError("Error en getAvailableModules: " . $e->getMessage());
             return ['error' => 'Error al obtener módulos: ' . $e->getMessage()];
         }
     }
@@ -133,7 +188,7 @@ class CdnService
 
             return $data;
         } catch (\Exception $e) {
-            error_log("Error en verifyLicense: " . $e->getMessage());
+            $this->logError("Error en verifyLicense: " . $e->getMessage());
             return ['valid' => false, 'message' => 'Error al verificar licencia: ' . $e->getMessage()];
         }
     }
@@ -161,10 +216,13 @@ class CdnService
                 $existingModulo->setInstallDate($now);
                 $existingModulo->setUninstallDate(null);
                 $this->entityManager->flush();
+                
+                $moduleAttributes = $this->getModuleAttributes($existingModulo);
+                
                 return [
                     'success' => true,
                     'message' => 'El módulo ya estaba instalado y ha sido activado',
-                    'module' => [ 'name' => $existingModulo->getNombre(), /* ... otros campos ... */ ],
+                    'module' => $moduleAttributes,
                     'commandOutput' => $installCommandOutput . "Módulo ya existente, no se ejecuta ningún comando."
                 ];
             }
@@ -176,17 +234,15 @@ class CdnService
                 $response = $this->httpClient->request('GET', $moduleInfoUrl);
                 if ($response->getStatusCode() === 200) {
                     $moduleInfoData = $response->toArray();
-                    $moduleInfo = $moduleInfoData['module'] ?? null; // Extrae el objeto 'module'
+                    $moduleInfo = $moduleInfoData['module'] ?? null;
                     $installCommandOutput .= "Información recibida de la API:\n" . json_encode($moduleInfo, JSON_PRETTY_PRINT) . "\n\n";
                 } else {
                      $installCommandOutput .= "Error HTTP " . $response->getStatusCode() . " al obtener información del módulo.\n\n";
                 }
             } catch (\Exception $e) {
                 $installCommandOutput .= "Error (excepción) al obtener información del módulo: " . $e->getMessage() . "\n";
-                // $moduleInfo permanece null
             }
 
-            // Descargar el módulo
             $tempDir = $this->projectDir . '/var/tmp';
             $this->filesystem->mkdir($tempDir, 0777);
             $downloadUrl = $this->cdnBaseUrl . '/api/download/' . $moduleType . '/' . $filename;
@@ -203,7 +259,6 @@ class CdnService
             file_put_contents($tempFile, $response->getContent());
             $installCommandOutput .= "Módulo descargado correctamente en: $tempFile\n";
 
-            // Extraer información del ZIP
             $zipArchive = new \ZipArchive();
             $res = $zipArchive->open($tempFile);
             if ($res !== true) {
@@ -214,35 +269,48 @@ class CdnService
                 $installCommandOutput .= " - " . $zipArchive->getNameIndex($i) . "\n";
             }
 
-            // Buscar module.json en la raíz del ZIP
+            $settingsJson = null;
             $moduleJson = null;
-            $moduleJsonContent = $zipArchive->getFromName('module.json'); // Busca en la raíz
+            
+            $settingsJsonContent = $zipArchive->getFromName('settings.json');
+            if ($settingsJsonContent !== false) {
+                $installCommandOutput .= "\nContenido de settings.json encontrado:\n" . $settingsJsonContent . "\n\n";
+                $settingsJson = json_decode($settingsJsonContent, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    $installCommandOutput .= "Error al decodificar settings.json: " . json_last_error_msg() . "\n";
+                    $settingsJson = null;
+                }
+            } else {
+                $installCommandOutput .= "No se encontró el archivo settings.json en la raíz del ZIP\n";
+            }
+            
+            $moduleJsonContent = $zipArchive->getFromName('module.json');
             if ($moduleJsonContent !== false) {
                 $installCommandOutput .= "\nContenido de module.json (raíz) encontrado:\n" . $moduleJsonContent . "\n\n";
                 $moduleJson = json_decode($moduleJsonContent, true);
                 if (json_last_error() !== JSON_ERROR_NONE) {
                     $installCommandOutput .= "Error al decodificar module.json: " . json_last_error_msg() . "\n";
-                    $moduleJson = null; // Invalidar si hay error
+                    $moduleJson = null;
                 }
             } else {
-                 $installCommandOutput .= "No se encontró el archivo module.json en la raíz del ZIP\n";
+                $installCommandOutput .= "No se encontró el archivo module.json en la raíz del ZIP\n";
             }
 
-            // Si no se encontró/decodificó module.json, usar/generar $moduleJson a partir de $moduleInfo o defaults
-            if (!$moduleJson) {
-                $installCommandOutput .= "Usando información de la API (si existe) o predeterminada como respaldo para $moduleJson\n";
-                if ($moduleInfo) { // Usar info de API si existe
-                    $moduleJson = [
+            $moduleSettings = $settingsJson ?? $moduleJson ?? null;
+            
+            if (!$moduleSettings) {
+                $installCommandOutput .= "Usando información de la API (si existe) o predeterminada como respaldo\n";
+                if ($moduleInfo) {
+                    $moduleSettings = [
                         'name' => $moduleInfo['name'] ?? $baseModuleName,
                         'description' => $moduleInfo['description'] ?? 'Módulo para Exnet',
                         'version' => $moduleInfo['version'] ?? '1.0.0',
                         'icon' => $moduleInfo['icon'] ?? 'fas fa-puzzle-piece',
                         'route' => $moduleInfo['route'] ?? '/' . strtolower($baseModuleName),
-                        // NO incluir installCommand aquí directamente, se verificará después
                     ];
-                    $installCommandOutput .= "Información reconstruida del módulo (desde API):\n" . json_encode($moduleJson, JSON_PRETTY_PRINT) . "\n\n";
-                } else { // Generar defaults si API falló
-                    $moduleJson = [
+                    $installCommandOutput .= "Información reconstruida del módulo (desde API):\n" . json_encode($moduleSettings, JSON_PRETTY_PRINT) . "\n\n";
+                } else {
+                    $moduleSettings = [
                         'name' => $baseModuleName,
                         'description' => 'Módulo para Exnet',
                         'version' => '1.0.0',
@@ -253,31 +321,29 @@ class CdnService
                 }
             }
 
-            // Extraer archivos AHORA, antes de buscar commands.json
             $extractPath = $this->projectDir . '/src';
             $zipArchive->extractTo($extractPath);
-            $zipArchive->close(); // Cerrar el ZIP después de extraer
+            $zipArchive->close();
             $installCommandOutput .= "Archivos extraídos en: $extractPath\n";
-            $this->filesystem->remove($tempFile); // Eliminar el ZIP temporal
+            $this->filesystem->remove($tempFile);
 
 
-            // --- Determinar el Comando de Instalación ---
-            $installCommand = null; // Variable para el comando final
+            $installCommand = null;
 
-            // 1. Verificar si estaba en module.json (del ZIP)
-            if (isset($moduleJson['installCommand']) && !empty($moduleJson['installCommand'])) {
-                 $installCommandOutput .= "Verificando comando: Encontrado en module.json (del ZIP): '" . $moduleJson['installCommand'] . "'\n";
-                 $installCommand = $moduleJson['installCommand'];
+            if (isset($settingsJson['installCommand']) && !empty($settingsJson['installCommand'])) {
+                $installCommandOutput .= "Verificando comando: Encontrado en settings.json (del ZIP): '" . $settingsJson['installCommand'] . "'\n";
+                $installCommand = $settingsJson['installCommand'];
             }
-            // 2. Si no, verificar si vino de la API
+            elseif (isset($moduleJson['installCommand']) && !empty($moduleJson['installCommand'])) {
+                $installCommandOutput .= "Verificando comando: Encontrado en module.json (del ZIP): '" . $moduleJson['installCommand'] . "'\n";
+                $installCommand = $moduleJson['installCommand'];
+            }
             elseif (isset($moduleInfo['installCommand']) && !empty($moduleInfo['installCommand'])) {
-                 $installCommandOutput .= "Verificando comando: No encontrado en module.json del ZIP. Encontrado en API: '" . $moduleInfo['installCommand'] . "'\n";
-                 $installCommand = $moduleInfo['installCommand'];
+                $installCommandOutput .= "Verificando comando: No encontrado en JSON del ZIP. Encontrado en API: '" . $moduleInfo['installCommand'] . "'\n";
+                $installCommand = $moduleInfo['installCommand'];
             }
-            // 3. Si no, buscar en commands.json DENTRO del directorio extraído
             else {
-                $installCommandOutput .= "Verificando comando: No encontrado en module.json (ZIP) ni en API. Buscando en commands.json...\n";
-                // Encontrar el directorio del módulo YA EXTRAIDO
+                $installCommandOutput .= "Verificando comando: No encontrado en JSONs (ZIP) ni en API. Buscando en commands.json...\n";
                 $moduleDirectoryPath = $this->findModuleDirectoryPath($baseModuleName, $installCommandOutput);
 
                 if ($moduleDirectoryPath && is_dir($moduleDirectoryPath)) {
@@ -292,7 +358,7 @@ class CdnService
 
                             if (json_last_error() === JSON_ERROR_NONE && isset($commandsJsonData['install']) && !empty($commandsJsonData['install'])) {
                                 $installCommandOutput .= "Comando 'install' encontrado en commands.json: '" . $commandsJsonData['install'] . "'\n";
-                                $installCommand = $commandsJsonData['install']; // <--- Asignar comando!
+                                $installCommand = $commandsJsonData['install'];
                             } else {
                                 $installCommandOutput .= "Archivo commands.json existe pero no contiene una clave 'install' válida o está vacía.\n";
                                 if(json_last_error() !== JSON_ERROR_NONE) {
@@ -310,7 +376,7 @@ class CdnService
                 }
             }
 
-             $commandSuccess = true;
+            $commandSuccess = true;
 
             if ($installCommand) {
                 $installCommandOutput .= "\nComando de instalación final a usar: '$installCommand'\n";
@@ -326,7 +392,6 @@ class CdnService
                      }
                 }
 
-                // Preparar el comando con las variables de sustitución
                 $originalCommand = $installCommand;
                 $installCommand = str_replace(
                     ['{{moduleDir}}', '{{projectDir}}'],
@@ -341,7 +406,7 @@ class CdnService
                 $installCommandOutput .= "Comando a ejecutar: $installCommand\n";
                 $installCommandOutput .= "Directorio de trabajo: $moduleDirectoryPath\n\n";
 
-                error_log('Ejecutando comando: ' . $installCommand . ' en ' . $moduleDirectoryPath);
+                $this->logInfo('Ejecutando comando: ' . $installCommand . ' en ' . $moduleDirectoryPath);
 
                 if (strpos($installCommand, '&&') !== false || strpos($installCommand, '||') !== false ||
                     strpos($installCommand, '>') !== false || strpos($installCommand, '|') !== false) {
@@ -365,7 +430,7 @@ class CdnService
                     $process->run(function ($type, $buffer) use (&$installCommandOutput) {
                         $prefix = (Process::ERR === $type) ? 'ERROR > ' : 'OUTPUT > ';
                         $installCommandOutput .= $prefix . $buffer;
-                        error_log($prefix . $buffer);
+                        $this->logInfo($prefix . $buffer);
                     });
 
                     $commandSuccess = $process->isSuccessful();
@@ -374,7 +439,7 @@ class CdnService
                     $installCommandOutput .= "Comando exitoso: " . ($commandSuccess ? 'Sí' : 'No') . "\n";
 
                     if (!$commandSuccess) {
-                        error_log('Comando falló con código: ' . $process->getExitCode());
+                        $this->logError('Comando falló con código: ' . $process->getExitCode());
                          return [
                              'success' => false,
                              'message' => 'Error al ejecutar el comando de instalación',
@@ -387,7 +452,7 @@ class CdnService
                     $installCommandOutput .= "\n=== ERROR DE EXCEPCIÓN AL EJECUTAR PROCESO ===\n";
                     $installCommandOutput .= "Error: " . $e->getMessage() . "\n";
                     $installCommandOutput .= "Traza: " . $e->getTraceAsString() . "\n";
-                    error_log('Excepción ejecutando comando: ' . $e->getMessage());
+                    $this->logError('Excepción ejecutando comando: ' . $e->getMessage());
                      return [
                          'success' => false,
                          'message' => 'Excepción al ejecutar el comando de instalación: ' . $e->getMessage(),
@@ -397,33 +462,62 @@ class CdnService
                 }
             } else {
                 $installCommandOutput .= "\n=== NO HAY COMANDO DE INSTALACIÓN ===\n";
-                $installCommandOutput .= "No se encontró ningún comando de instalación válido en module.json, API o commands.json.\n";
+                $installCommandOutput .= "No se encontró ningún comando de instalación válido.\n";
                 $installCommandOutput .= "\nRevisión final de la información del módulo:\n";
-                $installCommandOutput .= "moduleJson (final): " . json_encode($moduleJson, JSON_PRETTY_PRINT) . "\n";
+                $installCommandOutput .= "moduleSettings (final): " . json_encode($moduleSettings, JSON_PRETTY_PRINT) . "\n";
                 $installCommandOutput .= "moduleInfo (API): " . json_encode($moduleInfo, JSON_PRETTY_PRINT) . "\n";
             }
 
+            if ($commandSuccess) {
+                if (!isset($moduleSettings['icon'])) {
+                    $moduleSettings['icon'] = 'fas fa-puzzle-piece';
+                }
+                
+                $modulo = new Modulo();
+                $modulo->setNombre($moduleSettings['name'] ?? $baseModuleName);
+                $modulo->setDescripcion($moduleSettings['description'] ?? 'Módulo para Exnet');
+                $modulo->setIcon($moduleSettings['icon']);
+                $modulo->setRuta($moduleDirectoryPath);
+                $modulo->setEstado(true);
+                $modulo->setInstallDate(new \DateTimeImmutable());
+                
+                if (isset($moduleSettings['version'])) {
+                    $modulo->setVersion($moduleSettings['version']);
+                }
+                
+                $this->entityManager->persist($modulo);
+                $this->entityManager->flush();
+                
+                $installCommandOutput .= "\nEntidad Modulo creada/actualizada en la base de datos local.\n";
+            }
 
-
-            if ($commandSuccess && isset($moduleJson['migrate']) && $moduleJson['migrate'] === true) {
+            if ($commandSuccess && isset($moduleSettings['migrate']) && $moduleSettings['migrate'] === true) {
                  $installCommandOutput .= "\n=== EJECUTANDO MIGRACIONES ===\n";
                  $migrateResult = $this->runMigrations();
                  $installCommandOutput .= "Resultado de migraciones: " . ($migrateResult ? "Exitoso" : "Fallido") . "\n";
             }
 
-             if ($commandSuccess) {
-                $installCommandOutput .= "\nEntidad Modulo creada/actualizada en la base de datos local.\n";
-            }
-        
             $cacheClear = new Process(['php', 'bin/console', 'cache:clear']);
             $cacheClear->setWorkingDirectory($this->projectDir);
             $cacheClear->run();
             $installCommandOutput .= "\nCache cleared:\n" . $cacheClear->getOutput();
+
+            if ($moduleDirectoryPath && $commandSuccess && $moduleSettings && !$this->filesystem->exists($moduleDirectoryPath . '/settings.json')) {
+                try {
+                    file_put_contents(
+                        $moduleDirectoryPath . '/settings.json',
+                        json_encode($moduleSettings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                    );
+                    $installCommandOutput .= "\nCreado archivo settings.json en el directorio del módulo.\n";
+                } catch (\Exception $e) {
+                    $installCommandOutput .= "\nError al crear settings.json: " . $e->getMessage() . "\n";
+                }
+            }
         
             return [
                 'success' => true,
                 'message' => $installCommand ? ($commandSuccess ? 'Módulo instalado y comando ejecutado correctamente' : 'Módulo instalado, pero hubo un error al ejecutar el comando') : 'Módulo instalado correctamente (sin comando de instalación)',
-                'module' => $moduleJson,
+                'module' => $moduleSettings,
                 'commandSuccess' => $commandSuccess,
                 'commandOutput' => $installCommandOutput
             ];
@@ -435,8 +529,8 @@ class CdnService
             $errorOutput .= "Archivo: " . $e->getFile() . " (línea " . $e->getLine() . ")\n";
             $errorOutput .= "Traza:\n" . $e->getTraceAsString() . "\n";
 
-            error_log("Error general en instalación de módulo: " . $e->getMessage());
-            error_log("Trace: " . $e->getTraceAsString());
+            $this->logError("Error general en instalación de módulo: " . $e->getMessage());
+            $this->logError("Trace: " . $e->getTraceAsString());
 
             if (isset($tempFile) && $this->filesystem->exists($tempFile)) {
                  $this->filesystem->remove($tempFile);
@@ -459,6 +553,12 @@ class CdnService
         if (is_dir($exactPath)) {
             $installCommandOutput .= "Directorio del módulo encontrado (exacto): $exactPath\n";
             return $exactPath;
+        }
+
+        $moduloPath = $srcDir . '/Modulo' . $baseModuleName;
+        if (is_dir($moduloPath)) {
+            $installCommandOutput .= "Directorio del módulo encontrado (con prefijo Modulo): $moduloPath\n";
+            return $moduloPath;
         }
 
         $installCommandOutput .= "Directorio exacto '$exactPath' no encontrado, buscando alternativas...\n";
@@ -505,16 +605,39 @@ class CdnService
             $process->run(function ($type, $buffer) use (&$output) {
                  $prefix = (Process::ERR === $type) ? 'ERROR > ' : 'OUTPUT > ';
                  $output .= $prefix.$buffer;
-                 error_log('Migración: ' . $buffer);
+                 $this->logInfo('Migración: ' . $buffer);
             });
 
-             error_log("Resultado ejecución migraciones:\n" . $output);
+            $this->logInfo("Resultado ejecución migraciones:\n" . $output);
 
             return $process->isSuccessful();
         } catch (\Exception $e) {
-            error_log('Error en migraciones: ' . $e->getMessage());
-            error_log('Trace migraciones: ' . $e->getTraceAsString());
+            $this->logError('Error en migraciones: ' . $e->getMessage());
+            $this->logError('Trace migraciones: ' . $e->getTraceAsString());
             return false;
+        }
+    }
+    
+    private function logInfo(string $message): void
+    {
+        if ($this->logger) {
+            $this->logger->info($message);
+        }
+    }
+    
+    private function logWarning(string $message): void
+    {
+        if ($this->logger) {
+            $this->logger->warning($message);
+        }
+    }
+    
+    private function logError(string $message): void
+    {
+        if ($this->logger) {
+            $this->logger->error($message);
+        } else {
+            error_log($message);
         }
     }
 }
