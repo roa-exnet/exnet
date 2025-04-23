@@ -33,10 +33,19 @@
     </style>
 
 {% block navbar %}
-<nav class="exnet-navbar d-block d-lg-none" style="position: fixed; top: 15px; left: 15px; z-index: 9999; display: block;">
-    <button id="menuToggle" style="background: rgba(44, 62, 80, 0.8); color: white; border: none; width: 45px; height: 45px; border-radius: 5px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-        <i class="fas fa-bars"></i>
-    </button>
+<nav class="exnet-navbar d-block d-lg-none">
+    <div style="height: 45px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px;">
+        <button id="menuToggle" style="background: transparent; color: white; border: none; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        {% if app.request.attributes.get('jwt_user') %}
+        <div style="color: white; display: flex; align-items: center;">
+            <i class="fas fa-user-circle me-2"></i>
+            <span style="font-size: 0.9rem;">{{ app.request.attributes.get('jwt_user').nombre }}</span>
+        </div>
+        {% endif %}
+    </div>
 </nav>
     
 <div id="sideMenu" style="position: fixed; top: 0; left: -280px; width: 280px; height: 100vh; background-color: #2c3e50; z-index: 10000; transition: left 0.3s ease; box-shadow: 0 0 15px rgba(0,0,0,0.3);">
@@ -90,12 +99,33 @@
             </a>
         {% endif %}
         
+        {% if not app.request.attributes.get('jwt_user') %}
         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
             <a href="/modulos" style="color: white; display: flex; align-items: center; padding: 12px 0; text-decoration: none; background-color: rgba(255,255,255,0.1); border-radius: 5px; padding: 10px;">
                 <i class="fas fa-plus-circle" style="margin-right: 12px; width: 20px; text-align: center;"></i>
                 <span>Añadir Módulos</span>
             </a>
         </div>
+        {% endif %}
+        
+        {% if app.request.attributes.get('jwt_user') %}
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <div style="color: white; padding: 10px; font-size: 0.9rem; display: flex; align-items: center;">
+                    <i class="fas fa-user" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>{{ app.request.attributes.get('jwt_user').nombre }} {{ app.request.attributes.get('jwt_user').apellidos }}</span>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <a href="/modulos" style="color: white; display: flex; align-items: center; text-decoration: none; background-color: rgba(255,255,255,0.1); border-radius: 5px; padding: 10px; margin-bottom: 10px;">
+                    <i class="fas fa-plus-circle" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>Añadir Módulos</span>
+                </a>
+                <a href="/jwt-logout" style="color: white; display: flex; align-items: center; text-decoration: none; background-color: rgba(220,53,69,0.2); border-radius: 5px; padding: 10px;">
+                    <i class="fas fa-sign-out-alt" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>Salir</span>
+                </a>
+            </div>
+        {% endif %}
     </div>
 </div>
     
@@ -146,10 +176,19 @@
                 {% endif %}
             </div>
             
-            <a href="/modulos" style="color: white; padding: 6px 15px; text-decoration: none; display: inline-block; border-radius: 5px; background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); transition: all 0.3s ease;">
-                <i class="fas fa-plus-circle" style="margin-right: 5px;"></i>
-                <span>Añadir Módulos</span>
-            </a>
+            <div class="d-flex align-items-center">
+                <a href="/modulos" style="color: white; padding: 6px 15px; text-decoration: none; display: inline-block; border-radius: 5px; background-color: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); transition: all 0.3s ease; margin-right: 10px;">
+                    <i class="fas fa-plus-circle" style="margin-right: 5px;"></i>
+                    <span>Añadir Módulos</span>
+                </a>
+                
+                {% if app.request.attributes.get('jwt_user') %}
+                    <div style="color: white; display: flex; align-items: center;">
+                        <i class="fas fa-user-circle me-2"></i>
+                        <span>{{ app.request.attributes.get('jwt_user').nombre }} {{ app.request.attributes.get('jwt_user').apellidos }}</span>
+                    </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </nav>

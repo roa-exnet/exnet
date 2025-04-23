@@ -72,7 +72,7 @@ class SecurityController extends AbstractController
                 $existingUser = $userRepository->findOneBy(['email' => $email]);
                 
                 if ($existingUser) {
-                    $errors[] = 'Este email ya está registrado. Si es su cuenta, por favor inicie sesión.';
+                    $errors[] = 'Este email ya está registrado. Si es su cuenta, por favor inicie sesión con su IP.';
                     
                     return $this->render('registration/register_ip.html.twig', [
                         'currentIp' => $currentIp,
