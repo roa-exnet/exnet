@@ -72,14 +72,15 @@ class SecurityController extends AbstractController
                 $existingUser = $userRepository->findOneBy(['email' => $email]);
                 
                 if ($existingUser) {
-                    $this->ipAuthService->registerUserIp($existingUser);
+                    $errors[] = 'Este email ya está registrado. Si es su cuenta, por favor inicie sesión.';
                     
-                    $redirectUrl = $request->query->get('redirect');
-                    $response = $redirectUrl ? $this->redirect($redirectUrl) : $this->redirectToRoute('landing');
-                    
-                    $this->jwtAuthService->addTokenCookie($response, $existingUser);
-                    
-                    return $response;
+                    return $this->render('registration/register_ip.html.twig', [
+                        'currentIp' => $currentIp,
+                        'errors' => $errors,
+                        'email' => $email,
+                        'nombre' => $nombre,
+                        'apellidos' => $apellidos
+                    ]);
                 } else {
                     $user = new User();
                     $user->setEmail($email);
