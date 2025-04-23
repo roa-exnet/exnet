@@ -1,3 +1,6 @@
 {
-    "name": "chat"
+    "name": "chat",
+    "description": "Módulo para chat y llamadas",
+    "version": "1.0.0",
+    "author": "Exnet"
 }

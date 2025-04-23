@@ -1,3 +1,6 @@
 {
-    "name": "musica"
+    "name": "musica",
+    "description": "Módulo para escuchar canciones",
+    "version": "1.0.0",
+    "author": "Exnet"
 }
