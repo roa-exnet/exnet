@@ -99,6 +99,8 @@ class StreamingInstallCommand extends Command
             // Crear categorías predeterminadas
             $this->createDefaultCategories($io);
 
+            $this->ensureUploadsDirectory($io);
+
             // Limpiar completamente la caché después de todas las operaciones
             $io->section('Reiniciando el kernel y limpiando caché');
             $this->resetKernel($io);
@@ -429,6 +431,19 @@ EOT;
             $io->error('No se pudo actualizar twig.yaml. Verifica el formato del archivo.');
         }
     }
+
+    private function ensureUploadsDirectory(SymfonyStyle $io): void
+    {
+        $uploadPath = $this->projectDir . '/public/uploads/videos';
+
+        if (!is_dir($uploadPath)) {
+            mkdir($uploadPath, 0775, true);
+            $io->success("Directorio creado: $uploadPath");
+        } else {
+            $io->note("El directorio de videos ya existe: $uploadPath");
+        }
+    }
+
     
     private function updateDoctrineYaml(SymfonyStyle $io): void
     {

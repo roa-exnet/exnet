@@ -61,55 +61,74 @@ class AdminStreamingController extends AbstractController
         if ($checkResult) {
             return $checkResult;
         }
-
+    
         $video = new Video();
         $categorias = $this->categoryRepository->findAllOrdered();
-
+    
         if ($request->isMethod('POST')) {
-            $titulo = $request->request->get('titulo');
-            $descripcion = $request->request->get('descripcion');
-            $tipo = $request->request->get('tipo');
-            $url = $request->request->get('url');
-            $imagen = $request->request->get('imagen');
+            // Obtener datos del formulario con valores por defecto para evitar nulls
+            $titulo = $request->request->get('titulo') ?? '';
+            $descripcion = $request->request->get('descripcion') ?? '';
+            $tipo = $request->request->get('tipo') ?? 'pelicula';
+            $imagen = $request->request->get('imagen') ?? '';
             $categoriaId = $request->request->get('categoria');
             $anio = $request->request->get('anio');
             $temporada = $request->request->get('temporada');
             $episodio = $request->request->get('episodio');
             $esPublico = $request->request->has('esPublico');
-
+    
+            // Establecer los valores en el objeto video
             $video->setTitulo($titulo);
             $video->setDescripcion($descripcion);
             $video->setTipo($tipo);
-            $video->setUrl($url);
             $video->setImagen($imagen);
             $video->setAnio($anio ? (int)$anio : null);
             $video->setEsPublico($esPublico);
-
+    
             if ($tipo === 'serie') {
                 $video->setTemporada($temporada ? (int)$temporada : null);
                 $video->setEpisodio($episodio ? (int)$episodio : null);
             }
-
+    
             if ($categoriaId) {
                 $categoria = $this->categoryRepository->find($categoriaId);
                 if ($categoria) {
                     $video->setCategoria($categoria);
                 }
             }
-
+    
+            $uploadedFile = $request->files->get('videoFile');
+            if ($uploadedFile) {
+                $originalFilename = pathinfo($uploadedFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = $this->slugger->slug($originalFilename);
+                $newFilename = $safeFilename.'-'.uniqid().'.'.$uploadedFile->guessExtension();
+            
+                try {
+                    $uploadedFile->move(
+                        $this->getParameter('videos_directory'),
+                        $newFilename
+                    );
+                    $video->setUrl('/uploads/videos/' . $newFilename);
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Error al subir el archivo de video: ' . $e->getMessage());
+                    return $this->redirectToRoute('streaming_admin');
+                }
+            }
+            
             $this->entityManager->persist($video);
             $this->entityManager->flush();
-
+    
             $this->addFlash('success', 'Video creado correctamente.');
             return $this->redirectToRoute('streaming_admin');
         }
-
+    
         return $this->render('@ModuloStreaming/admin/nuevo_video.html.twig', [
             'video' => $video,
             'categorias' => $categorias,
             'user' => $this->ipAuthService->getCurrentUser()
         ]);
     }
+    
 
     #[Route('/editar-video/{id}', name: 'streaming_admin_editar_video')]
     public function editarVideo(int $id, Request $request): Response
@@ -127,11 +146,11 @@ class AdminStreamingController extends AbstractController
         $categorias = $this->categoryRepository->findAllOrdered();
 
         if ($request->isMethod('POST')) {
-            $titulo = $request->request->get('titulo');
-            $descripcion = $request->request->get('descripcion');
-            $tipo = $request->request->get('tipo');
+            $titulo = $request->request->get('titulo') ?? '';
+            $descripcion = $request->request->get('descripcion') ?? '';
+            $tipo = $request->request->get('tipo') ?? 'pelicula';
             $url = $request->request->get('url');
-            $imagen = $request->request->get('imagen');
+            $imagen = $request->request->get('imagen') ?? '';
             $categoriaId = $request->request->get('categoria');
             $anio = $request->request->get('anio');
             $temporada = $request->request->get('temporada');
@@ -141,7 +160,9 @@ class AdminStreamingController extends AbstractController
             $video->setTitulo($titulo);
             $video->setDescripcion($descripcion);
             $video->setTipo($tipo);
-            $video->setUrl($url);
+            if ($url) {
+                $video->setUrl($url);
+            }
             $video->setImagen($imagen);
             $video->setAnio($anio ? (int)$anio : null);
             $video->setEsPublico($esPublico);
@@ -162,6 +183,24 @@ class AdminStreamingController extends AbstractController
                 }
             } else {
                 $video->setCategoria(null);
+            }
+
+            $uploadedFile = $request->files->get('videoFile');
+            if ($uploadedFile) {
+                $originalFilename = pathinfo($uploadedFile->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = $this->slugger->slug($originalFilename);
+                $newFilename = $safeFilename.'-'.uniqid().'.'.$uploadedFile->guessExtension();
+            
+                try {
+                    $uploadedFile->move(
+                        $this->getParameter('videos_directory'),
+                        $newFilename
+                    );
+                    $video->setUrl('/uploads/videos/' . $newFilename);
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Error al subir el archivo de video: ' . $e->getMessage());
+                    return $this->redirectToRoute('streaming_admin_editar_video', ['id' => $video->getId()]);
+                }
             }
 
             $this->entityManager->flush();
@@ -206,9 +245,9 @@ class AdminStreamingController extends AbstractController
         }
 
         if ($request->isMethod('POST')) {
-            $nombre = $request->request->get('nombre');
-            $descripcion = $request->request->get('descripcion');
-            $icono = $request->request->get('icono');
+            $nombre = $request->request->get('nombre') ?? '';
+            $descripcion = $request->request->get('descripcion') ?? '';
+            $icono = $request->request->get('icono') ?? 'fas fa-folder';
 
             $categoria = new Categoria();
             $categoria->setNombre($nombre);
@@ -241,9 +280,9 @@ class AdminStreamingController extends AbstractController
         }
 
         if ($request->isMethod('POST')) {
-            $nombre = $request->request->get('nombre');
-            $descripcion = $request->request->get('descripcion');
-            $icono = $request->request->get('icono');
+            $nombre = $request->request->get('nombre') ?? '';
+            $descripcion = $request->request->get('descripcion') ?? '';
+            $icono = $request->request->get('icono') ?? 'fas fa-folder';
 
             $categoria->setNombre($nombre);
             $categoria->setDescripcion($descripcion);

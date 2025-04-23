@@ -103,6 +103,7 @@ class StreamingUninstallCommand extends Command
         $this->removeMenuItems($io);
         $this->removeModuleFromDatabase($io);
         $this->cleanOrphanMenuElementModuloRecords($io);
+        $this->removeUploadedVideos($io);
         
         if (!$keepTables) {
             $io->section('Eliminando tablas de la base de datos');
@@ -320,6 +321,25 @@ class StreamingUninstallCommand extends Command
             $io->error('Error al eliminar los elementos de menú: ' . $e->getMessage() . "\nStack trace: " . $e->getTraceAsString());
         }
     }
+    
+    private function removeUploadedVideos(SymfonyStyle $io): void
+    {
+        $videoDir = $this->projectDir . '/public/uploads/videos';
+
+        if (is_dir($videoDir)) {
+            $files = glob($videoDir . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+            rmdir($videoDir);
+            $io->success("Se eliminó la carpeta y los videos de: $videoDir");
+        } else {
+            $io->note("No se encontró la carpeta de videos: $videoDir");
+        }
+    }
+
     
     private function cleanOrphanMenuElementModuloRecords(SymfonyStyle $io): void
     {

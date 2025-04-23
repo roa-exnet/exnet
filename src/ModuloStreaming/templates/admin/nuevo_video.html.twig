@@ -86,12 +86,12 @@
     </div>
 
     <div class="form-container">
-        <form method="post" action="{{ path('streaming_admin_nuevo_video') }}">
+        <form method="post" action="{{ path('streaming_admin_nuevo_video') }}" enctype="multipart/form-data">
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group">
                         <label for="titulo" class="form-label">Título *</label>
-                        <input type="text" id="titulo" name="titulo" class="form-control" required>
+                        <input type="text" id="titulo" name="titulo" class="form-control" required value="">
                     </div>
                 </div>
                 
@@ -160,9 +160,9 @@
             </div>
             
             <div class="form-group">
-                <label for="url" class="form-label">URL del Video</label>
-                <input type="url" id="url" name="url" class="form-control" placeholder="https://example.com/video.mp4">
-                <small class="text-muted">Enlace al archivo de video MP4, o a un servicio de streaming.</small>
+                <label for="videoFile" class="form-label">Archivo de Video</label>
+                <input type="file" id="videoFile" name="videoFile" class="form-control" accept="video/mp4" required>
+                <small class="text-muted">Sube un archivo .mp4</small>
             </div>
             
             <div class="form-group">

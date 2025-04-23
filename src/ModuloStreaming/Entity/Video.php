@@ -66,10 +66,9 @@ class Video
         return $this->titulo;
     }
 
-    public function setTitulo(string $titulo): static
+    public function setTitulo(?string $titulo): static
     {
-        $this->titulo = $titulo;
-
+        $this->titulo = $titulo ?? '';
         return $this;
     }
 
@@ -126,9 +125,9 @@ class Video
         return $this->tipo;
     }
 
-    public function setTipo(string $tipo): static
+    public function setTipo(?string $tipo): static
     {
-        $this->tipo = $tipo;
+        $this->tipo = $tipo ?? 'pelicula';
 
         return $this;
     }
