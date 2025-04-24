@@ -13,6 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
     name: 'streaming:install',
@@ -100,6 +101,9 @@ class StreamingInstallCommand extends Command
             $this->createDefaultCategories($io);
 
             $this->ensureUploadsDirectory($io);
+
+            $io->section('Configurando acceso a los assets del módulo');
+            $this->setupAssetsSymlink($io);
 
             // Limpiar completamente la caché después de todas las operaciones
             $io->section('Reiniciando el kernel y limpiando caché');
@@ -429,6 +433,62 @@ EOT;
             $io->success('twig.yaml actualizado con las plantillas del módulo de streaming.');
         } else {
             $io->error('No se pudo actualizar twig.yaml. Verifica el formato del archivo.');
+        }
+    }
+
+    private function setupAssetsSymlink(SymfonyStyle $io): void
+    {
+        try {
+            $filesystem = new Filesystem();
+            
+            $assetsSourcePath = $this->projectDir . '/src/ModuloStreaming/Assets';
+            if (!$filesystem->exists($assetsSourcePath)) {
+                $io->error('La carpeta Assets no existe en el módulo Streaming. No se puede crear el enlace simbólico.');
+                return;
+            }
+            
+            $targetParentDir = $this->projectDir . '/public/css';
+            if (!$filesystem->exists($targetParentDir)) {
+                $filesystem->mkdir($targetParentDir);
+                $io->text('Creado directorio: /public/css');
+            }
+            
+            $symlinkPath = $targetParentDir . '/moduloStreaming';
+            
+            if ($filesystem->exists($symlinkPath)) {
+                if (is_link($symlinkPath)) {
+                    $filesystem->remove($symlinkPath);
+                    $io->text('Enlace simbólico existente eliminado');
+                } else {
+                    $io->warning('La ruta /public/css/moduloStreaming existe pero no es un enlace simbólico. Eliminando...');
+                    $filesystem->remove($symlinkPath);
+                }
+            }
+            
+            if (function_exists('symlink')) {
+                $filesystem->symlink(
+                    $assetsSourcePath,
+                    $symlinkPath
+                );
+                $io->success('Enlace simbólico creado correctamente: /public/css/moduloStreaming -> /src/ModuloStreaming/Assets');
+            } else {
+                $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
+                
+                if (!$filesystem->exists($symlinkPath)) {
+                    $filesystem->mkdir($symlinkPath);
+                }
+                
+                $filesystem->mirror($assetsSourcePath, $symlinkPath);
+                $io->text('Archivos copiados a /public/css/moduloStreaming');
+                
+                $filesystem->dumpFile(
+                    $symlinkPath . '/README.txt',
+                    "Esta carpeta contiene una copia de los assets de src/ModuloStreaming/Assets.\n" .
+                    "Se recomienda actualizar ambas carpetas cuando se realizan cambios en los archivos."
+                );
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al configurar el enlace simbólico para los assets: ' . $e->getMessage());
         }
     }
 

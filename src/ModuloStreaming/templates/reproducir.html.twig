@@ -4,58 +4,10 @@
 
 {% block head %}
     {{ parent() }}
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-        }
-        .player-container {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .video-header {
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 10;
-        }
-        .title-info {
-            color: white;
-        }
-        .video-title {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .video-meta {
-            font-size: 14px;
-            color: #ccc;
-        }
-        .player-wrapper {
-            flex-grow: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        #videoPlayer {
-            width: 100%;
-            max-height: 90vh;
-        }
-        .fallback-message {
-            color: white;
-            text-align: center;
-            padding: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/moduloStreaming/css/streaming.css') }}">
 {% endblock %}
 
 {% block navbar %}
-    <!-- Se omite la navbar en la página de reproducción -->
 {% endblock %}
 
 {% block body %}
@@ -128,5 +80,8 @@
                 localStorage.setItem('videoComplete_{{ video.id }}', 'true');
             });
         }
+
+        // Agregar clase al body para estilos específicos de la página de reproductor
+        document.body.classList.add('video-player-page');
     </script>
 {% endblock %}
