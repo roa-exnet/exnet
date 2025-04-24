@@ -1,0 +1,4 @@
+{
+    "install": "php bin/console explorador:install --force",
+    "uninstall": "php bin/console explorador:uninstall --force"
+}
