@@ -69,6 +69,21 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
     App\ModuloStreaming\Controller\:
         resource: '../src/ModuloStreaming/Controller'

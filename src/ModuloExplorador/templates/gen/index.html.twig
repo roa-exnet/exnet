@@ -1,19 +1,162 @@
-{# templates/directory/index.html.twig #}
 {% extends 'base.html.twig' %}
-{% block title %}Explorador{% endblock %}
+{% block title %}Explorador de Archivos - Exnet{% endblock %}
 
 {% block head %}
 {{ parent() }}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contenido del Directorio</title>
-    <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/general.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/titles.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/explorer.css') }}">
-    <script>
+    <link rel="stylesheet" href="{{ asset('css/explorer/css/explorer.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Explorador de Archivos</h1>
+        <div>
+            {% if is_granted('ROLE_ADMIN') %}
+                <a href="{{ path('init_workspace') }}" class="exnet-btn-small">
+                    <i class="fas fa-sync"></i> Inicializar Workspace
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Botones principales en el estilo de la imagen -->
+    <div class="top-action-buttons">
+        <button type="button" class="top-action-button btn-create-folder" onclick="promptFolderName()">
+            <i class="fas fa-folder-plus"></i> Crear Carpeta
+        </button>
+        
+        <button type="button" class="top-action-button btn-upload-file" onclick="document.getElementById('fileInput').click();">
+            <i class="fas fa-upload"></i> Subir Archivo
+        </button>
+        
+        <button type="button" class="top-action-button btn-upload-folder" onclick="document.getElementById('folderInput').click();">
+            <i class="fas fa-cloud-upload-alt"></i> Subir Carpeta
+        </button>
+    </div>
+
+    <!-- Formularios ocultos para las acciones -->
+    <div style="display: none;">
+        <form id="createFolderForm" action="{{ path('crear_carpeta') }}" method="POST">
+            <input type="hidden" name="folder_name" id="folderName">
+            <input type="hidden" name="path" value="{{ directory }}">
+        </form>
+        
+        <form id="uploadForm" action="{{ path('subir_archivo') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="path" value="{{ directory }}">
+            <input type="file" name="file" id="fileInput" style="display: none;" onchange="document.getElementById('uploadForm').submit();">
+        </form>
+        
+        <form id="uploadFolderForm" action="{{ path('subir_carpeta') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="path" value="{{ directory }}">
+            <input type="hidden" name="folder_name" id="folderNameE">
+            <input type="file" name="folder[]" id="folderInput" style="display: none;" webkitdirectory onchange="getFolderName()">
+        </form>
+    </div>
+
+    <!-- Botón de Home -->
+    <div class="home-button">
+        <i class="fas fa-home"></i> Home
+    </div>
+
+    <!-- Contenido del directorio -->
+    <div class="content-container">
+        <h3 class="content-title mb-3">Contenido de la carpeta</h3>
+        
+        <div class="files-grid">
+            {% if parent_directory != directory and directory != lastDir %}
+                <div class="file-item parent-dir">
+                    <form action="{{ path('explorer') }}" method="POST">
+                        <input type="hidden" name="path" value="{{ parent_directory }}">
+                        <button type="submit" class="file-button">
+                            <div class="file-icon">
+                                <i class="fas fa-level-up-alt"></i>
+                            </div>
+                            <div class="file-name">Subir nivel</div>
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+
+            {% for item in dirsOnly %}
+                <div class="file-item folder">
+                    <div class="file-actions">
+                        <form action="{{ path('eliminar_carpeta') }}" method="POST" onsubmit="return confirm('¿Eliminar carpeta {{ item }}?');">
+                            <input type="hidden" name="path" value="{{ directory ~ '/' ~ item }}">
+                            <button type="submit" class="action-button delete-button">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                    <form action="{{ path('explorer') }}" method="POST">
+                        <input type="hidden" name="path" value="{{ directory ~ '/' ~ item | url_encode }}">
+                        <button type="submit" class="file-button">
+                            <div class="file-icon">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <div class="file-name">{{ item }}</div>
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+
+            {% for item in filesOnly %}
+                <div class="file-item file">
+                    <div class="file-actions">
+                        <form action="{{ path('eliminar_archivo') }}" method="POST" onsubmit="return confirm('¿Eliminar archivo {{ item }}?');">
+                            <input type="hidden" name="path" value="{{ directory ~ '/' }}">
+                            <input type="hidden" name="filename" value="{{ item }}">
+                            <button type="submit" class="action-button delete-button">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                    <form action="{{ path('abrir_archivo') }}" method="POST">
+                        <input type="hidden" name="path" value="{{ directory ~ '/' }}">
+                        <input type="hidden" name="filename" value="{{ item }}">
+                        <button type="submit" class="file-button">
+                            <div class="file-icon">
+                                {% set extension = item|split('.')|last|lower %}
+                                {% if extension in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'] %}
+                                    <i class="fas fa-image"></i>
+                                {% elseif extension in ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'] %}
+                                    <i class="fas fa-video"></i>
+                                {% elseif extension in ['mp3', 'wav', 'ogg', 'flac', 'm4a'] %}
+                                    <i class="fas fa-music"></i>
+                                {% elseif extension in ['pdf'] %}
+                                    <i class="fas fa-file-pdf"></i>
+                                {% elseif extension in ['doc', 'docx'] %}
+                                    <i class="fas fa-file-word"></i>
+                                {% elseif extension in ['xls', 'xlsx'] %}
+                                    <i class="fas fa-file-excel"></i>
+                                {% elseif extension in ['ppt', 'pptx'] %}
+                                    <i class="fas fa-file-powerpoint"></i>
+                                {% elseif extension in ['txt', 'rtf', 'md'] %}
+                                    <i class="fas fa-file-alt"></i>
+                                {% elseif extension in ['zip', 'rar', '7z', 'tar', 'gz'] %}
+                                    <i class="fas fa-file-archive"></i>
+                                {% elseif extension in ['html', 'htm', 'xml', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'cs'] %}
+                                    <i class="fas fa-file-code"></i>
+                                {% else %}
+                                    <i class="fas fa-file"></i>
+                                {% endif %}
+                            </div>
+                            <div class="file-name">{{ item }}</div>
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+            
+            {% if dirsOnly|length == 0 and filesOnly|length == 0 %}
+                <div class="empty-directory">
+                    <i class="fas fa-folder-open"></i>
+                    <p>Esta carpeta está vacía</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
     function promptFolderName() {
         let folderName = prompt("Ingrese el nombre de la nueva carpeta:");
         if (folderName && folderName.trim() !== "") {
@@ -23,149 +166,24 @@
     }
 
     function getFolderName() {
-    var folderInput = document.getElementById('folderInput');
+        var folderInput = document.getElementById('folderInput');
 
-    // Verificar si se seleccionaron archivos
-    if (folderInput.files.length > 0) {
-        var folderPath = folderInput.files[0].webkitRelativePath;
-        var folderName = folderPath.split('/')[0];
-        //let userFolderName = prompt("Ingrese el nombre de la nueva carpeta (por defecto será: " + folderName + "):", folderName);
-        let userFolderName=folderName;
-        // Si el usuario ingresa un nombre, asignarlo al campo oculto
-        if (userFolderName && userFolderName.trim() !== "") {
-            // Asignar el nombre al campo oculto
-            document.getElementById('folderNameE').value = userFolderName.trim();
-            //document.getElementById('folderNameE').value = folder_name.trim();
-            // Enviar el formulario
-            document.getElementById('uploadFolderForm').submit();
+        // Verificar si se seleccionaron archivos
+        if (folderInput.files.length > 0) {
+            var folderPath = folderInput.files[0].webkitRelativePath;
+            var folderName = folderPath.split('/')[0];
+            let userFolderName = folderName;
+            
+            // Si el usuario ingresa un nombre, asignarlo al campo oculto
+            if (userFolderName && userFolderName.trim() !== "") {
+                document.getElementById('folderNameE').value = userFolderName.trim();
+                document.getElementById('uploadFolderForm').submit();
+            } else {
+                alert("El nombre de la carpeta es obligatorio.");
+            }
         } else {
-            alert("El nombre de la carpeta es obligatorio.");
+            alert("No se ha seleccionado ningún archivo o carpeta.");
         }
-    } else {
-        alert("No se ha seleccionado ningún archivo o carpeta.");
     }
-}
-
-    
 </script>
 {% endblock %}
-{% block body %}
-{% set backgrounds = ['bg.jpg', 'bg2.jpg', 'bg3.jpg']|shuffle %}
-{% set random_bg = backgrounds[0] %}
-<h1>Explorador de Archivos</h1>
-
-<!--<p>Contador de Archivos: {{ file_count }}</p>
-<p>Contador de Directorios: {{ dir_count }}</p>
-
-<p>Ruta actual: {{ directory }}</p>-->
-
-<!-- Mostrar el formulario para crear una carpeta -->
-<ul class="list-group horizontal-list">
-    <li>
-        <div class="create-folder">
-
-            <form id="createFolderForm" action="{{ path('crear_carpeta') }}" method="POST">
-                <input type="hidden" name="folder_name" id="folderName">
-                <input type="hidden" name="path" value="{{ directory }}">
-                <button type="button" class="btn-create-folder" onclick="promptFolderName()">Crear Carpeta</button>
-            </form>
-        </div>
-    </li>
-<!-- Formulario para subir archivos -->
-    <li>
-        <div class="upload-section">
-            <form id="uploadForm" action="{{ path('subir_archivo') }}" method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="path" value="{{ directory }}">
-                <input type="file" name="file" id="fileInput" style="display: none;" onchange="document.getElementById('uploadForm').submit();">
-                <button type="button" class="btn-upload" onclick="document.getElementById('fileInput').click();">
-                    Seleccionar Archivo
-                </button>
-            </form>
-        </div>
-    </li>
-    <li>
-    <div class="upload-section">
-        <form id="uploadFolderForm" action="{{ path('subir_carpeta') }}" method="POST" enctype="multipart/form-data">
-    <input type="hidden" name="path" value="{{ directory }}">
-    
-    <!-- Campo oculto para el nombre de la carpeta -->
-    <input type="hidden" name="folder_name" id="folderNameE">
-    
-    <!-- Atributo webkitdirectory para seleccionar una carpeta -->
-    <input type="file" name="folder[]" id="folderInput" style="display: none;" webkitdirectory onchange="getFolderName()">
-    
-    <button type="button" class="btn-upload" onclick="document.getElementById('folderInput').click();">
-        Seleccionar Carpeta
-    </button>
-</form>
-
-    </div>
-</li>
-</ul>
-
-<!-- Mostrar directorios como botones -->
-<!-- Mostrar directorios como botones -->
-<div class="exnet-regular-container">
-    <h3>Contenido de la carpeta:</h3>
-
-    <ul class="list-group horizontal-list">
-        {% if parent_directory != directory %}
-            {% if directory != lastDir %}
-                <li class="item-container">
-                    <form action="{{ path('explorer') }}" method="POST" style="display: inline;">
-                        <input type="hidden" name="path" value="{{ parent_directory }}">
-                        <button type="submit" class="dir">
-                            <div class="btn-content">
-                                <img src="{{ asset('images/folder.png') }}" alt="entrar" class="btn-icon">
-                                <span class="btn-text">..</span> 
-                            </div>
-                        </button>
-                    </form>
-                </li>
-            {% endif %}
-        {% endif %}
-
-        {% for item in dirsOnly %}
-            <li class="item-container">
-                <form action="{{ path('explorer') }}" method="POST">
-                    <input type="hidden" name="path" value="{{ directory ~ '/' ~ item | url_encode }}">
-                    <button type="submit" class="dir">
-                        <div class="btn-content">
-                            <img src="{{ asset('images/folder.png') }}" alt="Carpeta" class="btn-icon">
-                            <span class="btn-text">{{ item }}</span>
-                        </div>
-                    </button>
-                </form>
-                
-                <form action="{{ path('eliminar_carpeta') }}" method="POST" onsubmit="return confirm('¿Eliminar carpeta?');">
-                    <input type="hidden" name="path" value="{{ directory ~ '/' ~ item }}">
-                    <button type="submit" class="btn-delete">X</button>
-                </form>
-            </li>
-        {% endfor %}
-
-        {% for item in filesOnly %}
-            <li class="item-container">
-                <form action="{{ path('abrir_archivo') }}" method="POST">
-                    <input type="hidden" name="path" value="{{ directory ~ '/' }}">
-                    <input type="hidden" name="filename" value="{{ item }}">
-                    
-                    <button class="archivo">
-                        <div class="btn-content">
-                            <img src="{{ asset('images/file.png') }}" alt="Archivo" class="btn-icon">
-                            <span class="btn-text">{{ item }}</span>
-                        </div>
-                    </button>
-                </form>
-
-                <form action="{{ path('eliminar_archivo') }}" method="POST" onsubmit="return confirm('¿Eliminar archivo?');">
-                    <input type="hidden" name="path" value="{{ directory ~ '/' }}">
-                    <input type="hidden" name="filename" value="{{ item }}">
-                    <button type="submit" class="btn-delete">X</button>
-                </form>
-            </li>
-        {% endfor %}
-    </ul>
-</div>
-{% endblock %}
-

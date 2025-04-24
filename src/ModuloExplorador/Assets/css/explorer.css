@@ -1,0 +1,601 @@
+/* Estilos para el Explorador de Archivos */
+
+/* Contenedor principal con transparencia */
+.exnet-container-transparent {
+    background-color: rgba(27, 38, 54, 0.8);
+    border-radius: 10px;
+    padding: 25px;
+    backdrop-filter: blur(5px);
+}
+
+/* Estilos para la barra de herramientas */
+.explorer-toolbar {
+    background-color: rgba(30, 40, 55, 0.7);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Botones de acción (Crear Carpeta, Subir Archivo, Subir Carpeta) */
+.action-button-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.explorer-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: 5px;
+    font-weight: 500;
+    font-size: 14px;
+    color: white;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.explorer-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-create-folder {
+    background-color: #2196f3; /* Azul */
+}
+
+.btn-upload-file {
+    background-color: #4caf50; /* Verde */
+}
+
+.btn-upload-folder {
+    background-color: #5e35b1; /* Púrpura */
+}
+
+.explorer-action-btn i {
+    margin-right: 8px;
+}
+
+/* Estilos para el indicador de ruta */
+.path-indicator {
+    background-color: rgba(20, 30, 45, 0.75);
+    padding: 12px 15px;
+    border-radius: 6px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 14px;
+    margin-bottom: 20px;
+    overflow: auto;
+    white-space: nowrap;
+}
+
+.path-indicator i {
+    margin-right: 8px;
+    color: #64b5f6;
+}
+
+/* Contenedor principal de contenido */
+.content-container {
+    background-color: rgba(30, 40, 55, 0.6);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.content-title {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #fff;
+    font-weight: 500;
+}
+
+/* Grid para los archivos y carpetas */
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+/* Elementos de archivo y carpeta */
+.file-item {
+    position: relative;
+    background-color: rgba(40, 50, 65, 0.7);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    height: 140px;
+}
+
+.file-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.file-item.folder {
+    background-color: rgba(33, 150, 243, 0.3); /* Azul transparente */
+}
+
+.file-item.parent-dir {
+    background-color: rgba(100, 100, 100, 0.3);
+}
+
+.file-button {
+    width: 100%;
+    height: 100%;
+    background: none;
+    border: none;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    padding: 15px;
+}
+
+.file-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+    color: #8fd3f4;
+}
+
+.file-item.folder .file-icon {
+    color: #64b5f6;
+}
+
+.file-name {
+    font-size: 14px;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+/* Acciones de archivos (borrar, etc) */
+.file-actions {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.file-item:hover .file-actions {
+    opacity: 1;
+}
+
+.action-button {
+    background-color: rgba(30, 30, 30, 0.7);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.action-button:hover {
+    background-color: rgba(60, 60, 60, 0.9);
+}
+
+.delete-button:hover {
+    background-color: rgba(220, 53, 69, 0.8);
+}
+
+/* Mensaje de carpeta vacía */
+.empty-directory {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+}
+
+.empty-directory i {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+/* Estilos para la vista de archivo */
+.file-preview-container {
+    background-color: rgba(30, 40, 55, 0.6);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.file-metadata {
+    background-color: rgba(20, 30, 45, 0.75);
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
+
+.metadata-row {
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.metadata-row:last-child {
+    margin-bottom: 0;
+}
+
+.metadata-label {
+    font-weight: bold;
+    width: 120px;
+}
+
+.file-content-wrapper {
+    background-color: rgba(20, 25, 35, 0.7);
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 300px;
+}
+
+.text-preview {
+    padding: 15px;
+    overflow: auto;
+    max-height: 600px;
+}
+
+.text-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    color: #f8f9fa;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.image-preview, .video-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    position: relative;
+}
+
+.loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10px 20px;
+    border-radius: 5px;
+}
+
+/* Botones principales según la imagen compartida */
+.top-action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.top-action-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #1976d2; /* Azul primario */
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.top-action-button:hover {
+    background-color: #1565c0;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.top-action-button i {
+    margin-right: 8px;
+}
+
+.btn-create-folder {
+    background-color: #2196f3;
+}
+
+.btn-upload-file {
+    background-color: #4caf50;
+}
+
+.btn-upload-folder {
+    background-color: #5e35b1;
+}
+
+/* Estilos para la navegación de carpetas */
+.home-button {
+    display: flex;
+    align-items: center;
+    background-color: rgba(25, 35, 50, 0.8);
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.home-button:hover {
+    background-color: rgba(35, 45, 60, 0.8);
+}
+
+.home-button i {
+    margin-right: 10px;
+    color: #64b5f6;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+    .top-action-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .top-action-button {
+        flex: 1 1 calc(50% - 10px);
+        justify-content: center;
+    }
+    
+    .files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+    
+    .file-icon {
+        font-size: 32px;
+    }
+    
+    .file-name {
+        font-size: 12px;
+    }
+    
+    .file-item {
+        height: 120px;
+    }
+}
+
+@media (max-width: 576px) {
+    .top-action-buttons {
+        flex-direction: column;
+    }
+    
+    .top-action-button {
+        width: 100%;
+    }
+    
+    .files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+    
+    .explorer-toolbar .d-flex {
+        flex-direction: column;
+    }
+    
+    .explorer-toolbar button {
+        margin-bottom: 8px;
+        width: 100%;
+    }
+}
+
+/* Estilos adicionales para visualización de archivos */
+
+/* Contenedor del archivo */
+.file-content-container {
+    background-color: rgba(33, 43, 54, 0.8);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Panel de información del archivo */
+.file-info-panel {
+    background-color: rgba(26, 35, 46, 0.95);
+    padding: 15px 20px;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.file-info-item {
+    display: flex;
+    margin-bottom: 10px;
+    font-size: 15px;
+}
+
+.file-info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    font-weight: bold;
+    width: 100px;
+    color: #90caf9;
+}
+
+.info-value {
+    flex: 1;
+}
+
+.info-value i {
+    margin-right: 8px;
+    color: #64b5f6;
+}
+
+/* Visor de archivos */
+.file-viewer {
+    min-height: 400px;
+    background-color: rgba(18, 25, 33, 0.7);
+    position: relative;
+}
+
+/* Estilos para visualización de imágenes */
+.image-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 600px;
+    width: 100%;
+    position: relative;
+}
+
+.loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.loader-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+.loader-text {
+    color: white;
+    font-size: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Estilos para la visualización de texto */
+.text-preview {
+    padding: 20px;
+    overflow: auto;
+    max-height: 600px;
+}
+
+.text-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    color: #e0e0e0;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Estilos para la visualización de video */
+.video-preview {
+    width: 100%;
+    height: 600px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+}
+
+.video-preview iframe {
+    width: 100%;
+    height: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+/* Botones de acción del archivo */
+.file-header {
+    margin-bottom: 20px;
+}
+
+.file-actions-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.file-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.file-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-back {
+    background-color: #5c7cfa;
+}
+
+.btn-back:hover {
+    background-color: #4c6ef5;
+}
+
+.btn-download {
+    background-color: #4caf50;
+}
+
+.btn-download:hover {
+    background-color: #43a047;
+}
+
+.file-action-btn i {
+    margin-right: 8px;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+    .file-actions-buttons {
+        flex-direction: column;
+    }
+    
+    .file-action-btn {
+        width: 100%;
+    }
+    
+    .file-info-item {
+        flex-direction: column;
+    }
+    
+    .info-label {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    
+    .image-preview,
+    .video-preview {
+        height: 400px;
+    }
+}

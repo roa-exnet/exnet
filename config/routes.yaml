@@ -15,4 +15,10 @@ modulo_streaming_controllers:
         path: ../src/ModuloStreaming/Controller/
         namespace: App\ModuloStreaming\Controller
     type: attribute
+
+modulo_explorador_controllers:
+    resource:
+        path: ../src/ModuloExplorador/Controller/
+        namespace: App\ModuloExplorador\Controller
+    type: attribute
 # ----------- modulochat -------

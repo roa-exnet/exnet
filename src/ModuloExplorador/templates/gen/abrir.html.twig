@@ -1,73 +1,72 @@
 {% extends 'base.html.twig' %}
-{% block title %}Archivo{% endblock %}
+{% block title %}{{ filename }} - Explorador Exnet{% endblock %}
+
 {% block head %}
 {{ parent() }}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contenido del Archivo</title>
-    <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/general.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/titles.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/explorer.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/explorer/css/explorer.css') }}">
 {% endblock %}
 
 {% block body %}
-    <h1>Contenido del archivo: {{ filename }}</h1>
-    <!--<p>Ruta: {{ directory }}</p>-->
-
-    <div class="file-content">
-        {% if isImage %}
-        <!-- Si el archivo es una imagen, mostrarla en un iframe -->
-        <iframe id="imageIframe" width="100%" height="100%" frameborder="0" style="overflow:hidden; border:none;" onerror="handleImageError()">
-            <p>Tu navegador no soporta iframes.</p>
-        </iframe>
-        {% elseif isVideo %}
-        <iframe src="{{ path('ver_video', { 'filename': filename, 'path': directory }) }}" width="100%" height="500px" frameborder="0" allowfullscreen></iframe>
-        {% else %}
-        <!-- Si no es una imagen, mostrar el contenido del archivo de texto -->
-        <pre>{{ fileContent }}</pre>
-        {% endif %}
+<div class="exnet-container-transparent p-4">
+    <!-- Cabecera con título y botones -->
+    <div class="file-header d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">{{ filename }}</h1>
+        <div class="file-actions-buttons">
+            <a href="{{ path('explorer') }}" class="file-action-btn btn-back">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+            <form action="{{ path('download') }}" method="POST" class="d-inline">
+                <input type="hidden" name="file_path" value="{{ directory ~ '/' ~ filename }}">
+                <button type="submit" class="file-action-btn btn-download">
+                    <i class="fas fa-download"></i> Descargar
+                </button>
+            </form>
+        </div>
     </div>
 
-    <ul class="list-group horizontal-list">
-        <li>
-            <form action="{{ path('download') }}" method="POST">
-                <input type="hidden" name="file_path" value="{{ directory ~ '/' ~ filename }}">
-                <button class="back">
-                    <div class="btn-content">
-                        <img src="{{ asset('images/download.png') }}" alt="entrar" class="btn-icono">
-                        Descargar
-                    </div>
-                </button>
-            </form>
-        </li>
-        <li>
-            <form action="{{ path('explorer') }}" method="POST" style="display: inline;">
-                <input type="hidden" name="path" value="{{ directory }}">
-                <button class="back">
-                    <div class="btn-content">
-                        <img src="{{ asset('images/arrow.png') }}" alt="entrar" class="btn-icono">
-                        <span>Volver</span>
-                    </div>
-                </button>
-            </form>
-        </li>
-    </ul>
+    <!-- Información del archivo y visor -->
+    <div class="file-content-container">
+        <!-- Panel de metadatos del archivo -->
+        <div class="file-info-panel">
+            <div class="file-info-item">
+                <div class="info-label">Ubicación:</div>
+                <div class="info-value">{{ directory }}</div>
+            </div>
+        </div>
 
-    <!-- Botón para cargar la imagen -->
-    <button id="reloadButton" onclick="cargarImagen()" hidden>
-        Cargar Imagen
-    </button>
-
+        <!-- Contenido del archivo -->
+        <div class="file-viewer">
+            {% if isImage %}
+                <div class="image-preview">
+                    <div class="loader" id="imageLoader">
+                        <div class="loader-spinner"></div>
+                        <div class="loader-text">Cargando imagen...</div>
+                    </div>
+                    <iframe id="imageIframe" width="100%" height="600px" frameborder="0" style="overflow:hidden; border:none; background-color: rgba(0,0,0,0.2);" onerror="handleImageError()"></iframe>
+                </div>
+            {% elseif isVideo %}
+                <div class="video-preview">
+                    <iframe src="{{ path('ver_video', { 'filename': filename, 'path': directory }) }}" width="100%" height="600px" frameborder="0" allowfullscreen></iframe>
+                </div>
+            {% else %}
+                <div class="text-preview">
+                    <pre class="text-content">{{ fileContent }}</pre>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
 
 <script>
     // Función para cargar la imagen
     function cargarImagen() {
         var filename = "{{ filename }}";
         var directory = "{{ directory }}";
+        var loader = document.getElementById('imageLoader');
+        
+        if (loader) {
+            loader.style.display = 'flex';
+        }
         
         // Hacer la solicitud POST
         fetch("{{ path('ver_imagen') }}", {
@@ -80,28 +79,40 @@
                 'path': directory
             })
         })
-        .then(response => response.blob())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor: ' + response.status);
+            }
+            return response.blob();
+        })
         .then(imageBlob => {
             var img = URL.createObjectURL(imageBlob);
             document.getElementById('imageIframe').src = img;
-            document.getElementById('reloadButton').disabled = true;  // Deshabilitar el botón después de cargar la imagen
+            if (loader) {
+                loader.style.display = 'none';
+            }
         })
         .catch(error => {
             console.error('Error cargando la imagen:', error);
-            // Si hay error en la carga, habilitamos el botón para que el usuario lo intente de nuevo
-            document.getElementById('reloadButton').disabled = false;
+            if (loader) {
+                loader.querySelector('.loader-spinner').style.display = 'none';
+                loader.querySelector('.loader-text').textContent = 'Error al cargar la imagen. Intente nuevamente.';
+            }
         });
     }
     
-
     // Función que maneja el error al cargar la imagen en el iframe
     function handleImageError() {
         console.log('Error al cargar la imagen en el iframe.');
-        document.getElementById('reloadButton').disabled = false;  // Habilitar el botón de nuevo
+        var loader = document.getElementById('imageLoader');
+        if (loader) {
+            loader.querySelector('.loader-spinner').style.display = 'none';
+            loader.querySelector('.loader-text').textContent = 'Error al cargar la imagen. Intente nuevamente.';
+            loader.style.display = 'flex';
+        }
     }
 
     // Ejecutar la función de carga de imagen al cargar la página
     document.addEventListener('DOMContentLoaded', cargarImagen);
 </script>
 {% endblock %}
-
