@@ -442,11 +442,8 @@ EOT;
                 return;
             }
             
-            $targetParentDir = $this->projectDir . '/public/css';
-            if (!$filesystem->exists($targetParentDir)) {
-                $filesystem->mkdir($targetParentDir);
-                $io->text('Creado directorio: /public/css');
-            }
+            // Cambio aquí: Ahora usamos directamente la carpeta public como directorio objetivo
+            $targetParentDir = $this->projectDir . '/public';
             
             $symlinkPath = $targetParentDir . '/explorer';
             
@@ -455,7 +452,7 @@ EOT;
                     $filesystem->remove($symlinkPath);
                     $io->text('Enlace simbólico existente eliminado');
                 } else {
-                    $io->warning('La ruta /public/css/explorer existe pero no es un enlace simbólico. Eliminando...');
+                    $io->warning('La ruta /public/explorer existe pero no es un enlace simbólico. Eliminando...');
                     $filesystem->remove($symlinkPath);
                 }
             }
@@ -465,7 +462,7 @@ EOT;
                     $assetsSourcePath,
                     $symlinkPath
                 );
-                $io->success('Enlace simbólico creado correctamente: /public/css/explorer -> /src/ModuloExplorador/Assets');
+                $io->success('Enlace simbólico creado correctamente: /public/explorer -> /src/ModuloExplorador/Assets');
             } else {
                 $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
                 
@@ -474,7 +471,7 @@ EOT;
                 }
                 
                 $filesystem->mirror($assetsSourcePath, $symlinkPath);
-                $io->text('Archivos copiados a /public/css/explorer');
+                $io->text('Archivos copiados a /public/explorer');
                 
                 $filesystem->dumpFile(
                     $symlinkPath . '/README.txt',

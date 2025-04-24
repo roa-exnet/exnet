@@ -84,18 +84,3 @@ services:
         autoconfigure: true
         public: true
     #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
-    App\ModuloStreaming\Controller\:
-        resource: '../src/ModuloStreaming/Controller'
-        tags: ['controller.service_arguments']
-        
-    App\ModuloStreaming\Command\:
-        resource: '../src/ModuloStreaming/Command'
-        tags: ['console.command']
-        
-    App\ModuloStreaming\Service\:
-        resource: '../src/ModuloStreaming/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
