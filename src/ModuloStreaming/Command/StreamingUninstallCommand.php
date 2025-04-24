@@ -104,6 +104,8 @@ class StreamingUninstallCommand extends Command
         $this->removeModuleFromDatabase($io);
         $this->cleanOrphanMenuElementModuloRecords($io);
         $this->removeUploadedVideos($io);
+        $this->removeAssetsSymlink($io);
+
         
         if (!$keepTables) {
             $io->section('Eliminando tablas de la base de datos');
@@ -321,6 +323,34 @@ class StreamingUninstallCommand extends Command
             $io->error('Error al eliminar los elementos de menú: ' . $e->getMessage() . "\nStack trace: " . $e->getTraceAsString());
         }
     }
+
+    private function removeAssetsSymlink(SymfonyStyle $io): void
+    {
+        try {
+            $symlinkPath = $this->projectDir . '/public/moduloStreaming';
+            if (is_link($symlinkPath) || is_dir($symlinkPath)) {
+                if (is_link($symlinkPath)) {
+                    unlink($symlinkPath);
+                    $io->success('Enlace simbólico eliminado: /public/moduloStreaming');
+                } else {
+                    $filesystem = new \Symfony\Component\Filesystem\Filesystem();
+                    $filesystem->remove($symlinkPath);
+                    $io->success('Directorio eliminado: /public/moduloStreaming');
+                }
+            } else {
+                $io->note('No se encontró el enlace simbólico o directorio /public/moduloStreaming.');
+            }
+
+            $jsDir = $this->projectDir . '/public/js';
+            if (is_dir($jsDir) && count(glob("$jsDir/*")) === 0) {
+                rmdir($jsDir);
+                $io->success('Directorio vacío /public/js eliminado.');
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al eliminar los assets del módulo: ' . $e->getMessage());
+        }
+    }
+
     
     private function removeUploadedVideos(SymfonyStyle $io): void
     {

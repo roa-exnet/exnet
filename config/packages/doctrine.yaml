@@ -19,12 +19,6 @@ doctrine:
                     dir: '%kernel.project_dir%/src/ModuloExplorador/Entity'
                     prefix: 'App\ModuloExplorador\Entity'
                     alias: ModuloExplorador
-            ModuloStreaming:
-                    type: attribute
-                    is_bundle: false
-                    dir: '%kernel.project_dir%/src/ModuloStreaming/Entity'
-                    prefix: 'App\ModuloStreaming\Entity'
-                    alias: ModuloStreaming
             ModuloMusica:
                     type: attribute
                     is_bundle: false

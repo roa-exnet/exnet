@@ -440,47 +440,42 @@ EOT;
     {
         try {
             $filesystem = new Filesystem();
-            
+    
             $assetsSourcePath = $this->projectDir . '/src/ModuloStreaming/Assets';
             if (!$filesystem->exists($assetsSourcePath)) {
                 $io->error('La carpeta Assets no existe en el módulo Streaming. No se puede crear el enlace simbólico.');
                 return;
             }
-            
-            $targetParentDir = $this->projectDir . '/public/css';
-            if (!$filesystem->exists($targetParentDir)) {
-                $filesystem->mkdir($targetParentDir);
-                $io->text('Creado directorio: /public/css');
+    
+            $targetDir = $this->projectDir . '/public';
+            $jsDir = $targetDir . '/js';
+            if (!$filesystem->exists($jsDir)) {
+                $filesystem->mkdir($jsDir);
+                $io->text('Creado directorio: /public/js');
             }
-            
-            $symlinkPath = $targetParentDir . '/moduloStreaming';
-            
+    
+            $symlinkPath = $targetDir . '/moduloStreaming';
+    
             if ($filesystem->exists($symlinkPath)) {
                 if (is_link($symlinkPath)) {
                     $filesystem->remove($symlinkPath);
                     $io->text('Enlace simbólico existente eliminado');
                 } else {
-                    $io->warning('La ruta /public/css/moduloStreaming existe pero no es un enlace simbólico. Eliminando...');
+                    $io->warning('La ruta /public/moduloStreaming existe pero no es un enlace simbólico. Eliminando...');
                     $filesystem->remove($symlinkPath);
                 }
             }
-            
+    
             if (function_exists('symlink')) {
-                $filesystem->symlink(
-                    $assetsSourcePath,
-                    $symlinkPath
-                );
-                $io->success('Enlace simbólico creado correctamente: /public/css/moduloStreaming -> /src/ModuloStreaming/Assets');
+                $filesystem->symlink($assetsSourcePath, $symlinkPath);
+                $io->success('Enlace simbólico creado correctamente: /public/moduloStreaming -> /src/ModuloStreaming/Assets');
             } else {
                 $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
-                
                 if (!$filesystem->exists($symlinkPath)) {
                     $filesystem->mkdir($symlinkPath);
                 }
-                
                 $filesystem->mirror($assetsSourcePath, $symlinkPath);
-                $io->text('Archivos copiados a /public/css/moduloStreaming');
-                
+                $io->text('Archivos copiados a /public/moduloStreaming');
                 $filesystem->dumpFile(
                     $symlinkPath . '/README.txt',
                     "Esta carpeta contiene una copia de los assets de src/ModuloStreaming/Assets.\n" .
@@ -491,6 +486,7 @@ EOT;
             $io->error('Error al configurar el enlace simbólico para los assets: ' . $e->getMessage());
         }
     }
+    
 
     private function ensureUploadsDirectory(SymfonyStyle $io): void
     {
