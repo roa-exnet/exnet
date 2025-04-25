@@ -177,7 +177,6 @@ class CdnController extends AbstractController
                 ], 404);
             }
 
-            // Primero intentamos obtener la URL desde settings.json
             $moduleAttributes = $this->cdnService->getModuleAttributes($modulo);
             
             if (isset($moduleAttributes['route']) && !empty($moduleAttributes['route'])) {
@@ -187,7 +186,6 @@ class CdnController extends AbstractController
                 ]);
             }
 
-            // Si no hay ruta en settings.json, intentamos con el menú como respaldo
             $menuElements = $modulo->getMenuElements();
 
             if ($menuElements->isEmpty()) {
@@ -234,10 +232,8 @@ class CdnController extends AbstractController
                 ], 404);
             }
             
-            // Obtener atributos del settings.json
             $moduleAttributes = $this->cdnService->getModuleAttributes($modulo);
             
-            // Añadir la información básica del modelo
             $moduleDetails = array_merge([
                 'id' => $modulo->getId(),
                 'nombre' => $modulo->getNombre(),
@@ -273,7 +269,6 @@ class CdnController extends AbstractController
             $moduleDirectory = $modulo->getRuta();
             $commandOutput .= "Directorio del módulo: " . ($moduleDirectory ?? 'No especificado') . "\n";
             
-            // Primero intentar buscar en settings.json
             $uninstallCommand = null;
             $settingsJsonPath = $moduleDirectory ? rtrim($moduleDirectory, '/') . '/settings.json' : null;
             
@@ -294,7 +289,6 @@ class CdnController extends AbstractController
                 $commandOutput .= "No se encontró el archivo settings.json\n";
             }
             
-            // Si no se encontró en settings.json, buscar en commands.json como respaldo
             if (!$uninstallCommand) {
                 $commandsJsonPath = $moduleDirectory ? $moduleDirectory . '/commands.json' : null;
                 $commandOutput .= "Buscando en commands.json: " . ($commandsJsonPath ?? 'Ruta no disponible') . "\n";
@@ -323,7 +317,6 @@ class CdnController extends AbstractController
                 $commandOutput .= "\n=== EJECUTANDO COMANDO DE DESINSTALACIÓN ===\n";
                 $commandOutput .= "Comando: $uninstallCommand\n";
                 
-                // Preparar el comando con las variables de sustitución
                 $originalCommand = $uninstallCommand;
                 $uninstallCommand = str_replace(
                     ['{{moduleDir}}', '{{projectDir}}'],
@@ -335,7 +328,6 @@ class CdnController extends AbstractController
                     $commandOutput .= "Comando con variables sustituidas: '$uninstallCommand'\n";
                 }
                 
-                // Determinar cómo ejecutar el comando
                 if (strpos($uninstallCommand, '&&') !== false || strpos($uninstallCommand, '||') !== false ||
                     strpos($uninstallCommand, '>') !== false || strpos($uninstallCommand, '|') !== false) {
                     $process = Process::fromShellCommandline($uninstallCommand, $this->projectDir);
@@ -377,18 +369,15 @@ class CdnController extends AbstractController
                 $commandOutput .= "\nNo se encontró un comando de desinstalación. Continuando con la eliminación de archivos y registros.\n";
             }
 
-            // Limpiar relaciones del módulo
             $commandOutput .= "\n=== LIMPIANDO RELACIONES DEL MÓDULO ===\n";
             $this->limpiarRelacionesModulo($modulo);
             $commandOutput .= "Relaciones del módulo eliminadas de la base de datos.\n";
 
-            // Eliminar el módulo de la base de datos
             $commandOutput .= "\n=== ELIMINANDO MÓDULO DE LA BASE DE DATOS ===\n";
             $this->entityManager->remove($modulo);
             $this->entityManager->flush();
             $commandOutput .= "Registro del módulo eliminado de la base de datos.\n";
 
-            // Eliminar archivos del módulo
             if ($moduleDirectory && $this->filesystem->exists($moduleDirectory)) {
                 $commandOutput .= "\n=== ELIMINANDO ARCHIVOS DEL MÓDULO ===\n";
                 try {
@@ -407,7 +396,6 @@ class CdnController extends AbstractController
                 $commandOutput .= "\nNo se encontró la carpeta del módulo en la ruta especificada: $moduleDirectory\n";
             }
 
-            // Limpiar la caché
             $commandOutput .= "\n=== LIMPIANDO CACHÉ ===\n";
             $cacheClear = new Process(['php', 'bin/console', 'cache:clear']);
             $cacheClear->setWorkingDirectory($this->projectDir);
@@ -433,19 +421,20 @@ class CdnController extends AbstractController
 
     private function limpiarRelacionesModulo(Modulo $modulo): void
     {
+        $this->logInfo("Limpiando relaciones del módulo: " . $modulo->getNombre());
         $menuElements = $modulo->getMenuElements();
+        
         if ($menuElements) {
             foreach ($menuElements as $menuElement) {
+                $this->logInfo("Eliminando relación con el elemento de menú: " . $menuElement->getNombre());
                 $modulo->removeMenuElement($menuElement);
             }
         }
         
         $this->entityManager->flush();
+        $this->logInfo("Relaciones del módulo limpiadas correctamente");
     }
     
-    /**
-     * Métodos auxiliares para registro de logs
-     */
     private function logInfo(string $message): void
     {
         if ($this->logger) {

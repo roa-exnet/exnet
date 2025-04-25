@@ -473,21 +473,6 @@ class CdnService
                     $moduleSettings['icon'] = 'fas fa-puzzle-piece';
                 }
                 
-                $modulo = new Modulo();
-                $modulo->setNombre($moduleSettings['name'] ?? $baseModuleName);
-                $modulo->setDescripcion($moduleSettings['description'] ?? 'Módulo para Exnet');
-                $modulo->setIcon($moduleSettings['icon']);
-                $modulo->setRuta($moduleDirectoryPath);
-                $modulo->setEstado(true);
-                $modulo->setInstallDate(new \DateTimeImmutable());
-                
-                if (isset($moduleSettings['version'])) {
-                    $modulo->setVersion($moduleSettings['version']);
-                }
-                
-                $this->entityManager->persist($modulo);
-                $this->entityManager->flush();
-                
                 $installCommandOutput .= "\nEntidad Modulo creada/actualizada en la base de datos local.\n";
             }
 
@@ -592,7 +577,6 @@ class CdnService
         $installCommandOutput .= "Directorios disponibles: " . implode(", ", array_filter($directories, fn($d) => $d !== '.' && $d !== '..')) . "\n";
         return null;
     }
-
 
     private function runMigrations(): bool
     {
