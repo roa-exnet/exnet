@@ -267,81 +267,129 @@ class CdnController extends AbstractController
         
         try {
             $moduleDirectory = $modulo->getRuta();
-            $commandOutput .= "Directorio del módulo: " . ($moduleDirectory ?? 'No especificado') . "\n";
+            $moduleBaseName = $modulo->getNombre();
+            $commandOutput .= "Directorio registrado del módulo: " . ($moduleDirectory ?? 'No especificado') . "\n";
+            
+            $moduleDirectory = $this->findModuleDirectoryPath($moduleBaseName, $commandOutput);
+            
+            if (!$moduleDirectory) {
+                $commandOutput .= "ERROR: No se pudo determinar el directorio del módulo\n";
+                return [
+                    'success' => false,
+                    'message' => 'No se pudo determinar el directorio del módulo',
+                    'commandOutput' => $commandOutput
+                ];
+            }
+            
+            $commandOutput .= "Directorio del módulo localizado: $moduleDirectory\n";
             
             $uninstallCommand = null;
-            $settingsJsonPath = $moduleDirectory ? rtrim($moduleDirectory, '/') . '/settings.json' : null;
             
-            if ($settingsJsonPath && $this->filesystem->exists($settingsJsonPath)) {
-                $commandOutput .= "Encontrado archivo settings.json: $settingsJsonPath\n";
+            $commandsJsonPath = $moduleDirectory . '/commands.json';
+            $commandOutput .= "Buscando commands.json en: $commandsJsonPath\n";
+            
+            if (file_exists($commandsJsonPath)) {
+                $commandOutput .= "Archivo commands.json encontrado\n";
                 try {
-                    $settingsJson = json_decode(file_get_contents($settingsJsonPath), true);
-                    if (json_last_error() === JSON_ERROR_NONE && isset($settingsJson['uninstallCommand']) && !empty($settingsJson['uninstallCommand'])) {
-                        $uninstallCommand = $settingsJson['uninstallCommand'];
-                        $commandOutput .= "Comando de desinstalación encontrado en settings.json: $uninstallCommand\n";
+                    $commandsContent = file_get_contents($commandsJsonPath);
+                    $commandOutput .= "Contenido del archivo commands.json:\n$commandsContent\n";
+                    
+                    $commandsJson = json_decode($commandsContent, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        if (isset($commandsJson['uninstall']) && !empty($commandsJson['uninstall'])) {
+                            $uninstallCommand = $commandsJson['uninstall'];
+                            $commandOutput .= "Comando de desinstalación encontrado: $uninstallCommand\n";
+                        } else {
+                            $commandOutput .= "No se encontró la clave 'uninstall' en commands.json o está vacía\n";
+                        }
                     } else {
-                        $commandOutput .= "No se encontró un comando de desinstalación en settings.json\n";
+                        $commandOutput .= "Error al decodificar commands.json: " . json_last_error_msg() . "\n";
                     }
                 } catch (\Exception $e) {
-                    $commandOutput .= "Error al leer settings.json: " . $e->getMessage() . "\n";
+                    $commandOutput .= "Error al leer commands.json: " . $e->getMessage() . "\n";
                 }
             } else {
-                $commandOutput .= "No se encontró el archivo settings.json\n";
+                $commandOutput .= "No se encontró el archivo commands.json\n";
             }
             
             if (!$uninstallCommand) {
-                $commandsJsonPath = $moduleDirectory ? $moduleDirectory . '/commands.json' : null;
-                $commandOutput .= "Buscando en commands.json: " . ($commandsJsonPath ?? 'Ruta no disponible') . "\n";
+                $settingsJsonPath = $moduleDirectory . '/settings.json';
+                $commandOutput .= "Buscando settings.json en: $settingsJsonPath\n";
                 
-                if ($commandsJsonPath && $this->filesystem->exists($commandsJsonPath)) {
-                    $commandOutput .= "Encontrado archivo commands.json\n";
+                if (file_exists($settingsJsonPath)) {
                     try {
-                        $commandsJson = json_decode(file_get_contents($commandsJsonPath), true);
-                        if (json_last_error() === JSON_ERROR_NONE && isset($commandsJson['uninstall']) && !empty($commandsJson['uninstall'])) {
-                            $uninstallCommand = $commandsJson['uninstall'];
-                            $commandOutput .= "Comando de desinstalación encontrado en commands.json: $uninstallCommand\n";
+                        $settingsContent = file_get_contents($settingsJsonPath);
+                        $commandOutput .= "Contenido del archivo settings.json:\n$settingsContent\n";
+                        
+                        $settingsJson = json_decode($settingsContent, true);
+                        if (json_last_error() === JSON_ERROR_NONE) {
+                            if (isset($settingsJson['uninstallCommand']) && !empty($settingsJson['uninstallCommand'])) {
+                                $uninstallCommand = $settingsJson['uninstallCommand'];
+                                $commandOutput .= "Comando de desinstalación encontrado: $uninstallCommand\n";
+                            } else {
+                                $commandOutput .= "No se encontró la clave 'uninstallCommand' en settings.json o está vacía\n";
+                            }
                         } else {
-                            $commandOutput .= "No se encontró un comando de desinstalación en commands.json\n";
+                            $commandOutput .= "Error al decodificar settings.json: " . json_last_error_msg() . "\n";
                         }
                     } catch (\Exception $e) {
-                        $commandOutput .= "Error al leer commands.json: " . $e->getMessage() . "\n";
+                        $commandOutput .= "Error al leer settings.json: " . $e->getMessage() . "\n";
                     }
                 } else {
-                    $commandOutput .= "No se encontró el archivo commands.json\n";
+                    $commandOutput .= "No se encontró el archivo settings.json\n";
                 }
             }
-
+            
+            if (!$uninstallCommand && $moduleBaseName === 'Explorador') {
+                $uninstallCommand = 'php bin/console explorador:uninstall --force';
+                $commandOutput .= "Usando comando directo para desinstalar módulo Explorador: $uninstallCommand\n";
+            }
+    
             $commandSuccess = false;
             
             if ($uninstallCommand) {
                 $commandOutput .= "\n=== EJECUTANDO COMANDO DE DESINSTALACIÓN ===\n";
-                $commandOutput .= "Comando: $uninstallCommand\n";
+                $commandOutput .= "Comando original: $uninstallCommand\n";
                 
-                $originalCommand = $uninstallCommand;
                 $uninstallCommand = str_replace(
                     ['{{moduleDir}}', '{{projectDir}}'],
                     [$moduleDirectory, $this->projectDir],
                     $uninstallCommand
                 );
                 
-                if ($originalCommand !== $uninstallCommand) {
-                    $commandOutput .= "Comando con variables sustituidas: '$uninstallCommand'\n";
-                }
+                $commandOutput .= "Comando con variables sustituidas: $uninstallCommand\n";
+                $commandOutput .= "Directorio de trabajo: {$this->projectDir}\n";
                 
-                if (strpos($uninstallCommand, '&&') !== false || strpos($uninstallCommand, '||') !== false ||
-                    strpos($uninstallCommand, '>') !== false || strpos($uninstallCommand, '|') !== false) {
-                    $process = Process::fromShellCommandline($uninstallCommand, $this->projectDir);
-                } else {
-                    $commandParts = explode(' ', $uninstallCommand);
-                    $process = new Process($commandParts, $this->projectDir);
-                }
-                
-                $process->setTimeout(300);
+                $hasSpecialOperators = strpos($uninstallCommand, '&&') !== false || 
+                                      strpos($uninstallCommand, '||') !== false ||
+                                      strpos($uninstallCommand, '>') !== false || 
+                                      strpos($uninstallCommand, '|') !== false;
                 
                 try {
+                    $commandOutput .= "Iniciando ejecución del comando...\n\n";
+                    
+                    if ($hasSpecialOperators) {
+                        $commandOutput .= "Usando Process::fromShellCommandline por operadores especiales\n";
+                        $process = Process::fromShellCommandline($uninstallCommand, $this->projectDir);
+                    } else {
+                        $commandOutput .= "Usando Process con array de argumentos\n";
+                        $commandParts = explode(' ', $uninstallCommand);
+                        $commandOutput .= "Partes del comando: " . json_encode($commandParts) . "\n";
+                        $process = new Process($commandParts, $this->projectDir);
+                    }
+                    
+                    $process->setTimeout(600);
+                    $process->setEnv([
+                        'PATH' => getenv('PATH'),
+                        'COMPOSER_HOME' => getenv('COMPOSER_HOME') ?: $this->projectDir . '/.composer'
+                    ]);
+                    
                     $process->run(function ($type, $buffer) use (&$commandOutput) {
                         $prefix = (Process::ERR === $type) ? 'ERROR > ' : 'OUTPUT > ';
                         $commandOutput .= $prefix . $buffer;
+                        if ($this->logger) {
+                            $this->logger->info($prefix . $buffer);
+                        }
                     });
                     
                     $commandSuccess = $process->isSuccessful();
@@ -349,35 +397,55 @@ class CdnController extends AbstractController
                     $commandOutput .= "Comando exitoso: " . ($commandSuccess ? 'Sí' : 'No') . "\n";
                     
                     if (!$commandSuccess) {
-                        return [
-                            'success' => false,
-                            'commandSuccess' => false,
-                            'message' => 'Error al ejecutar el comando de desinstalación',
-                            'commandOutput' => $commandOutput
-                        ];
+                        $commandOutput .= "Error en la ejecución: " . $process->getErrorOutput() . "\n";
+                        $commandOutput .= "\n=== INTENTANDO EJECUTAR COMANDO ALTERNATIVO DIRECTO ===\n";
+                        
+                        $directCommand = 'php bin/console explorador:uninstall --force';
+                        $directProcess = Process::fromShellCommandline($directCommand, $this->projectDir);
+                        $directProcess->setTimeout(600);
+                        $directProcess->run(function ($type, $buffer) use (&$commandOutput) {
+                            $prefix = (Process::ERR === $type) ? 'ERROR (DIRECTO) > ' : 'OUTPUT (DIRECTO) > ';
+                            $commandOutput .= $prefix . $buffer;
+                        });
+                        
+                        $commandSuccess = $directProcess->isSuccessful();
+                        $commandOutput .= "\nCódigo de salida (directo): " . $directProcess->getExitCode() . "\n";
+                        $commandOutput .= "Comando directo exitoso: " . ($commandSuccess ? 'Sí' : 'No') . "\n";
                     }
                 } catch (\Exception $e) {
-                    $commandOutput .= "\nError al ejecutar el comando: " . $e->getMessage() . "\n";
-                    return [
-                        'success' => false,
-                        'commandSuccess' => false,
-                        'message' => 'Excepción al ejecutar el comando de desinstalación: ' . $e->getMessage(),
-                        'commandOutput' => $commandOutput
-                    ];
+                    $commandOutput .= "\nExcepción al ejecutar el comando: " . $e->getMessage() . "\n";
+                    $commandOutput .= "Traza: " . $e->getTraceAsString() . "\n";
+                    
+                    $commandOutput .= "\nA pesar del error, continuando con la eliminación de registros y archivos...\n";
                 }
             } else {
                 $commandOutput .= "\nNo se encontró un comando de desinstalación. Continuando con la eliminación de archivos y registros.\n";
+                
+                if ($moduleBaseName === 'Explorador') {
+                    $commandOutput .= "\n=== INTENTANDO EJECUTAR COMANDO DIRECTO ===\n";
+                    $directCommand = 'php bin/console explorador:uninstall --force';
+                    $directProcess = Process::fromShellCommandline($directCommand, $this->projectDir);
+                    $directProcess->setTimeout(600);
+                    $directProcess->run(function ($type, $buffer) use (&$commandOutput) {
+                        $prefix = (Process::ERR === $type) ? 'ERROR (DIRECTO) > ' : 'OUTPUT (DIRECTO) > ';
+                        $commandOutput .= $prefix . $buffer;
+                    });
+                    
+                    $commandSuccess = $directProcess->isSuccessful();
+                    $commandOutput .= "\nCódigo de salida (directo): " . $directProcess->getExitCode() . "\n";
+                    $commandOutput .= "Comando directo exitoso: " . ($commandSuccess ? 'Sí' : 'No') . "\n";
+                }
             }
-
+    
             $commandOutput .= "\n=== LIMPIANDO RELACIONES DEL MÓDULO ===\n";
             $this->limpiarRelacionesModulo($modulo);
             $commandOutput .= "Relaciones del módulo eliminadas de la base de datos.\n";
-
+    
             $commandOutput .= "\n=== ELIMINANDO MÓDULO DE LA BASE DE DATOS ===\n";
             $this->entityManager->remove($modulo);
             $this->entityManager->flush();
             $commandOutput .= "Registro del módulo eliminado de la base de datos.\n";
-
+    
             if ($moduleDirectory && $this->filesystem->exists($moduleDirectory)) {
                 $commandOutput .= "\n=== ELIMINANDO ARCHIVOS DEL MÓDULO ===\n";
                 try {
@@ -386,22 +454,32 @@ class CdnController extends AbstractController
                 } catch (\Exception $e) {
                     $commandOutput .= "Error al eliminar la carpeta del módulo: " . $e->getMessage() . "\n";
                     return [
-                        'success' => false,
-                        'commandSuccess' => $commandSuccess,
+                        'success' => $commandSuccess,
                         'message' => 'Módulo desinstalado, pero no se pudo eliminar la carpeta',
                         'commandOutput' => $commandOutput
                     ];
                 }
             } else {
-                $commandOutput .= "\nNo se encontró la carpeta del módulo en la ruta especificada: $moduleDirectory\n";
+                $commandOutput .= "\nNo se encontró la carpeta del módulo para eliminar\n";
             }
-
+    
+            $explorerSymlinkPath = $this->projectDir . '/public/explorer';
+            if ($this->filesystem->exists($explorerSymlinkPath)) {
+                $commandOutput .= "\n=== ELIMINANDO ENLACE SIMBÓLICO EN PUBLIC/EXPLORER ===\n";
+                try {
+                    $this->filesystem->remove($explorerSymlinkPath);
+                    $commandOutput .= "Enlace simbólico/directorio ($explorerSymlinkPath) eliminado correctamente.\n";
+                } catch (\Exception $e) {
+                    $commandOutput .= "Error al eliminar el enlace simbólico/directorio: " . $e->getMessage() . "\n";
+                }
+            }
+    
             $commandOutput .= "\n=== LIMPIANDO CACHÉ ===\n";
             $cacheClear = new Process(['php', 'bin/console', 'cache:clear']);
             $cacheClear->setWorkingDirectory($this->projectDir);
             $cacheClear->run();
             $commandOutput .= "Caché limpiada.\n";
-
+    
             return [
                 'success' => true,
                 'commandSuccess' => $commandSuccess,
@@ -417,6 +495,54 @@ class CdnController extends AbstractController
                 'stackTrace' => $e->getTraceAsString()
             ];
         }
+    }
+    
+    private function findModuleDirectoryPath(string $baseModuleName, string &$installCommandOutput): ?string
+    {
+        $srcDir = $this->projectDir . '/src';
+    
+        $exactPath = $srcDir . '/' . $baseModuleName;
+        if (is_dir($exactPath)) {
+            $installCommandOutput .= "Directorio del módulo encontrado (exacto): $exactPath\n";
+            return $exactPath;
+        }
+    
+        $moduloPath = $srcDir . '/Modulo' . $baseModuleName;
+        if (is_dir($moduloPath)) {
+            $installCommandOutput .= "Directorio del módulo encontrado (con prefijo Modulo): $moduloPath\n";
+            return $moduloPath;
+        }
+    
+        $installCommandOutput .= "Directorio exacto '$exactPath' no encontrado, buscando alternativas...\n";
+    
+        $normalizedBaseName = strtolower(str_replace('modulo', '', $baseModuleName));
+    
+        $directories = scandir($srcDir);
+        if($directories === false) {
+             $installCommandOutput .= "Error: No se pudo leer el directorio $srcDir.\n";
+             return null;
+        }
+    
+        foreach ($directories as $dir) {
+            $itemPath = $srcDir . '/' . $dir;
+            if ($dir !== '.' && $dir !== '..' && is_dir($itemPath)) {
+                $normalizedDir = strtolower(str_replace('modulo', '', $dir));
+                $installCommandOutput .= "Verificando directorio: $dir (normalizado: $normalizedDir)\n";
+    
+                if ($normalizedDir === $normalizedBaseName ||
+                    strtolower($dir) === strtolower($baseModuleName) || 
+                    stripos($dir, $baseModuleName) !== false ||
+                    stripos($baseModuleName, $dir) !== false)
+                 {
+                     $installCommandOutput .= "Usando directorio (alternativo): $itemPath\n";
+                    return $itemPath;
+                }
+            }
+        }
+    
+        $installCommandOutput .= "No se encontró un directorio apropiado para el módulo '$baseModuleName' en $srcDir.\n";
+        $installCommandOutput .= "Directorios disponibles: " . implode(", ", array_filter($directories, fn($d) => $d !== '.' && $d !== '..')) . "\n";
+        return null;
     }
 
     private function limpiarRelacionesModulo(Modulo $modulo): void

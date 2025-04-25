@@ -142,14 +142,14 @@
         </div>
         <p class="mb-4">Personaliza tu experiencia en Exnet añadiendo los módulos que necesites.</p>
         
-        {% for label, messages in app.flashes %}
+        {# {% for label, messages in app.flashes %}
             {% for message in messages %}
                 <div class="exnet-alert exnet-alert-{{ label }}">
                     <i class="fas fa-{{ label == 'success' ? 'check-circle' : 'exclamation-circle' }} me-2"></i>
                     {{ message }}
                 </div>
             {% endfor %}
-        {% endfor %}
+        {% endfor %} #}
         
         <div class="exnet-module-grid">
             {% for modulo in modulos %}
