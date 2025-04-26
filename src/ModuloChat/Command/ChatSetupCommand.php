@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use App\ModuloCore\Service\KeycloakModuleService;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
     name: 'modulochat:setup',
@@ -42,7 +43,7 @@ class ChatSetupCommand extends Command
             ->addOption('skip-menu', null, InputOption::VALUE_NONE, 'Omitir la creación de elementos de menú')
             ->setHelp(<<<EOT
                 El comando <info>modulochat:setup</info> realiza los siguientes pasos automáticamente:
-
+    
                 1. Actualiza la configuración de services.yaml para incluir el módulo de chat.
                 2. Actualiza la configuración de routes.yaml para incluir las rutas del módulo de chat.
                 3. Actualiza la configuración de twig.yaml para incluir las plantillas del módulo de chat.
@@ -50,13 +51,15 @@ class ChatSetupCommand extends Command
                 5. Registra el módulo en la tabla de módulos de la aplicación.
                 6. Crea elementos de menú para acceder al módulo de chat.
                 7. Crea las tablas del módulo de chat directamente mediante SQL.
-
+                8. Crea un enlace simbólico para los assets del módulo en la carpeta public.
+                9. Registra la licencia del módulo en Keycloak.
+    
                 Opciones:
                   --force, -f             Forzar la instalación incluso si el módulo ya está instalado
                   --skip-menu             Omitir la creación de elementos de menú
-
+    
                 Ejemplo de uso:
-
+    
                 <info>php bin/console modulochat:setup</info>
                 <info>php bin/console modulochat:setup --force</info>
                 EOT
@@ -96,6 +99,8 @@ class ChatSetupCommand extends Command
 
         // 7. Crear tablas directamente
         $this->createTables($io);
+
+        $this->setupAssetsSymlink($io);
 
         $io->success('¡Módulo de Chat configurado exitosamente!');
         $io->note('Puedes acceder al chat en la ruta /chat');
@@ -325,6 +330,58 @@ modulo_chat_controllers:
     type: attribute
 # ----------- modulochat -------
 EOT;
+    }
+
+    private function setupAssetsSymlink(SymfonyStyle $io): void
+    {
+        try {
+            $io->section('Configurando acceso a los assets del ModuloChat');
+            $filesystem = new Filesystem();
+
+            $assetsSourcePath = dirname(__DIR__) . '/Assets';
+            if (!$filesystem->exists($assetsSourcePath)) {
+                $io->error('La carpeta Assets no existe en el módulo Chat. No se puede crear el enlace simbólico.');
+                return;
+            }
+
+            $targetDir = $this->parameterBag->get('kernel.project_dir') . '/public';
+            $jsDir = $targetDir . '/js';
+            if (!$filesystem->exists($jsDir)) {
+                $filesystem->mkdir($jsDir);
+                $io->text('Creado directorio: /public/js');
+            }
+
+            $symlinkPath = $targetDir . '/ModuloChat';
+
+            if ($filesystem->exists($symlinkPath)) {
+                if (is_link($symlinkPath)) {
+                    $filesystem->remove($symlinkPath);
+                    $io->text('Enlace simbólico existente eliminado');
+                } else {
+                    $io->warning('La ruta /public/ModuloChat existe pero no es un enlace simbólico. Eliminando...');
+                    $filesystem->remove($symlinkPath);
+                }
+            }
+
+            if (function_exists('symlink')) {
+                $filesystem->symlink($assetsSourcePath, $symlinkPath);
+                $io->success('Enlace simbólico creado correctamente: /public/ModuloChat -> /src/ModuloChat/Assets');
+            } else {
+                $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
+                if (!$filesystem->exists($symlinkPath)) {
+                    $filesystem->mkdir($symlinkPath);
+                }
+                $filesystem->mirror($assetsSourcePath, $symlinkPath);
+                $io->text('Archivos copiados a /public/ModuloChat');
+                $filesystem->dumpFile(
+                    $symlinkPath . '/README.txt',
+                    "Esta carpeta contiene una copia de los assets de src/ModuloChat/Assets.\n" .
+                    "Se recomienda actualizar ambas carpetas cuando se realizan cambios en los archivos."
+                );
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al configurar el enlace simbólico para los assets del ModuloChat: ' . $e->getMessage());
+        }
     }
 
     private function updateTwigYaml(SymfonyStyle $io): void

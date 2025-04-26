@@ -76,13 +76,6 @@
                                 </a>
                                 
                                 {% if user.id != current_user.id %}
-                                    <form method="post" action="{{ path('admin_users_toggle_active', {'id': user.id}) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres {{ user.isActive ? 'desactivar' : 'activar' }} a este usuario?')">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('toggle_active_' ~ user.id) }}">
-                                        <button type="submit" class="action-icon action-icon-toggle" title="{{ user.isActive ? 'Desactivar' : 'Activar' }}">
-                                            <i class="fas fa-{{ user.isActive ? 'toggle-off' : 'toggle-on' }}"></i>
-                                        </button>
-                                    </form>
-                                    
                                     <form method="post" action="{{ path('admin_users_delete', {'id': user.id}) }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.')">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_user_' ~ user.id) }}">
                                         <button type="submit" class="action-icon action-icon-delete" title="Eliminar">
@@ -90,9 +83,6 @@
                                         </button>
                                     </form>
                                 {% else %}
-                                    <span class="action-icon" title="No puedes modificar tu propio estado" style="opacity: 0.3; cursor: not-allowed;">
-                                        <i class="fas fa-toggle-on"></i>
-                                    </span>
                                     <span class="action-icon" title="No puedes eliminarte a ti mismo" style="opacity: 0.3; cursor: not-allowed;">
                                         <i class="fas fa-trash"></i>
                                     </span>
@@ -113,5 +103,5 @@
 
 {% block imports %}
     {{ parent() }}
-        <script src="{{ asset('ModuloCore/js/users.js') }}"></script>
+        <script src="{{ asset('/ModuloCore/js/users.js') }}"></script>
 {% endblock %}
