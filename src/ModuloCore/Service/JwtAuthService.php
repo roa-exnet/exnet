@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class JwtAuthService
 {
@@ -19,17 +20,23 @@ class JwtAuthService
     private IpAuthService $ipAuthService;
     private EntityManagerInterface $entityManager;
     private ?UserRepository $userRepository = null;
+    private ?EncryptionService $encryptionService;
+    private ?LoggerInterface $logger;
     
     public function __construct(
         string $appSecret,
         IpAuthService $ipAuthService,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        EncryptionService $encryptionService = null,
+        LoggerInterface $logger = null
     ) {
         $this->jwtKey = hash('sha256', $appSecret . '_exnet_jwt_key');
         $this->tokenLifetime = 86400;
         $this->cookieName = 'exnet_auth_jwt';
         $this->ipAuthService = $ipAuthService;
         $this->entityManager = $entityManager;
+        $this->encryptionService = $encryptionService;
+        $this->logger = $logger;
     }
     
     public function generateToken(User $user, ?string $ipAddress = null): string
@@ -40,12 +47,25 @@ class JwtAuthService
             $ipAddress = $user->getIpAddress() ?: $this->ipAuthService->getCurrentIp();
         }
         
+        // Asegurar que los datos estén descifrados antes de incluirlos en el token
+        if ($this->encryptionService) {
+            $user->setEncryptionService($this->encryptionService);
+        }
+        
+        $email = $user->getEmail();
+        $nombre = $user->getNombre();
+        $apellidos = $user->getApellidos();
+        
+        if ($this->logger) {
+            $this->logger->debug('Generando token JWT para usuario: ' . $user->getId());
+        }
+        
         $payload = [
             'iat' => $now->getTimestamp(),
             'exp' => $now->modify('+24 hours')->getTimestamp(),
             'uid' => $user->getId(),
-            'email' => $user->getEmail(),
-            'name' => $user->getNombre() . ' ' . $user->getApellidos(),
+            'email' => $email,
+            'name' => $nombre . ' ' . $apellidos,
             'roles' => $user->getRoles(),
             'ip' => $ipAddress,
         ];
@@ -59,6 +79,9 @@ class JwtAuthService
             $decoded = (array) JWT::decode($token, new Key($this->jwtKey, 'HS256'));
             
             if (isset($decoded['exp']) && $decoded['exp'] < time()) {
+                if ($this->logger) {
+                    $this->logger->debug('Token JWT expirado');
+                }
                 return null;
             }
             
@@ -66,12 +89,18 @@ class JwtAuthService
                 $currentIp = $this->ipAuthService->getCurrentIp();
                 
                 if ($currentIp !== $decoded['ip'] && !empty($decoded['ip'])) {
+                    if ($this->logger) {
+                        $this->logger->debug('La IP del token (' . $decoded['ip'] . ') no coincide con la IP actual (' . $currentIp . ')');
+                    }
                     return null;
                 }
             }
             
             return $decoded;
         } catch (\Exception $e) {
+            if ($this->logger) {
+                $this->logger->error('Error al verificar token JWT: ' . $e->getMessage());
+            }
             return null;
         }
     }
@@ -130,6 +159,14 @@ class JwtAuthService
             if ($payload && isset($payload['uid'])) {
                 $user = $this->getUserRepository()->find($payload['uid']);
                 if ($user) {
+                    // Inyectar el servicio de cifrado si está disponible
+                    if ($this->encryptionService) {
+                        $user->setEncryptionService($this->encryptionService);
+                        
+                        if ($this->logger) {
+                            $this->logger->debug('Inyectado servicio de cifrado al usuario ID: ' . $user->getId());
+                        }
+                    }
                     return $user;
                 }
             }
@@ -141,6 +178,11 @@ class JwtAuthService
                 if (time() - $sessionData['timestamp'] < 1800) {
                     $user = $this->getUserRepository()->find($sessionData['user_id']);
                     if ($user) {
+                        // Inyectar el servicio de cifrado si está disponible
+                        if ($this->encryptionService) {
+                            $user->setEncryptionService($this->encryptionService);
+                        }
+                        
                         $sessionData['timestamp'] = time();
                         $request->getSession()->set('jwt_auth', $sessionData);
                         
@@ -158,6 +200,11 @@ class JwtAuthService
         
         $user = $this->ipAuthService->getCurrentUser();
         if ($user) {
+            // Inyectar el servicio de cifrado si está disponible
+            if ($this->encryptionService) {
+                $user->setEncryptionService($this->encryptionService);
+            }
+            
             if (!$token) {
                 $response = new Response();
                 $this->addTokenCookie($response, $user, $this->isSecureContext());

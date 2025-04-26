@@ -57,6 +57,13 @@ services:
         arguments:
             $backupDir: '%app.backup_dir%'
             $projectDir: '%kernel.project_dir%'
+
+    App\ModuloCore\Service\EncryptionService:
+        arguments:
+            $appSecret: '%env(APP_SECRET)%'
+    
+    App\ModuloCore\EventSubscriber\EntityEncryptionSubscriber:
+        tags: ['doctrine.event_subscriber']
     
     App\ModuloCore\EventSubscriber\JwtAuthSubscriber:
         tags:

@@ -3,6 +3,7 @@
 namespace App\ModuloCore\Entity;
 
 use App\ModuloCore\Repository\UserRepository;
+use App\ModuloCore\Service\EncryptionService;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -48,11 +49,64 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 45, nullable: true)]
     private ?string $ip_address = null;
 
+    /**
+     * Servicio de cifrado inyectado por el EntityEncryptionSubscriber
+     */
+    private ?EncryptionService $encryptionService = null;
+
+    /**
+     * Guarda los valores originales (sin cifrar) para la sesión actual
+     */
+    private array $decryptedValues = [];
+
     public function __construct()
     {
         $this->created_at = new \DateTimeImmutable();
         $this->is_active = true;
         $this->roles = ['ROLE_USER'];
+    }
+
+    /**
+     * Establece el servicio de cifrado
+     */
+    public function setEncryptionService(EncryptionService $service): void
+    {
+        $this->encryptionService = $service;
+        // Desciframos valores al cargar la entidad si no están ya en caché
+        $this->initializeDecryptedValues();
+    }
+
+    /**
+     * Inicializa valores descifrados al cargar la entidad
+     */
+    private function initializeDecryptedValues(): void
+    {
+        if (!$this->encryptionService || !empty($this->decryptedValues)) {
+            return;
+        }
+
+        if ($this->email && $this->isEncrypted($this->email)) {
+            $this->decryptedValues['email'] = $this->encryptionService->decrypt($this->email);
+        }
+
+        if ($this->nombre && $this->isEncrypted($this->nombre)) {
+            $this->decryptedValues['nombre'] = $this->encryptionService->decrypt($this->nombre);
+        }
+
+        if ($this->apellidos && $this->isEncrypted($this->apellidos)) {
+            $this->decryptedValues['apellidos'] = $this->encryptionService->decrypt($this->apellidos);
+        }
+    }
+
+    /**
+     * Comprueba si un valor está cifrado
+     */
+    private function isEncrypted(string $value): bool
+    {
+        // Los datos cifrados con Sodium siempre serán cadenas base64 largas
+        return (strlen($value) > 40) && 
+            (base64_decode($value, true) !== false) && 
+            (strpos($value, '=') !== false || strlen($value) % 4 === 0);
     }
 
     public function getId(): ?int
@@ -62,23 +116,38 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getEmail(): ?string
     {
+        if (isset($this->decryptedValues['email'])) {
+            return $this->decryptedValues['email'];
+        }
+
+        if ($this->encryptionService && $this->email && $this->isEncrypted($this->email)) {
+            $decrypted = $this->encryptionService->decrypt($this->email);
+            $this->decryptedValues['email'] = $decrypted;
+            return $decrypted;
+        }
+
         return $this->email;
     }
 
     public function setEmail(string $email): static
     {
-        $this->email = $email;
+        $this->decryptedValues['email'] = $email;
+
+        if ($this->encryptionService) {
+            $this->email = $this->encryptionService->encrypt($email);
+        } else {
+            $this->email = $email;
+        }
 
         return $this;
     }
 
     /**
-     *
      * @see UserInterface
      */
     public function getUserIdentifier(): string
     {
-        return (string) $this->email;
+        return (string) $this->getEmail();
     }
 
     /**
@@ -124,24 +193,59 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getNombre(): ?string
     {
+        // Forzar descifrado si tenemos el servicio y parece cifrado
+        if ($this->encryptionService && $this->nombre && 
+            (strlen($this->nombre) > 40) && 
+            (base64_decode($this->nombre, true) !== false)) {
+            
+            try {
+                return $this->encryptionService->decrypt($this->nombre);
+            } catch (\Exception $e) {
+                // Si falla el descifrado, devolvemos el valor original
+                return $this->nombre;
+            }
+        }
+        
         return $this->nombre;
     }
 
     public function setNombre(string $nombre): static
     {
-        $this->nombre = $nombre;
+        $this->decryptedValues['nombre'] = $nombre;
+
+        if ($this->encryptionService) {
+            $this->nombre = $this->encryptionService->encrypt($nombre);
+        } else {
+            $this->nombre = $nombre;
+        }
 
         return $this;
     }
 
     public function getApellidos(): ?string
     {
+        if (isset($this->decryptedValues['apellidos'])) {
+            return $this->decryptedValues['apellidos'];
+        }
+
+        if ($this->encryptionService && $this->apellidos && $this->isEncrypted($this->apellidos)) {
+            $decrypted = $this->encryptionService->decrypt($this->apellidos);
+            $this->decryptedValues['apellidos'] = $decrypted;
+            return $decrypted;
+        }
+
         return $this->apellidos;
     }
 
     public function setApellidos(string $apellidos): static
     {
-        $this->apellidos = $apellidos;
+        $this->decryptedValues['apellidos'] = $apellidos;
+
+        if ($this->encryptionService) {
+            $this->apellidos = $this->encryptionService->encrypt($apellidos);
+        } else {
+            $this->apellidos = $apellidos;
+        }
 
         return $this;
     }

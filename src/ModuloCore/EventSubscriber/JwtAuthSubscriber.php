@@ -3,6 +3,7 @@
 namespace App\ModuloCore\EventSubscriber;
 
 use App\ModuloCore\Service\JwtAuthService;
+use App\ModuloCore\Service\EncryptionService;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -11,16 +12,25 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Psr\Log\LoggerInterface;
 
 class JwtAuthSubscriber implements EventSubscriberInterface
 {
     private JwtAuthService $jwtAuthService;
     private RequestStack $requestStack;
+    private ?EncryptionService $encryptionService;
+    private ?LoggerInterface $logger;
     
-    public function __construct(JwtAuthService $jwtAuthService, RequestStack $requestStack)
-    {
+    public function __construct(
+        JwtAuthService $jwtAuthService, 
+        RequestStack $requestStack,
+        EncryptionService $encryptionService = null,
+        LoggerInterface $logger = null
+    ) {
         $this->jwtAuthService = $jwtAuthService;
         $this->requestStack = $requestStack;
+        $this->encryptionService = $encryptionService;
+        $this->logger = $logger;
     }
     
     public static function getSubscribedEvents(): array
@@ -43,6 +53,14 @@ class JwtAuthSubscriber implements EventSubscriberInterface
         $user = $this->jwtAuthService->getAuthenticatedUser($request);
         
         if ($user) {
+            // Aseguramos que el usuario tenga acceso al servicio de cifrado
+            if ($this->encryptionService !== null) {
+                $user->setEncryptionService($this->encryptionService);
+                if ($this->logger) {
+                    $this->logger->debug('Inyectado servicio de cifrado en JwtAuthSubscriber para usuario ID: ' . $user->getId());
+                }
+            }
+            
             $request->attributes->set('jwt_user', $user);
             
             if ($request->hasSession()) {
@@ -117,6 +135,11 @@ class JwtAuthSubscriber implements EventSubscriberInterface
                 if (!$user && isset($payload['uid'])) {
                     $userRepository = $this->jwtAuthService->getUserRepository();
                     $user = $userRepository->find($payload['uid']);
+                    
+                    // Inyectar servicio de cifrado si está disponible
+                    if ($user && $this->encryptionService) {
+                        $user->setEncryptionService($this->encryptionService);
+                    }
                 }
                 
                 if ($user) {

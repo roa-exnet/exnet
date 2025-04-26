@@ -5,6 +5,7 @@ namespace App\ModuloCore\Controller;
 use App\ModuloCore\Entity\User;
 use App\ModuloCore\Service\IpAuthService;
 use App\ModuloCore\Service\JwtAuthService;
+use App\ModuloCore\Service\EncryptionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,6 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
+use Psr\Log\LoggerInterface;
 
 class SecurityController extends AbstractController
 {
@@ -19,17 +21,23 @@ class SecurityController extends AbstractController
     private UserPasswordHasherInterface $passwordHasher;
     private EntityManagerInterface $entityManager;
     private JwtAuthService $jwtAuthService;
+    private ?EncryptionService $encryptionService;
+    private ?LoggerInterface $logger;
 
     public function __construct(
         IpAuthService $ipAuthService,
         UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $entityManager,
-        JwtAuthService $jwtAuthService
+        JwtAuthService $jwtAuthService,
+        EncryptionService $encryptionService = null,
+        LoggerInterface $logger = null
     ) {
         $this->ipAuthService = $ipAuthService;
         $this->passwordHasher = $passwordHasher;
         $this->entityManager = $entityManager;
         $this->jwtAuthService = $jwtAuthService;
+        $this->encryptionService = $encryptionService;
+        $this->logger = $logger;
     }
 
     #[Route('/register-ip', name: 'app_register_ip')]
@@ -69,7 +77,18 @@ class SecurityController extends AbstractController
             if (empty($errors)) {
                 $userRepository = $this->entityManager->getRepository(User::class);
                 
-                $existingUser = $userRepository->findOneBy(['email' => $email]);
+                // Verificar si el usuario existe por email
+                // Nota: esto podría ser problemático ahora que el email está cifrado
+                // Consideramos usar findBy y luego verificar manualmente el email descifrado
+                $existingUsers = $userRepository->findAll();
+                $existingUser = null;
+                
+                foreach ($existingUsers as $user) {
+                    if ($user->getEmail() === $email) {
+                        $existingUser = $user;
+                        break;
+                    }
+                }
                 
                 if ($existingUser) {
                     $errors[] = 'Este email ya está registrado. Si es su cuenta, por favor inicie sesión con su IP.';
@@ -83,6 +102,16 @@ class SecurityController extends AbstractController
                     ]);
                 } else {
                     $user = new User();
+                    
+                    // Asignar el servicio de cifrado si está disponible
+                    if ($this->encryptionService) {
+                        $user->setEncryptionService($this->encryptionService);
+                        if ($this->logger) {
+                            $this->logger->info('Servicio de cifrado inyectado durante registro');
+                        }
+                    }
+                    
+                    // Establecer los datos del usuario (serán cifrados por los setters)
                     $user->setEmail($email);
                     $user->setNombre($nombre);
                     $user->setApellidos($apellidos);
@@ -98,6 +127,10 @@ class SecurityController extends AbstractController
                     
                     $this->entityManager->persist($user);
                     $this->entityManager->flush();
+                    
+                    if ($this->logger) {
+                        $this->logger->info('Usuario creado con datos cifrados: ID=' . $user->getId());
+                    }
                     
                     $redirectUrl = $request->query->get('redirect');
                     $response = $redirectUrl ? $this->redirect($redirectUrl) : $this->redirectToRoute('landing');
@@ -185,11 +218,14 @@ class SecurityController extends AbstractController
                 $user = $userRepository->find($payload['uid']);
                 
                 if ($user) {
+                    // El nombre y apellidos se descifrarán automáticamente al acceder a ellos
+                    $userName = $user->getNombre() . ' ' . $user->getApellidos();
+                    
                     return $this->json([
                         'success' => true,
                         'valid' => true,
                         'userId' => $user->getId(),
-                        'userName' => $user->getNombre() . ' ' . $user->getApellidos(),
+                        'userName' => $userName,
                         'authMethod' => 'jwt'
                     ]);
                 }
@@ -223,11 +259,14 @@ class SecurityController extends AbstractController
             
             $isValid = $this->ipAuthService->validateUserToken($user, $token);
             
+            // El nombre y apellidos se descifrarán automáticamente al acceder a ellos
+            $userName = $user->getNombre() . ' ' . $user->getApellidos();
+            
             return $this->json([
                 'success' => true,
                 'valid' => $isValid,
                 'userId' => $user->getId(),
-                'userName' => $user->getNombre() . ' ' . $user->getApellidos(),
+                'userName' => $userName,
                 'authMethod' => 'legacy'
             ]);
         }
@@ -243,11 +282,14 @@ class SecurityController extends AbstractController
         
         $isValid = $this->ipAuthService->validateUserToken($user, $token);
         
+        // El nombre y apellidos se descifrarán automáticamente al acceder a ellos
+        $userName = $user->getNombre() . ' ' . $user->getApellidos();
+        
         return $this->json([
             'success' => true,
             'valid' => $isValid,
             'userId' => $user->getId(),
-            'userName' => $user->getNombre() . ' ' . $user->getApellidos(),
+            'userName' => $userName,
             'authMethod' => 'legacy'
         ]);
     }
