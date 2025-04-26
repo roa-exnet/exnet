@@ -1,0 +1,197 @@
+.user-table {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.user-table th {
+    background-color: rgba(44, 62, 80, 0.8);
+    color: white;
+    font-weight: 500;
+    padding: 12px 15px;
+    text-align: left;
+    border: none;
+}
+
+.user-table td {
+    color: white;
+    padding: 10px 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.1)
+}
+
+.user-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.user-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.user-inactive {
+    opacity: 0.6;
+}
+
+.user-role-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.user-role-admin {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #f8d7da;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.user-role-user {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #d4edda;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.action-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.action-icon:hover {
+    transform: translateY(-2px);
+}
+
+.action-icon-edit {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.action-icon-delete {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+}
+
+.action-icon-toggle {
+    background-color: rgba(13, 110, 253, 0.2);
+    color: #0d6efd;
+}
+
+.filter-bar {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.search-input {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    padding: 8px 12px;
+}
+
+.search-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.user-form-container {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 25px;
+}
+
+.form-label {
+    color: white;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.form-control {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    padding: 10px 15px;
+}
+
+.form-control:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: white;
+    box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.form-control:disabled {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.form-check-input {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check-label {
+    color: white;
+}
+
+.field-info {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    margin-top: 5px;
+}
+
+.section-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+}
+
+.user-info-header {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.user-info-header .user-name {
+    color: white;
+    font-size: 1.2rem;
+    margin: 0;
+}
+
+.user-info-header .user-email {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.user-info-header .user-id {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: white;
+    display: inline-block;
+    font-size: 0.8rem;
+    padding: 2px 10px;
+}

@@ -1,0 +1,112 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Usuario{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/adminUsers.css') }}">
+
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-section-title">Editar Usuario</h1>
+        <a href="{{ path('admin_users_index') }}" class="exnet-btn exnet-btn-outline-light">
+            <i class="fas fa-arrow-left me-2"></i> Volver
+        </a>
+    </div>
+    
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }} alert-dismissible fade show mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    
+    <div class="user-info-header d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="user-name">{{ user.nombre }} {{ user.apellidos }}</h2>
+            <p class="user-email">{{ user.email }}</p>
+        </div>
+        <div>
+            <span class="user-id">ID: {{ user.id }}</span>
+        </div>
+    </div>
+    
+    <div class="user-form-container">
+        <form method="POST" id="editUserForm">
+            <div class="mb-4">
+                <h3 class="section-header">Información Personal</h3>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" value="{{ user.email }}" disabled>
+                        <div class="field-info">
+                            El email no se puede cambiar
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="ip_address" class="form-label">Dirección IP</label>
+                        <input type="text" class="form-control" id="ip_address" name="ip_address" value="{{ user.ipAddress }}" placeholder="Ej: 192.168.1.1">
+                        <div class="field-info">
+                            Introduce la IP para acceso automático o deja en blanco para desactivar
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" value="{{ user.nombre }}" required>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="apellidos" class="form-label">Apellidos</label>
+                        <input type="text" class="form-control" id="apellidos" name="apellidos" value="{{ user.apellidos }}" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h3 class="section-header">Configuración de Cuenta</h3>
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if user.isActive %}checked{% endif %} {% if user.id == current_user.id %}disabled{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Cuenta activa
+                            </label>
+                            {% if user.id == current_user.id %}
+                                <div class="field-info">
+                                    No puedes desactivar tu propia cuenta
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" {% if 'ROLE_ADMIN' in user.roles %}checked{% endif %}>
+                            <label class="form-check-label" for="is_admin">
+                                Permisos de administrador
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="exnet-btn exnet-btn-outline-light" onclick="window.location.href='{{ path('admin_users_index') }}'">Cancelar</button>
+                <button type="submit" class="exnet-btn exnet-btn-blue" id="submitBtn">
+                    <i class="fas fa-save me-2"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block imports %}
+    <script src="{{ asset('js/editUser.js') }}"></script>
+    {{ parent() }}
+{% endblock %}
