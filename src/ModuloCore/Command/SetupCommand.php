@@ -672,6 +672,60 @@ class SetupCommand extends Command
         return $menuElement;
     }
 
+    private function setupModuleCoreSymlinks(SymfonyStyle $io): bool
+    {
+        try {
+            $filesystem = new Filesystem();
+
+            $assetsSourcePath = $this->projectDir . '/src/ModuloCore/Assets';
+            if (!$filesystem->exists($assetsSourcePath)) {
+                $io->error('La carpeta Resources/public no existe en el módulo Core. No se puede crear el enlace simbólico.');
+                return false;
+            }
+
+            $targetDir = $this->projectDir . '/public';
+            $jsDir = $targetDir . '/js';
+            if (!$filesystem->exists($jsDir)) {
+                $filesystem->mkdir($jsDir);
+                $io->text('Creado directorio: /public/js');
+            }
+
+            $symlinkPath = $targetDir . '/ModuloCore';
+
+            if ($filesystem->exists($symlinkPath)) {
+                if (is_link($symlinkPath)) {
+                    $filesystem->remove($symlinkPath);
+                    $io->text('Enlace simbólico existente eliminado');
+                } else {
+                    $io->warning('La ruta /public/ModuloCore existe pero no es un enlace simbólico. Eliminando...');
+                    $filesystem->remove($symlinkPath);
+                }
+            }
+
+            if (function_exists('symlink')) {
+                $filesystem->symlink($assetsSourcePath, $symlinkPath);
+                $io->success('Enlace simbólico creado correctamente: /public/ModuloCore -> /src/ModuloCore/Resources/public');
+            } else {
+                $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
+                if (!$filesystem->exists($symlinkPath)) {
+                    $filesystem->mkdir($symlinkPath);
+                }
+                $filesystem->mirror($assetsSourcePath, $symlinkPath);
+                $io->text('Archivos copiados a /public/ModuloCore');
+                $filesystem->dumpFile(
+                    $symlinkPath . '/README.txt',
+                    "Esta carpeta contiene una copia de los assets de src/ModuloCore/Resources/public.\n" .
+                    "Se recomienda actualizar ambas carpetas cuando se realizan cambios en los archivos."
+                );
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            $io->error('Error al configurar el enlace simbólico para los assets del ModuloCore: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     private function finalSetup(SymfonyStyle $io, InputInterface $input): bool
     {
         $io->section('Configuración final');
@@ -706,6 +760,12 @@ class SetupCommand extends Command
             if (!is_writable($fullPath)) {
                 $io->warning('El directorio ' . $path . ' no tiene permisos de escritura. Considere ejecutar: chmod -R 777 ' . $path);
             }
+        }
+    
+        // Configurar enlaces simbólicos para los assets del ModuloCore
+        if (!$this->setupModuleCoreSymlinks($io)) {
+            $io->warning('No se pudieron configurar los enlaces simbólicos para ModuloCore correctamente.');
+            // Continuamos con la instalación aunque haya fallado este paso
         }
         
         // Iniciar servidor web

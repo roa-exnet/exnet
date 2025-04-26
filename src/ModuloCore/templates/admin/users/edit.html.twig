@@ -4,8 +4,7 @@
 
 {% block head %}
     {{ parent() }}
-    <link rel="stylesheet" href="{{ asset('css/adminUsers.css') }}">
-
+    <link rel="stylesheet" href="{{ asset('ModuloCore/css/adminUsers.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -107,6 +106,6 @@
 {% endblock %}
 
 {% block imports %}
-    <script src="{{ asset('js/editUser.js') }}"></script>
+    <script src="{{ asset('ModuloCore/js/editUser.js') }}"></script>
     {{ parent() }}
 {% endblock %}

@@ -120,15 +120,9 @@
         {% endif %}
         
         {% if app.request.attributes.get('jwt_user') %}
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
-                <div style="color: white; padding: 10px; font-size: 0.9rem; display: flex; align-items: center;">
-                    <i class="fas fa-user" style="margin-right: 12px; width: 20px; text-align: center;"></i>
-                    <span>{{ app.request.attributes.get('jwt_user').nombre }} {{ app.request.attributes.get('jwt_user').apellidos }}</span>
-                </div>
-            </div>
             
             {% if 'ROLE_ADMIN' in app.request.attributes.get('jwt_user').roles %}
-            <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+            <div style="margin-top: 10px; padding-top: 10px;">
                 <div style="color: white; padding: 5px 10px; font-size: 0.9rem;">
                     <span style="opacity: 0.7;">Administración</span>
                 </div>
@@ -144,10 +138,10 @@
                     <i class="fas fa-plus-circle" style="margin-right: 12px; width: 20px; text-align: center;"></i>
                     <span>Añadir Módulos</span>
                 </a>
-                <a href="/jwt-logout" style="color: white; display: flex; align-items: center; text-decoration: none; background-color: rgba(220,53,69,0.2); border-radius: 5px; padding: 10px;">
+                {# <a href="/jwt-logout" style="color: white; display: flex; align-items: center; text-decoration: none; background-color: rgba(220,53,69,0.2); border-radius: 5px; padding: 10px;">
                     <i class="fas fa-sign-out-alt" style="margin-right: 12px; width: 20px; text-align: center;"></i>
                     <span>Salir</span>
-                </a>
+                </a> #}
             </div>
         {% endif %}
     </div>
@@ -245,10 +239,10 @@
 
     {% block imports %}
         <script src="{{ asset('bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-        <script src="{{ asset('js/ModuloCoreJs/Other/navbar.js') }}"></script>
+        <script src="{{ asset('ModuloCore/js/navbar.js') }}"></script>
         
         {% if not auth_js_imported is defined %}
-            <script src="{{ asset('js/auth.js') }}"></script>
+            <script src="{{ asset('ModuloCore/js/auth.js') }}"></script>
             {% set auth_js_imported = true %}
         {% endif %}
         

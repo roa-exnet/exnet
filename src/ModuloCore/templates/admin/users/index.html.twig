@@ -4,7 +4,7 @@
 
 {% block head %}
     {{ parent() }}
-    <link rel="stylesheet" href="{{ asset('css/adminUsers.css') }}">
+    <link rel="stylesheet" href="{{ asset('ModuloCore/css/adminUsers.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -30,7 +30,6 @@
             <div class="col-md-6 d-flex justify-content-md-end">
                 <div class="btn-group">
                     <button type="button" class="exnet-btn exnet-btn-outline-light" data-filter="all">Todos</button>
-                    <button type="button" class="exnet-btn exnet-btn-outline-light" data-filter="active">Activos</button>
                     <button type="button" class="exnet-btn exnet-btn-outline-light" data-filter="admin">Administradores</button>
                 </div>
             </div>
@@ -114,5 +113,5 @@
 
 {% block imports %}
     {{ parent() }}
-        <script src="{{ asset('js/users.js') }}"></script>
+        <script src="{{ asset('ModuloCore/js/users.js') }}"></script>
 {% endblock %}
