@@ -90,22 +90,7 @@ services:
         autowire: true
         autoconfigure: true
         public: true
-    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
-    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
-    App\ModuloExplorador\Controller\:
-        resource: '../src/ModuloExplorador/Controller'
-        tags: ['controller.service_arguments']
-        
-    App\ModuloExplorador\Command\:
-        resource: '../src/ModuloExplorador/Command'
-        tags: ['console.command']
-        
-    App\ModuloExplorador\Service\:
-        resource: '../src/ModuloExplorador/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------
+    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------
 # ----------- modulochat -------
     App\ModuloChat\Controller\:
         resource: '../src/ModuloChat/Controller'
@@ -121,3 +106,33 @@ services:
         autoconfigure: true
         public: true
 # ----------- modulochat -------        
+    #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
+    App\ModuloMusica\Controller\:
+        resource: '../src/ModuloMusica/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloMusica\Command\:
+        resource: '../src/ModuloMusica/Command'
+        tags: ['console.command']
+        
+    App\ModuloMusica\Service\:
+        resource: '../src/ModuloMusica/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        

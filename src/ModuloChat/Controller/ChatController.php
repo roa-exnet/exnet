@@ -14,8 +14,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
-use App\ModuloCore\Service\EncryptionService;
-
 
 #[Route('/chat', name: 'chat_')]
 class ChatController extends AbstractController
@@ -24,18 +22,15 @@ class ChatController extends AbstractController
     private string $websocketUrl;
     private EntityManagerInterface $entityManager;
     private IpAuthService $ipAuthService;
-    private ?EncryptionService $encryptionService;
     
     public function __construct(
         ChatService $chatService, 
         EntityManagerInterface $entityManager,
-        IpAuthService $ipAuthService,
-        EncryptionService $encryptionService = null
+        IpAuthService $ipAuthService
     ) {
         $this->chatService = $chatService;
         $this->entityManager = $entityManager;
         $this->ipAuthService = $ipAuthService;
-        $this->encryptionService = $encryptionService;
         $this->websocketUrl = 'https://websockettest.exnet.cloud';
     }
     
@@ -620,37 +615,27 @@ class ChatController extends AbstractController
                 ]);
             }
             
-            // No podemos usar LIKE directamente con datos cifrados
-            // Recuperamos todos los usuarios activos y filtramos después
             $userRepository = $this->entityManager->getRepository(User::class);
-            $allActiveUsers = $userRepository->findBy(['is_active' => true]);
+            
+            $qb = $userRepository->createQueryBuilder('u');
+            $qb->where('u.nombre LIKE :query')
+               ->orWhere('u.apellidos LIKE :query')
+               ->orWhere('u.email LIKE :query')
+               ->andWhere('u.is_active = :active')
+               ->setParameter('query', '%' . $query . '%')
+               ->setParameter('active', true)
+               ->setMaxResults(10);
+            
+            $results = $qb->getQuery()->getResult();
             
             $users = [];
-            foreach ($allActiveUsers as $searchUser) {
-                // Inyectar servicio de encriptación si está disponible
-                if (isset($this->encryptionService)) {
-                    $searchUser->setEncryptionService($this->encryptionService);
-                }
-                
-                // Buscar en datos descifrados
-                $fullName = $searchUser->getNombre() . ' ' . $searchUser->getApellidos();
-                $email = $searchUser->getEmail();
-                
-                if (($query && 
-                    (stripos($fullName, $query) !== false || 
-                     stripos($email, $query) !== false)) &&
-                    $searchUser->getId() !== $user->getId()) {
-                    
+            foreach ($results as $searchUser) {
+                if ($searchUser->getId() !== $user->getId()) {
                     $users[] = [
                         'id' => $searchUser->getId(),
-                        'nombre' => $fullName,
-                        'email' => $email
+                        'nombre' => $searchUser->getNombre() . ' ' . $searchUser->getApellidos(),
+                        'email' => $searchUser->getEmail()
                     ];
-                    
-                    // Limitar a 10 resultados
-                    if (count($users) >= 10) {
-                        break;
-                    }
                 }
             }
             

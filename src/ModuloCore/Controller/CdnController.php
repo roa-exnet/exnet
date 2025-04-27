@@ -176,39 +176,46 @@ class CdnController extends AbstractController
                     'message' => 'Módulo no encontrado'
                 ], 404);
             }
-
-            $moduleAttributes = $this->cdnService->getModuleAttributes($modulo);
+    
+            $moduleDir = $modulo->getRuta();
+            $moduleName = $modulo->getNombre();
+            $this->logInfo("Buscando URL para módulo: {$moduleName} en directorio: {$moduleDir}");
             
-            if (isset($moduleAttributes['route']) && !empty($moduleAttributes['route'])) {
-                return $this->json([
-                    'success' => true,
-                    'url' => $moduleAttributes['route']
-                ]);
-            }
-
-            $menuElements = $modulo->getMenuElements();
-
-            if ($menuElements->isEmpty()) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'No se encontraron elementos de menú asociados al módulo'
-                ], 404);
-            }
-
-            foreach ($menuElements as $menuElement) {
-                if ($menuElement->getParentId() !== 0) {
-                    return $this->json([
-                        'success' => true,
-                        'url' => $menuElement->getRuta()
-                    ]);
+            $settingsPath = rtrim($moduleDir, '/') . '/settings.json';
+            
+            if (file_exists($settingsPath)) {
+                try {
+                    $settingsContent = file_get_contents($settingsPath);
+                    $settings = json_decode($settingsContent, true);
+                    
+                    if (json_last_error() === JSON_ERROR_NONE && isset($settings['open']) && !empty($settings['open'])) {
+                        $url = $settings['open'];
+                        $this->logInfo("URL encontrada en settings.json (atributo 'open'): {$url}");
+                        
+                        return $this->json([
+                            'success' => true,
+                            'url' => $url
+                        ]);
+                    } else {
+                        $this->logWarning("El archivo settings.json existe pero no contiene un atributo 'open' válido");
+                    }
+                } catch (\Exception $e) {
+                    $this->logWarning("Error al leer settings.json: " . $e->getMessage());
                 }
+            } else {
+                $this->logWarning("No se encontró el archivo settings.json en la ruta del módulo: {$settingsPath}");
             }
-
-            $firstMenuElement = $menuElements->first();
-
+            
+            $url = $this->findUrlFromMenuElements($modulo);
+            
+            if (!$url) {
+                $url = '/' . strtolower($this->normalizeString($moduleName));
+                $this->logInfo("Generando URL basada en nombre del módulo: {$url}");
+            }
+            
             return $this->json([
                 'success' => true,
-                'url' => $firstMenuElement ? $firstMenuElement->getRuta() : null
+                'url' => $url
             ]);
         } catch (\Exception $e) {
             $this->logError("Error en getModuleUrl: " . $e->getMessage());
@@ -218,6 +225,61 @@ class CdnController extends AbstractController
             ], 500);
         }
     }
+
+    private function normalizeString(string $input): string
+    {
+        $normalized = strtolower($input);
+        
+        $normalized = preg_replace('/[áàäâãå]/u', 'a', $normalized);
+        $normalized = preg_replace('/[éèëê]/u', 'e', $normalized);
+        $normalized = preg_replace('/[íìïî]/u', 'i', $normalized);
+        $normalized = preg_replace('/[óòöôõ]/u', 'o', $normalized);
+        $normalized = preg_replace('/[úùüû]/u', 'u', $normalized);
+        $normalized = preg_replace('/[ñ]/u', 'n', $normalized);
+        
+        $normalized = str_replace(' ', '-', $normalized);
+        
+        $normalized = preg_replace('/[^a-z0-9\-]/', '', $normalized);
+        
+        return $normalized;
+    }
+    
+    private function findUrlFromMenuElements(Modulo $modulo): ?string
+    {
+        $menuElements = $modulo->getMenuElements();
+        
+        if ($menuElements->isEmpty()) {
+            $this->logInfo("No se encontraron elementos de menú asociados al módulo");
+            return null;
+        }
+        
+        foreach ($menuElements as $menuElement) {
+            if ($menuElement->getParentId() === 0 && $menuElement->isEnabled()) {
+                $submenus = $this->entityManager->getRepository(MenuElement::class)
+                    ->findBy(['parentId' => $menuElement->getId(), 'enabled' => true]);
+                
+                if (!empty($submenus)) {
+                    $url = $submenus[0]->getRuta();
+                    $this->logInfo("Usando URL del primer submenú: {$url}");
+                    return $url;
+                }
+                
+                $url = $menuElement->getRuta();
+                $this->logInfo("Usando URL del menú principal: {$url}");
+                return $url;
+            }
+        }
+        
+        $firstElement = $menuElements->first();
+        if ($firstElement && $firstElement->isEnabled()) {
+            $url = $firstElement->getRuta();
+            $this->logInfo("Usando URL del primer elemento de menú: {$url}");
+            return $url;
+        }
+        
+        return null;
+    }
+    
     
     #[Route('/api/modulos/{id}/details', name: 'api_get_module_details', methods: ['GET'])]
     public function getModuleDetails(int $id): JsonResponse
