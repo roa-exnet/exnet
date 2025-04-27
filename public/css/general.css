@@ -25,6 +25,11 @@ body {
     flex-direction: column;
 }
 
+.dropdown-item:focus, .dropdown-item:hover {
+    color: var(--bs-dropdown-link-hover-color);
+    background-color: #1e3247;
+}
+
 body {
     background-size: cover;
     background-position: center center;

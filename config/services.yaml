@@ -75,7 +75,37 @@ services:
             $entityManager: '@doctrine.orm.entity_manager'
             $parameterBag: '@parameter_bag'
 
-    #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------
+    #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
+    App\ModuloStreaming\Controller\:
+        resource: '../src/ModuloStreaming/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloStreaming\Command\:
+        resource: '../src/ModuloStreaming/Command'
+        tags: ['console.command']
+        
+    App\ModuloStreaming\Service\:
+        resource: '../src/ModuloStreaming/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------
 # ----------- modulochat -------
     App\ModuloChat\Controller\:
         resource: '../src/ModuloChat/Controller'

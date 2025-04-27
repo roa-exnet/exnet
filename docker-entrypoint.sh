@@ -20,4 +20,16 @@ if [ -d "/var/www/html" ]; then
     fi
 fi
 
+# -----------------------------------------------------------
+# NUEVO: Activar WireGuard si existe configuración
+# -----------------------------------------------------------
+
+if [ -f /etc/wireguard/wg0.conf ]; then
+    echo "[+] Archivo WireGuard encontrado, levantando VPN..."
+    wg-quick up wg0 || { echo "[-] Error al levantar WireGuard"; exit 1; }
+else
+    echo "[!] No se encontró /etc/wireguard/wg0.conf. Continuando sin VPN..."
+fi
+
+# Ejecutar el comando original (php-fpm)
 exec "$@"

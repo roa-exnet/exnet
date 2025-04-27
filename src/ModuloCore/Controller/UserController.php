@@ -173,28 +173,41 @@ class UserController extends AbstractController
             $this->addFlash('error', 'No tienes permisos suficientes para acceder a esta sección.');
             return $this->redirectToRoute('landing');
         }
-
+    
         if (!$this->isCsrfTokenValid('delete_user_'.$id, $request->request->get('_token'))) {
             $this->addFlash('error', 'Token de seguridad inválido.');
             return $this->redirectToRoute('admin_users_index');
         }
-
+    
         $userToDelete = $this->entityManager->getRepository(User::class)->find($id);
-
+    
         if (!$userToDelete) {
             $this->addFlash('error', 'Usuario no encontrado.');
             return $this->redirectToRoute('admin_users_index');
         }
-
+    
+        // Inyectar el servicio de encriptación al usuario a eliminar
+        if ($this->encryptionService) {
+            $userToDelete->setEncryptionService($this->encryptionService);
+        }
+    
         if ($userToDelete->getId() === $user->getId()) {
             $this->addFlash('error', 'No puedes eliminarte a ti mismo.');
             return $this->redirectToRoute('admin_users_index');
         }
-
-        $this->entityManager->remove($userToDelete);
-        $this->entityManager->flush();
-
-        $this->addFlash('success', 'Usuario eliminado exitosamente.');
+    
+        // Intenta eliminar el usuario
+        try {
+            $this->entityManager->remove($userToDelete);
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Usuario eliminado exitosamente.');
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Error al eliminar el usuario: ' . $e->getMessage());
+            if ($this->logger) {
+                $this->logger->error('Error al eliminar usuario: ' . $e->getMessage());
+            }
+        }
+    
         return $this->redirectToRoute('admin_users_index');
     }
 
