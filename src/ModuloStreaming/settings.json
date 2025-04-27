@@ -2,5 +2,6 @@
     "name": "streaming",
     "description": "Módulo de streaming de vídeo",
     "version": "1.0.0",
-    "author": "Exnet"
+    "author": "Exnet",
+    "open": "/streaming/series"
 }

@@ -1,4 +1,4 @@
 {
-    "install": "cd ../../ && php bin/console streaming:install --force",
+    "install": "php bin/console streaming:install --force",
     "uninstall": "php bin/console streaming:uninstall --force"
 }

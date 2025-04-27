@@ -1,4 +1,4 @@
 {
-    "install": "cd ../../ && php bin/console musica:install --force",
+    "install": "php bin/console musica:install --force",
     "uninstall": "php bin/console musica:uninstall --force"
 }

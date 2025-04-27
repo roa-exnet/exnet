@@ -551,6 +551,8 @@ EOT;
         try {
             $moduloRepository = $this->entityManager->getRepository(Modulo::class);
             $streamingModule = $moduloRepository->findOneBy(['nombre' => 'Streaming']);
+            $moduleDir = __DIR__;
+            $moduleBasePath = dirname($moduleDir);
             
             if ($streamingModule) {
                 $streamingModule->setEstado(true);
@@ -562,7 +564,7 @@ EOT;
                 $streamingModule->setNombre('Streaming');
                 $streamingModule->setDescripcion('Módulo para gestionar y reproducir series y películas');
                 $streamingModule->setIcon('fas fa-film');
-                $streamingModule->setRuta('/streaming');
+                $streamingModule->setRuta($moduleBasePath);
                 $streamingModule->setEstado(true);
                 $streamingModule->setInstallDate(new \DateTimeImmutable());
                 
