@@ -14,6 +14,7 @@ parameters:
     KEYCLOAK_REALM: '%env(KEYCLOAK_REALM)%'
     KEYCLOAK_URL: '%env(KEYCLOAK_URL)%'
     videos_directory: '%kernel.project_dir%/public/uploads/videos'
+    music_directory: '%kernel.project_dir%/public/uploads/music'
 
 services:
     # default configuration for services in *this* file
@@ -76,3 +77,18 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
+    App\ModuloMusica\Controller\:
+        resource: '../src/ModuloMusica/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloMusica\Command\:
+        resource: '../src/ModuloMusica/Command'
+        tags: ['console.command']
+        
+    App\ModuloMusica\Service\:
+        resource: '../src/ModuloMusica/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        

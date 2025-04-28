@@ -13,6 +13,8 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
     name: 'musica:install',
@@ -21,10 +23,14 @@ use Symfony\Component\Process\Process;
 class MusicaInstallCommand extends Command
 {
     private EntityManagerInterface $entityManager;
+    private Filesystem $filesystem;
+    private string $projectDir;
 
-    public function __construct(EntityManagerInterface $entityManager)
+    public function __construct(EntityManagerInterface $entityManager, ParameterBagInterface $parameterBag)
     {
         $this->entityManager = $entityManager;
+        $this->filesystem = new Filesystem();
+        $this->projectDir = $parameterBag->get('kernel.project_dir');
         parent::__construct();
     }
 
@@ -64,7 +70,6 @@ class MusicaInstallCommand extends Command
             
             $this->updateDoctrineYaml($io);
 
-            // Limpiar caché después de actualizar los archivos de configuración
             $io->section('Limpiando caché del sistema');
             $this->clearCache($io);
             
@@ -73,6 +78,9 @@ class MusicaInstallCommand extends Command
             if (!$input->getOption('skip-menu')) {
                 $this->createMenuItems($io, $modulo);
             }
+
+            $io->section('Creando carpetas y enlaces simbólicos para archivos de música');
+            $this->setupAssetsSymlink($io);
 
             if ($input->getOption('skip-tables')) {
                 $io->note('La creación de tablas ha sido omitida según los parámetros de entrada.');
@@ -463,6 +471,66 @@ EOT;
             $io->success('doctrine.yaml actualizado con las entidades del módulo de música debajo de mappings.');
         } else {
             $io->error('No se pudo actualizar doctrine.yaml. Verifica el formato del archivo.');
+        }
+    }
+
+    private function getParameter(string $name): string
+    {
+        if ($name === 'kernel.project_dir') {
+            return $this->getProjectDir();
+        }
+        
+        throw new \InvalidArgumentException(sprintf('Parámetro desconocido: %s', $name));
+    }
+
+    private function setupAssetsSymlink(SymfonyStyle $io): void
+    {
+        try {
+            $filesystem = new Filesystem();
+    
+            $assetsSourcePath = $this->projectDir . '/src/ModuloMusica/Assets';
+            if (!$filesystem->exists($assetsSourcePath)) {
+                $io->error('La carpeta Assets no existe en el módulo Música. No se puede crear el enlace simbólico.');
+                return;
+            }
+    
+            $targetDir = $this->projectDir . '/public';
+            $jsDir = $targetDir . '/js';
+            if (!$filesystem->exists($jsDir)) {
+                $filesystem->mkdir($jsDir);
+                $io->text('Creado directorio: /public/js');
+            }
+    
+            $symlinkPath = $targetDir . '/moduloMusica';
+    
+            if ($filesystem->exists($symlinkPath)) {
+                if (is_link($symlinkPath)) {
+                    $filesystem->remove($symlinkPath);
+                    $io->text('Enlace simbólico existente eliminado');
+                } else {
+                    $io->warning('La ruta /public/moduloMusica existe pero no es un enlace simbólico. Eliminando...');
+                    $filesystem->remove($symlinkPath);
+                }
+            }
+    
+            if (function_exists('symlink')) {
+                $filesystem->symlink($assetsSourcePath, $symlinkPath);
+                $io->success('Enlace simbólico creado correctamente: /public/moduloMusica -> /src/ModuloMusica/Assets');
+            } else {
+                $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
+                if (!$filesystem->exists($symlinkPath)) {
+                    $filesystem->mkdir($symlinkPath);
+                }
+                $filesystem->mirror($assetsSourcePath, $symlinkPath);
+                $io->text('Archivos copiados a /public/moduloMusica');
+                $filesystem->dumpFile(
+                    $symlinkPath . '/README.txt',
+                    "Esta carpeta contiene una copia de los assets de src/ModuloMusica/Assets.\n" .
+                    "Se recomienda actualizar ambas carpetas cuando se realizan cambios en los archivos."
+                );
+            }
+        } catch (\Exception $e) {
+            $io->error('Error al configurar el enlace simbólico para los assets: ' . $e->getMessage());
         }
     }
     

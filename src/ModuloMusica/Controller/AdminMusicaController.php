@@ -28,7 +28,7 @@ class AdminMusicaController extends AbstractController
         IpAuthService $ipAuthService,
         CancionRepository $cancionRepository,
         GeneroRepository $generoRepository,
-        SluggerInterface $slugger
+        SluggerInterface $slugger,
     ) {
         $this->entityManager = $entityManager;
         $this->ipAuthService = $ipAuthService;
@@ -53,7 +53,7 @@ class AdminMusicaController extends AbstractController
         return null;
     }
 
-    #[Route('/nueva-cancion', name: 'musica_admin_nueva_cancion')]
+    #[Route('/nueva-cancion', name: 'musica_admin_nueva_cancion', methods: ['GET', 'POST'])]
     public function nuevaCancion(Request $request): Response
     {
         $checkResult = $this->checkAdmin();
@@ -65,27 +65,82 @@ class AdminMusicaController extends AbstractController
         $generos = $this->generoRepository->findAllOrdered();
 
         if ($request->isMethod('POST')) {
-            $titulo = $request->request->get('titulo');
-            $artista = $request->request->get('artista');
-            $album = $request->request->get('album');
-            $descripcion = $request->request->get('descripcion');
-            $url = $request->request->get('url');
-            $imagen = $request->request->get('imagen');
+            // Log request data for debugging
+            error_log('Request data: ' . print_r($request->request->all(), true));
+
+            // Verify CSRF token
+            if (!$this->isCsrfTokenValid('nueva-cancion', $request->request->get('_token'))) {
+                return $this->handleError('Token CSRF inválido.', $request);
+            }
+
+            // Get form data
+            $titulo = $request->request->get('titulo', '');
+            $artista = $request->request->get('artista', '');
+            $album = $request->request->get('album', '');
+            $descripcion = $request->request->get('descripcion', '');
+            $imagen = $request->request->get('imagen', '');
             $generoId = $request->request->get('genero');
             $anio = $request->request->get('anio');
             $duracion = $request->request->get('duracion');
             $esPublico = $request->request->has('esPublico');
+            $audioBase64 = $request->request->get('audioBase64');
 
+            // Validate required fields
+            if (empty($titulo)) {
+                return $this->handleError('El título es obligatorio.', $request);
+            }
+            if (empty($audioBase64)) {
+                return $this->handleError('No se recibió el archivo de audio.', $request);
+            }
+
+            // Set song properties
             $cancion->setTitulo($titulo);
             $cancion->setArtista($artista);
             $cancion->setAlbum($album);
             $cancion->setDescripcion($descripcion);
-            $cancion->setUrl($url);
             $cancion->setImagen($imagen);
             $cancion->setAnio($anio ? (int)$anio : null);
             $cancion->setDuracion($duracion ? (int)$duracion : null);
             $cancion->setEsPublico($esPublico);
 
+            // Handle Base64 audio file
+            try {
+                // Decode Base64 string
+                $audioData = base64_decode($audioBase64);
+                if ($audioData === false) {
+                    throw new \Exception('No se pudo decodificar el archivo de audio.');
+                }
+
+                // Validate file size (20MB)
+                $fileSize = strlen($audioData);
+                if ($fileSize > 20 * 1024 * 1024) {
+                    throw new \Exception('El archivo excede el tamaño máximo de 20MB.');
+                }
+
+                // Determine file extension based on MIME type or default to mp3
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo->buffer($audioData);
+                $extension = $this->getExtensionFromMimeType($mimeType);
+
+                // Generate a safe filename
+                $safeFilename = $this->slugger->slug($titulo);
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
+
+                // Save the file
+                $musicPath = $this->getUploadsPath();
+                $filePath = $musicPath . '/' . $newFilename;
+                if (!file_put_contents($filePath, $audioData)) {
+                    throw new \Exception('No se pudo guardar el archivo de audio.');
+                }
+
+                // Set the URL in the entity
+                $cancion->setUrl('/uploads/music/' . $newFilename);
+            } catch (\Exception $e) {
+                error_log('Error al procesar el archivo de audio: ' . $e->getMessage());
+                return $this->handleError('Error al procesar el archivo de audio: ' . $e->getMessage(), $request);
+            }
+
+            // Set genre if provided
             if ($generoId) {
                 $genero = $this->generoRepository->find($generoId);
                 if ($genero) {
@@ -93,8 +148,17 @@ class AdminMusicaController extends AbstractController
                 }
             }
 
+            // Persist the song
             $this->entityManager->persist($cancion);
             $this->entityManager->flush();
+
+            if ($request->isXmlHttpRequest()) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Canción creada correctamente.',
+                    'redirect' => $this->generateUrl('musica_admin')
+                ]);
+            }
 
             $this->addFlash('success', 'Canción creada correctamente.');
             return $this->redirectToRoute('musica_admin');
@@ -105,6 +169,52 @@ class AdminMusicaController extends AbstractController
             'generos' => $generos,
             'user' => $this->ipAuthService->getCurrentUser()
         ]);
+    }
+
+    private function handleError(string $message, Request $request): Response
+    {
+        if ($request->isXmlHttpRequest()) {
+            return $this->json([
+                'success' => false,
+                'message' => $message
+            ], 400);
+        }
+
+        $this->addFlash('error', $message);
+        return $this->redirectToRoute('musica_admin_nueva_cancion');
+    }
+
+    private function getUploadsPath(): string
+    {
+        $musicPath = $this->getParameter('music_directory');
+        error_log('Directorio de subida utilizado: ' . $musicPath);
+
+        if (!is_dir($musicPath)) {
+            if (!mkdir($musicPath, 0755, true)) {
+                throw new \RuntimeException('No se pudo crear el directorio de subida: ' . $musicPath);
+            }
+            error_log('Se creó el directorio: ' . $musicPath);
+        }
+
+        if (!is_writable($musicPath)) {
+            if (!chmod($musicPath, 0755)) {
+                throw new \RuntimeException('No se pudieron establecer permisos de escritura en: ' . $musicPath);
+            }
+        }
+
+        return $musicPath;
+    }
+
+    private function getExtensionFromMimeType(string $mimeType): string
+    {
+        $mimeToExtension = [
+            'audio/mpeg' => 'mp3',
+            'audio/mp4' => 'm4a',
+            'audio/ogg' => 'ogg',
+            'audio/wav' => 'wav',
+        ];
+
+        return $mimeToExtension[$mimeType] ?? 'mp3';
     }
 
     #[Route('/editar-cancion/{id}', name: 'musica_admin_editar_cancion')]
@@ -127,23 +237,80 @@ class AdminMusicaController extends AbstractController
             $artista = $request->request->get('artista');
             $album = $request->request->get('album');
             $descripcion = $request->request->get('descripcion');
-            $url = $request->request->get('url');
             $imagen = $request->request->get('imagen');
             $generoId = $request->request->get('genero');
             $anio = $request->request->get('anio');
             $duracion = $request->request->get('duracion');
             $esPublico = $request->request->has('esPublico');
+            $mantenerAudio = $request->request->has('mantenerAudio');
 
             $cancion->setTitulo($titulo);
             $cancion->setArtista($artista);
             $cancion->setAlbum($album);
             $cancion->setDescripcion($descripcion);
-            $cancion->setUrl($url);
             $cancion->setImagen($imagen);
             $cancion->setAnio($anio ? (int)$anio : null);
             $cancion->setDuracion($duracion ? (int)$duracion : null);
             $cancion->setEsPublico($esPublico);
             $cancion->setActualizadoEn(new \DateTimeImmutable());
+
+            // Handle audio file if provided
+            $audioBase64 = $request->request->get('audioBase64');
+            if ($audioBase64) {
+                try {
+                    $audioData = base64_decode($audioBase64);
+                    if ($audioData === false) {
+                        throw new \Exception('No se pudo decodificar el archivo de audio.');
+                    }
+
+                    $fileSize = strlen($audioData);
+                    if ($fileSize > 20 * 1024 * 1024) {
+                        throw new \Exception('El archivo excede el tamaño máximo de 20MB.');
+                    }
+
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $mimeType = $finfo->buffer($audioData);
+                    $extension = $this->getExtensionFromMimeType($mimeType);
+
+                    $safeFilename = $this->slugger->slug($titulo);
+                    $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
+
+                    $musicPath = $this->getUploadsPath();
+                    $filePath = $musicPath . '/' . $newFilename;
+                    if (!file_put_contents($filePath, $audioData)) {
+                        throw new \Exception('No se pudo guardar el archivo de audio.');
+                    }
+
+                    // Delete old file if exists
+                    $oldUrl = $cancion->getUrl();
+                    if ($oldUrl && strpos($oldUrl, '/uploads/music/') === 0) {
+                        $oldFilename = basename($oldUrl);
+                        $oldFilePath = $musicPath . '/' . $oldFilename;
+                        if (file_exists($oldFilePath)) {
+                            unlink($oldFilePath);
+                        }
+                    }
+
+                    $cancion->setUrl('/uploads/music/' . $newFilename);
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Error al procesar el archivo de audio: ' . $e->getMessage());
+                    return $this->render('@ModuloMusica/admin/editar_cancion.html.twig', [
+                        'cancion' => $cancion,
+                        'generos' => $generos,
+                        'user' => $this->ipAuthService->getCurrentUser()
+                    ]);
+                }
+            } elseif (!$mantenerAudio) {
+                $oldUrl = $cancion->getUrl();
+                if ($oldUrl && strpos($oldUrl, '/uploads/music/') === 0) {
+                    $oldFilename = basename($oldUrl);
+                    $oldFilePath = $this->getUploadsPath() . '/' . $oldFilename;
+                    if (file_exists($oldFilePath)) {
+                        unlink($oldFilePath);
+                    }
+                }
+                $cancion->setUrl(null);
+            }
 
             if ($generoId) {
                 $genero = $this->generoRepository->find($generoId);
@@ -178,6 +345,15 @@ class AdminMusicaController extends AbstractController
         $cancion = $this->cancionRepository->find($id);
         if (!$cancion) {
             throw $this->createNotFoundException('La canción no existe');
+        }
+
+        $url = $cancion->getUrl();
+        if ($url && strpos($url, '/uploads/music/') === 0) {
+            $filename = basename($url);
+            $filePath = $this->getUploadsPath() . '/' . $filename;
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
         }
 
         $this->entityManager->remove($cancion);

@@ -184,7 +184,7 @@
             
             {% if cancion.url %}
                 <div class="audio-player">
-                    <audio id="audioPlayer" autoplay>
+                    <audio id="audioPlayer" data-song-id="{{ cancion.id }}" autoplay>
                         <source src="{{ cancion.url }}" type="audio/mpeg">
                         Tu navegador no soporta la reproducción de audio.
                     </audio>
@@ -226,80 +226,6 @@
 
     {{ parent() }}
     {% if cancion.url %}
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const audioPlayer = document.getElementById('audioPlayer');
-                const playPauseButton = document.getElementById('playPauseButton');
-                const playPauseIcon = document.getElementById('playPauseIcon');
-                const progressBar = document.getElementById('progressBar');
-                const progress = document.getElementById('progress');
-                const currentTimeDisplay = document.getElementById('currentTime');
-                const durationDisplay = document.getElementById('duration');
-                const prevButton = document.getElementById('prevButton');
-                const nextButton = document.getElementById('nextButton');
-                
-                function formatTime(seconds) {
-                    const minutes = Math.floor(seconds / 60);
-                    const remainingSeconds = Math.floor(seconds % 60);
-                    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-                }
-                
-                function updateProgress() {
-                    if (audioPlayer.duration) {
-                        const percentage = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-                        progress.style.width = `${percentage}%`;
-                        currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime);
-                    }
-                }
-                
-                audioPlayer.addEventListener('timeupdate', updateProgress);
-                
-                audioPlayer.addEventListener('loadedmetadata', function() {
-                    durationDisplay.textContent = formatTime(audioPlayer.duration);
-                });
-                
-                audioPlayer.addEventListener('ended', function() {
-                    playPauseIcon.className = 'fas fa-play';
-                });
-                
-                playPauseButton.addEventListener('click', function() {
-                    if (audioPlayer.paused) {
-                        audioPlayer.play()
-                        .then(() => {
-                            playPauseIcon.className = 'fas fa-pause';
-                        })
-                        .catch(error => {
-                            console.error('Error al reproducir:', error);
-                        });
-                    } else {
-                        audioPlayer.pause();
-                        playPauseIcon.className = 'fas fa-play';
-                    }
-                });
-                
-                progressBar.addEventListener('click', function(e) {
-                    const clickPosition = (e.offsetX / this.offsetWidth);
-                    const clickTime = clickPosition * audioPlayer.duration;
-                    audioPlayer.currentTime = clickTime;
-                });
-                
-                window.addEventListener('beforeunload', () => {
-                    localStorage.setItem('audioTime_{{ cancion.id }}', audioPlayer.currentTime);
-                });
-                
-                const savedTime = localStorage.getItem('audioTime_{{ cancion.id }}');
-                if (savedTime && !isNaN(parseFloat(savedTime))) {
-                    audioPlayer.currentTime = parseFloat(savedTime);
-                }
-                
-                prevButton.addEventListener('click', function() {
-                    audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
-                });
-                
-                nextButton.addEventListener('click', function() {
-                    audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 10);
-                });
-            });
-        </script>
+    <script src="/moduloMusica/js/reproductor.js"></script>
     {% endif %}
 {% endblock %}
