@@ -1,7 +1,8 @@
-# Crea este archivo como C:\Users\ruptur\Desktop\exnet-core-31-03-2025-v2\exnet-core\docker-compose.yml
 services:
   php:
-    build: .
+    build:
+      context: .
+    image: exnet-core_php:dev
     volumes:
       - .:/var/www/html
     networks:
@@ -14,7 +15,6 @@ services:
     volumes:
       - .:/var/www/html
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./wg0.conf:/etc/wireguard/wg0.conf 
     depends_on:
       - php
     networks:

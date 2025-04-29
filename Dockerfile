@@ -6,8 +6,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libicu-dev \
     libxml2-dev \
-    wireguard-tools \
-    && docker-php-ext-install \
+  && docker-php-ext-install \
     pdo \
     zip \
     intl

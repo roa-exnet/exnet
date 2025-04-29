@@ -69,8 +69,8 @@ class SetupCommand extends Command
             )
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la ejecución incluso si el sistema ya está configurado')
             ->addOption('app-env', null, InputOption::VALUE_REQUIRED, 'Entorno de ejecución (dev, prod, test)', 'dev')
+            ->addOption('app-secret', null, InputOption::VALUE_REQUIRED, 'Secret personalizado. Si no se especifica, se genera automáticamente según el entorno')
             ->addOption('cors-url', null, InputOption::VALUE_REQUIRED, 'URL para CORS (* para todos)', '*')
-            ->addOption('ws-port', null, InputOption::VALUE_REQUIRED, 'Puerto para el servidor WebSocket', '3088')
             ->addOption('admin-user', null, InputOption::VALUE_REQUIRED, 'Email del administrador', 'admin@example.com')
             ->addOption('admin-name', null, InputOption::VALUE_REQUIRED, 'Nombre del administrador', 'Admin')
             ->addOption('admin-lastname', null, InputOption::VALUE_REQUIRED, 'Apellidos del administrador', 'Usuario')
@@ -235,15 +235,11 @@ class SetupCommand extends Command
             return false;
         }
         
-        // Generar Secret si no existe
+        // Cargar variables de entorno actuales
         $dotenv = new Dotenv();
         $dotenv->load($envFile);
-        
-        $appSecret = $_ENV['APP_SECRET'] ?? '';
-        if (empty($appSecret)) {
-            $newSecret = bin2hex(random_bytes(16));
-            $io->note('Generando APP_SECRET automáticamente');
-            $this->updateEnvVariable('APP_SECRET', $newSecret, $envLocalFile);
+        if (file_exists($envLocalFile)) {
+            $dotenv->load($envLocalFile);
         }
         
         // Configurar entorno
@@ -260,6 +256,34 @@ class SetupCommand extends Command
         $this->updateEnvVariable('APP_ENV', $environment, $envLocalFile);
         $io->note("Entorno configurado: $environment");
         
+        // Generar APP_SECRET según el entorno o usar el valor proporcionado
+        $appSecret = $input->getOption('app-secret');
+        if (empty($appSecret)) {
+            $appSecret = $_ENV['APP_SECRET'] ?? '';
+            
+            if (empty($appSecret)) {
+                // Generar un secret diferente según el entorno
+                if ($environment === 'prod') {
+                    // Para producción, un secret más complejo y largo
+                    $appSecret = bin2hex(random_bytes(32)); // 64 caracteres
+                    $io->note('Generando APP_SECRET complejo para entorno de producción');
+                } else {
+                    // Para desarrollo o test, un secret más simple
+                    $appSecret = bin2hex(random_bytes(16)); // 32 caracteres
+                    $io->note('Generando APP_SECRET estándar para entorno de desarrollo');
+                }
+                
+                $this->updateEnvVariable('APP_SECRET', $appSecret, $envLocalFile);
+                $io->note("APP_SECRET configurado según el entorno: " . substr($appSecret, 0, 8) . '...');
+            } else {
+                $io->note("Se conserva el APP_SECRET existente: " . substr($appSecret, 0, 8) . '...');
+            }
+        } else {
+            // Usar el APP_SECRET proporcionado por el usuario
+            $this->updateEnvVariable('APP_SECRET', $appSecret, $envLocalFile);
+            $io->note("APP_SECRET personalizado configurado: " . substr($appSecret, 0, 8) . '...');
+        }
+        
         // Configurar URL CORS
         $corsUrl = $input->getOption('cors-url');
         if ($corsUrl === null) {
@@ -268,13 +292,10 @@ class SetupCommand extends Command
         $this->updateEnvVariable('CORS_ALLOW_ORIGIN', $corsUrl, $envLocalFile);
         $io->note("URL CORS configurada: $corsUrl");
         
-        // Configurar puerto para WebSocket
-        $wsPort = $input->getOption('ws-port');
-        if ($wsPort === null) {
-            $wsPort = $io->ask('Puerto para el servidor WebSocket', '3088');
+        // Recargar variables de entorno para asegurar que APP_SECRET esté disponible
+        if (file_exists($envLocalFile)) {
+            $dotenv->load($envLocalFile);
         }
-        $this->updateEnvVariable('WS_SERVER_URL', 'ws://localhost:' . $wsPort, $envLocalFile);
-        $io->note("Puerto WebSocket configurado: $wsPort");
         
         $io->success('Configuración del entorno completada.');
         return true;
@@ -304,6 +325,10 @@ class SetupCommand extends Command
             // Si el archivo no existe, crearlo con la variable
             file_put_contents($envFile, "{$name}=\"{$escaped}\"" . PHP_EOL);
         }
+        
+        // Actualizar también la variable en el entorno actual
+        $_ENV[$name] = $value;
+        putenv("$name=$value");
     }
     
     /**
@@ -384,6 +409,12 @@ class SetupCommand extends Command
         $io->note('Creando esquema de base de datos usando Doctrine...');
         
         try {
+            // Verificar que APP_SECRET está definido antes de continuar
+            if (empty($_ENV['APP_SECRET'])) {
+                $io->error('APP_SECRET no está definido. Por favor, configure esta variable antes de continuar.');
+                return false;
+            }
+            
             // Intentamos primero con doctrine:schema:create para mayor simplicidad
             $process = new Process(['php', 'bin/console', 'doctrine:schema:create', '--no-interaction']);
             $process->setWorkingDirectory($this->projectDir);
@@ -391,6 +422,7 @@ class SetupCommand extends Command
             
             if (!$process->isSuccessful()) {
                 $io->warning('No se pudo crear el esquema con doctrine:schema:create. Intentando métodos alternativos...');
+                $io->warning('Mensaje de error: ' . $process->getErrorOutput());
                 
                 // Si falla, intentamos con SchemaTool directamente
                 if (!$this->createTablesWithDoctrine($io)) {
