@@ -1,9 +1,10 @@
+{# templates/explorer/abrir.html.twig #}
 {% extends 'base.html.twig' %}
 {% block title %}{{ filename }} - Explorador Exnet{% endblock %}
 
 {% block head %}
 {{ parent() }}
-    <link rel="stylesheet" href="{{ asset('explorer/css/explorer.css') }}">
+<link rel="stylesheet" href="{{ asset('/explorer/css/abrir.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -11,11 +12,11 @@
     <!-- Cabecera con título y botones -->
     <div class="file-header d-flex justify-content-between align-items-center mb-4">
         <h1 class="exnet-main-title">{{ filename }}</h1>
-        <div class="file-actions-buttons">
+        <div class="file-actions">
             <a href="{{ path('explorer') }}" class="file-action-btn btn-back">
                 <i class="fas fa-arrow-left"></i> Volver
             </a>
-            <form action="{{ path('download') }}" method="POST" class="d-inline">
+            <form action="{{ path('descargar_archivo') }}" method="POST" class="d-inline">
                 <input type="hidden" name="file_path" value="{{ directory ~ '/' ~ filename }}">
                 <button type="submit" class="file-action-btn btn-download">
                     <i class="fas fa-download"></i> Descargar
@@ -32,6 +33,18 @@
                 <div class="info-label">Ubicación:</div>
                 <div class="info-value">{{ directory }}</div>
             </div>
+            <div class="file-info-item">
+                <div class="info-label">Tamaño:</div>
+                <div class="info-value">{{ (fileInfo.size / 1024) < 1024 ? (fileInfo.size / 1024)|round(2) ~ ' KB' : (fileInfo.size / 1024 / 1024)|round(2) ~ ' MB' }}</div>
+            </div>
+            <div class="file-info-item">
+                <div class="info-label">Tipo:</div>
+                <div class="info-value">{{ fileInfo.mime }}</div>
+            </div>
+            <div class="file-info-item">
+                <div class="info-label">Modificado:</div>
+                <div class="info-value">{{ fileInfo.modified|date('d/m/Y H:i:s') }}</div>
+            </div>
         </div>
 
         <!-- Contenido del archivo -->
@@ -42,11 +55,25 @@
                         <div class="loader-spinner"></div>
                         <div class="loader-text">Cargando imagen...</div>
                     </div>
-                    <iframe id="imageIframe" width="100%" height="600px" frameborder="0" style="overflow:hidden; border:none; background-color: rgba(0,0,0,0.2);" onerror="handleImageError()"></iframe>
+                    <img src="{{ path('ver_media', { 'filename': filename, 'path': directory }) }}" 
+                         alt="{{ filename }}" style="max-width: 100%; max-height: 600px;" 
+                         onload="document.getElementById('imageLoader').style.display='none'">
                 </div>
             {% elseif isVideo %}
                 <div class="video-preview">
-                    <iframe src="{{ path('ver_video', { 'filename': filename, 'path': directory }) }}" width="100%" height="600px" frameborder="0" allowfullscreen></iframe>
+                    <video controls style="max-width: 100%; max-height: 600px;">
+                        <source src="{{ path('ver_media', { 'filename': filename, 'path': directory }) }}" 
+                                type="{{ fileInfo.mime }}">
+                        Tu navegador no soporta la reproducción de este formato de video.
+                    </video>
+                </div>
+            {% elseif isAudio %}
+                <div class="audio-preview">
+                    <audio controls style="width: 100%;">
+                        <source src="{{ path('ver_media', { 'filename': filename, 'path': directory }) }}" 
+                                type="{{ fileInfo.mime }}">
+                        Tu navegador no soporta la reproducción de este formato de audio.
+                    </audio>
                 </div>
             {% else %}
                 <div class="text-preview">
@@ -56,61 +83,4 @@
         </div>
     </div>
 </div>
-
-<script>    // Función para cargar la imagen
-    function cargarImagen() {
-        var filename = "{{ filename }}";
-        var directory = "{{ directory }}";
-        var loader = document.getElementById('imageLoader');
-        
-        if (loader) {
-            loader.style.display = 'flex';
-        }
-        
-        // Hacer la solicitud POST
-        fetch("{{ path('ver_imagen') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                'filename': filename,
-                'path': directory
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error en la respuesta del servidor: ' + response.status);
-            }
-            return response.blob();
-        })
-        .then(imageBlob => {
-            var img = URL.createObjectURL(imageBlob);
-            document.getElementById('imageIframe').src = img;
-            if (loader) {
-                loader.style.display = 'none';
-            }
-        })
-        .catch(error => {
-            console.error('Error cargando la imagen:', error);
-            if (loader) {
-                loader.querySelector('.loader-spinner').style.display = 'none';
-                loader.querySelector('.loader-text').textContent = 'Error al cargar la imagen. Intente nuevamente.';
-            }
-        });
-    }
-    
-    // Función que maneja el error al cargar la imagen en el iframe
-    function handleImageError() {
-        console.log('Error al cargar la imagen en el iframe.');
-        var loader = document.getElementById('imageLoader');
-        if (loader) {
-            loader.querySelector('.loader-spinner').style.display = 'none';
-            loader.querySelector('.loader-text').textContent = 'Error al cargar la imagen. Intente nuevamente.';
-            loader.style.display = 'flex';
-        }
-    }
-
-    // Ejecutar la función de carga de imagen al cargar la página
-    document.addEventListener('DOMContentLoaded', cargarImagen);</script>
 {% endblock %}

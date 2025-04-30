@@ -77,6 +77,21 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
     App\ModuloMusica\Controller\:
         resource: '../src/ModuloMusica/Controller'
@@ -92,3 +107,18 @@ services:
         autoconfigure: true
         public: true
     #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
+    App\ModuloStreaming\Controller\:
+        resource: '../src/ModuloStreaming/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloStreaming\Command\:
+        resource: '../src/ModuloStreaming/Command'
+        tags: ['console.command']
+        
+    App\ModuloStreaming\Service\:
+        resource: '../src/ModuloStreaming/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
