@@ -34,7 +34,6 @@ services:
     #START -----------------------------------------------------  ModuloCore -------------------------------------------------------------------------
     App\ModuloCore\Controller\:
         resource: '../src/ModuloCore/Controller'
-        tags: ['controller.service_arguments']
 
     App\ModuloCore\EventSubscriber\MenuSubscriber:
         tags: ['kernel.event_subscriber']
@@ -77,63 +76,48 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
-    App\ModuloMusica\Controller\:
-        resource: '../src/ModuloMusica/Controller'
-        tags: ['controller.service_arguments']
-        
-    App\ModuloMusica\Command\:
-        resource: '../src/ModuloMusica/Command'
-        tags: ['console.command']
-        
-    App\ModuloMusica\Service\:
-        resource: '../src/ModuloMusica/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
-    App\ModuloStreaming\Controller\:
-        resource: '../src/ModuloStreaming/Controller'
-        tags: ['controller.service_arguments']
-        
-    App\ModuloStreaming\Command\:
-        resource: '../src/ModuloStreaming/Command'
-        tags: ['console.command']
-        
-    App\ModuloStreaming\Service\:
-        resource: '../src/ModuloStreaming/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
-    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
-    App\ModuloExplorador\Controller\:
-        resource: '../src/ModuloExplorador/Controller'
-        tags: ['controller.service_arguments']
-        
-    App\ModuloExplorador\Command\:
-        resource: '../src/ModuloExplorador/Command'
-        tags: ['console.command']
-        
-    App\ModuloExplorador\Service\:
-        resource: '../src/ModuloExplorador/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------
-# ----------- modulochat -------
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
     App\ModuloChat\Controller\:
         resource: '../src/ModuloChat/Controller'
         tags: ['controller.service_arguments']
-
+        
     App\ModuloChat\Command\:
         resource: '../src/ModuloChat/Command'
         tags: ['console.command']
-
+        
     App\ModuloChat\Service\:
         resource: '../src/ModuloChat/Service/'
         autowire: true
         autoconfigure: true
         public: true
-# ----------- modulochat -------        
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------           
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------           
+    #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
+    App\ModuloMusica\Controller\:
+        resource: '../src/ModuloMusica/Controller'
+        
+    App\ModuloMusica\Command\:
+        resource: '../src/ModuloMusica/Command'
+        
+    App\ModuloMusica\Service\:
+        resource: '../src/ModuloMusica/Service/'
+    #END ------------------------------------------------------- ModuloMusica -----------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
+    App\ModuloStreaming\Controller\:
+        resource: '../src/ModuloStreaming/Controller'
+        
+    App\ModuloStreaming\Command\:
+        resource: '../src/ModuloStreaming/Command'
+        
+    App\ModuloStreaming\Service\:
+        resource: '../src/ModuloStreaming/Service/'
+    #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        

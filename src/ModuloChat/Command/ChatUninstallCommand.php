@@ -189,26 +189,67 @@ class ChatUninstallCommand extends Command
         
         $content = file_get_contents($path);
         
-        // Buscar las configuraciones específicas del módulo Chat
-        $servicePatternsToRemove = [
-            // Patrones directos
-            '/\n\s*App\\\\ModuloChat\\\\:.*\n\s*resource: \'\.\.\/src\/ModuloChat\/.*\'\n\s*exclude:\n\s*- \'\.\.\/src\/ModuloChat\/DependencyInjection\/\'\n\s*- \'\.\.\/src\/ModuloChat\/Entity\/\'\n\s*- \'\.\.\/src\/ModuloChat\/Kernel\.php\'/m',
+        // Buscar inicio y fin de la sección del módulo de Chat
+        $startPattern = '/^#START -+\s+ModuloChat\s+-+/m';
+        $endPattern = '/^#END -+\s+ModuloChat\s+-+/m';
+        
+        // Intentar encontrar sección delimitada por comentarios
+        if (preg_match($startPattern, $content) && preg_match($endPattern, $content)) {
+            // Remover toda la sección del módulo incluyendo los delimitadores
+            $content = preg_replace('/' . $startPattern . '.*?' . $endPattern . '/s', '', $content);
             
-            // Patrones alternativos por si la configuración es diferente
-            '/\n\s*App\\\\ModuloChat\\\\.*?\n\s*resource:.*?ModuloChat.*?(?:\n\s*exclude:.*?)+/m'
+            file_put_contents($path, $content);
+            $io->success('Sección completa del módulo Chat eliminada de services.yaml.');
+            return;
+        }
+        
+        // Si no se encontraron delimitadores, buscar servicios individuales
+        $patterns = [
+            // Controladores
+            '/\n\s*App\\\\ModuloChat\\\\Controller\\\\:.*?\n\s*resource:.*?ModuloChat\/Controller\/.*?\n(\s*tags:.*?\n)?/s',
+            
+            // Comandos
+            '/\n\s*App\\\\ModuloChat\\\\Command\\\\:.*?\n\s*resource:.*?ModuloChat\/Command\/.*?\n(\s*tags:.*?\n)?/s',
+            
+            // Servicios
+            '/\n\s*App\\\\ModuloChat\\\\Service\\\\:.*?\n\s*resource:.*?ModuloChat\/Service\/.*?\n(\s*autowire:.*?\n\s*autoconfigure:.*?\n\s*public:.*?\n)?/s',
+            
+            // Cualquier otra configuración relacionada con ModuloChat
+            '/\n\s*App\\\\ModuloChat\\\\.*?:.*?\n\s*resource:.*?ModuloChat\/.*?\n(\s*.*?\n)*?(\s*public:.*?\n)?/s'
         ];
         
         $modified = false;
-        foreach ($servicePatternsToRemove as $pattern) {
+        foreach ($patterns as $pattern) {
             if (preg_match($pattern, $content)) {
-                $content = preg_replace($pattern, '', $content);
+                $content = preg_replace($pattern, "\n", $content);
                 $modified = true;
             }
         }
         
+        // Patrón específico para las entradas individuales como las que se ven en la captura
+        $individualPatterns = [
+            '/\n\s*App\\\\ModuloChat\\\\Controller\\\\:.*?\n/s',
+            '/\n\s*App\\\\ModuloChat\\\\Command\\\\:.*?\n/s',
+            '/\n\s*App\\\\ModuloChat\\\\Service\\\\:.*?\n/s',
+            '/\n\s*resource:\s*\'.*?\/ModuloChat\/.*?\'\n/s',
+            '/\n\s*tags:\s*\[\'console\.command\'\]\n/s',
+            '/\n\s*tags:\s*\[\'controller\.service_arguments\'\]\n/s',
+            '/\n\s*autowire:\s*true\n\s*autoconfigure:\s*true\n\s*public:\s*true\n/s'
+        ];
+        
+        foreach ($individualPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                $content = preg_replace($pattern, "\n", $content);
+                $modified = true;
+            }
+        }
+        
+        // Eliminar líneas vacías consecutivas
+        $content = preg_replace('/\n{3,}/', "\n\n", $content);
+        
         if ($modified) {
             file_put_contents($path, $content);
-            $io->success('Configuración del módulo Chat eliminada de services.yaml.');
+            $io->success('Configuraciones del módulo Chat eliminadas de services.yaml.');
         } else {
             $io->note('No se encontraron configuraciones específicas del módulo Chat en services.yaml.');
         }

@@ -150,6 +150,19 @@ class ChatInstallCommand extends Command
             return Command::FAILURE;
         }
 
+        $io->section('Limpieza final de caché');
+        $cacheClearProcess = new Process(['php', 'bin/console', 'cache:clear']);
+        $cacheClearProcess->setTimeout(120);
+        $cacheClearProcess->run(function ($type, $buffer) use ($io) {
+            $io->write($buffer);
+        });
+
+        if (!$cacheClearProcess->isSuccessful()) {
+            $io->warning('Advertencia: No se pudo completar la limpieza final de caché. Es posible que necesites ejecutar manualmente: php bin/console cache:clear');
+        } else {
+            $io->success('Caché limpiada correctamente. Todas las configuraciones han sido aplicadas.');
+        }
+
         return Command::SUCCESS;
     }
 
@@ -226,22 +239,22 @@ class ChatInstallCommand extends Command
     private function getChatServicesConfig(): string
     {
         return <<<EOT
-
-# ----------- modulochat -------
+        
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
     App\ModuloChat\Controller\:
         resource: '../src/ModuloChat/Controller'
         tags: ['controller.service_arguments']
-
+        
     App\ModuloChat\Command\:
         resource: '../src/ModuloChat/Command'
         tags: ['console.command']
-
+        
     App\ModuloChat\Service\:
         resource: '../src/ModuloChat/Service/'
         autowire: true
         autoconfigure: true
         public: true
-# ----------- modulochat -------
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------
 EOT;
     }
 
@@ -322,13 +335,12 @@ EOT;
     {
         return <<<EOT
 
-# ----------- modulochat -------
+
 modulo_chat_controllers:
     resource:
         path: ../src/ModuloChat/Controller/
         namespace: App\ModuloChat\Controller
     type: attribute
-# ----------- modulochat -------
 EOT;
     }
 
@@ -431,7 +443,7 @@ EOT;
             // Insertar justo después de 'paths:'
             $newContent = preg_replace(
                 '/(paths:)/i',
-                "$1\n        # ----------- modulochat -------\n        '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat\n        # ----------- modulochat -------",
+                "$1\n        '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat",
                 $twigContent
             );
 
@@ -445,7 +457,7 @@ EOT;
         }
 
         // Insertar después del punto encontrado
-        $chatConfig = "\n        # ----------- modulochat -------\n        '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat\n        # ----------- modulochat -------";
+        $chatConfig = "\n        '%kernel.project_dir%/src/ModuloChat/templates': ModuloChat";
         $newContent = str_replace($insertPoint, $insertPoint . $chatConfig, $twigContent);
 
         if ($newContent !== $twigContent) {
@@ -462,61 +474,42 @@ EOT;
         $doctrineContent = file_get_contents($doctrineYamlPath);
 
         // Verificar si la configuración ya existe
-        if (strpos($doctrineContent, 'ModuloChat:') !== false) {
+        if (preg_match('/ModuloChat:.*?\n\s+type: attribute\n\s+is_bundle: false\n\s+dir:.*?\n\s+prefix:.*?\n\s+alias: ModuloChat/s', $doctrineContent)) {
             $io->note('La configuración de Doctrine ya incluye las entidades del módulo de chat.');
             return;
         }
 
-        // Extraer la configuración actual para entender la estructura
-        $pattern = '/mappings:\s*\n(.*?)(?:\n\s*\w+:|$)/s';
-
-        if (!preg_match($pattern, $doctrineContent, $mappingsMatch)) {
+        // Verificar si existe la sección mappings
+        if (!preg_match('/mappings:/', $doctrineContent)) {
             $io->error('No se pudo encontrar la sección "mappings" en doctrine.yaml');
             return;
         }
 
-        // Determinar la indentación correcta basada en la estructura existente
-        $mappingsIndentation = '';
-        $moduleIndentation = '';
+        // Determinar la indentación para la sección mappings
+        $mappingsIndentation = '        '; // Indentación por defecto (8 espacios)
+        $moduleIndentation = '            '; // Indentación para el módulo (12 espacios)
 
-        if (preg_match('/(\s+)ModuloCore:/m', $doctrineContent, $indentMatch)) {
-            $moduleIndentation = $indentMatch[1];
-            // La indentación de 'mappings:' debe ser un nivel menos
-            $mappingsIndentation = substr($moduleIndentation, 0, -4);
-        } else {
-            // Valores por defecto si no podemos determinar la indentación
-            $moduleIndentation = '            '; // 12 espacios
-            $mappingsIndentation = '        '; // 8 espacios
-        }
+        // Configuración del módulo de chat
+        $chatConfig = "\n{$moduleIndentation}ModuloChat:
+    {$moduleIndentation}    type: attribute
+    {$moduleIndentation}    is_bundle: false
+    {$moduleIndentation}    dir: '%kernel.project_dir%/src/ModuloChat/Entity'
+    {$moduleIndentation}    prefix: 'App\\ModuloChat\\Entity'
+    {$moduleIndentation}    alias: ModuloChat";
 
-        // Crear la configuración del módulo Chat con la indentación correcta
-        $chatConfig = "\n{$moduleIndentation}# ----------- modulochat -------\n{$moduleIndentation}ModuloChat:
-{$moduleIndentation}    type: attribute
-{$moduleIndentation}    is_bundle: false
-{$moduleIndentation}    dir: '%kernel.project_dir%/src/ModuloChat/Entity'
-{$moduleIndentation}    prefix: 'App\\ModuloChat\\Entity'
-{$moduleIndentation}    alias: ModuloChat\n{$moduleIndentation}# ----------- modulochat -------";
+        // Insertar la configuración justo debajo de mappings:
+        $newContent = preg_replace(
+            '/(mappings:)/',
+            "$1{$chatConfig}",
+            $doctrineContent,
+            1
+        );
 
-        // Encontrar dónde insertar el nuevo módulo
-        $lastModulePattern = '/(ModuloCore:.*?alias: ModuloCore)/s';
-
-        if (preg_match($lastModulePattern, $doctrineContent, $lastModuleMatch)) {
-            // Insertar después del último módulo
-            $newContent = str_replace($lastModuleMatch[1], $lastModuleMatch[1] . $chatConfig, $doctrineContent);
+        if ($newContent !== $doctrineContent) {
             file_put_contents($doctrineYamlPath, $newContent);
-            $io->success('doctrine.yaml actualizado con las entidades del módulo de chat.');
+            $io->success('doctrine.yaml actualizado con las entidades del módulo de chat debajo de mappings.');
         } else {
-            // Si no encontramos un patrón específico, intentar agregar al final de la sección mappings
-            $mappingsSection = "mappings:";
-            $newMappingsSection = "mappings:" . $chatConfig;
-
-            if (strpos($doctrineContent, $mappingsSection) !== false) {
-                $newContent = str_replace($mappingsSection, $newMappingsSection, $doctrineContent);
-                file_put_contents($doctrineYamlPath, $newContent);
-                $io->success('doctrine.yaml actualizado con las entidades del módulo de chat al final de la sección mappings.');
-            } else {
-                $io->error('No se pudo actualizar doctrine.yaml. No se encontró un punto de inserción adecuado.');
-            }
+            $io->error('No se pudo actualizar doctrine.yaml. Verifica el formato del archivo.');
         }
     }
 
