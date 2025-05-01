@@ -1,0 +1,100 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mi Configuración{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('ModuloCore/css/profile.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-section-title">Mi Configuración</h1>
+        <a href="/" class="exnet-btn exnet-btn-outline-light">
+            <i class="fas fa-arrow-left me-2"></i> Volver
+        </a>
+    </div>
+    
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    
+    <div class="user-profile-container">
+        <div class="user-profile-header">
+            <div class="user-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="user-info">
+                <h2>
+                    {{ user.nombre }} {{ user.apellidos }}
+                    {% if 'ROLE_ADMIN' in user.roles %}
+                        <span class="user-role-badge user-role-admin">
+                            <i class="fas fa-shield-alt me-1"></i> Admin
+                        </span>
+                    {% else %}
+                        <span class="user-role-badge user-role-user">
+                            <i class="fas fa-user me-1"></i> Usuario
+                        </span>
+                    {% endif %}
+                </h2>
+                <p>{{ user.email }}</p>
+                <p><small>Miembro desde {{ user.createdAt|date('d/m/Y') }}</small></p>
+            </div>
+        </div>
+        
+        <div class="profile-section">
+            <h3 class="profile-section-title">Información de Cuenta</h3>
+            
+            <div class="profile-data-row">
+                <div class="profile-data-label">ID</div>
+                <div class="profile-data-value">{{ user.id }}</div>
+            </div>
+            
+            <div class="profile-data-row">
+                <div class="profile-data-label">Email</div>
+                <div class="profile-data-value">{{ user.email }}</div>
+            </div>
+            
+            <div class="profile-data-row">
+                <div class="profile-data-label">Nombre</div>
+                <div class="profile-data-value">{{ user.nombre }}</div>
+            </div>
+            
+            <div class="profile-data-row">
+                <div class="profile-data-label">Apellidos</div>
+                <div class="profile-data-value">{{ user.apellidos }}</div>
+            </div>
+            
+            <div class="profile-data-row">
+                <div class="profile-data-label">Rol</div>
+                <div class="profile-data-value">
+                    {% if 'ROLE_ADMIN' in user.roles %}
+                        Administrador
+                    {% else %}
+                        Usuario
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="profile-data-row">
+                <div class="profile-data-label">Peer Asociado</div>
+                <div class="profile-data-value">
+                    {% if user.ipAddress %}
+                        {{ user.ipAddress }}
+                    {% else %}
+                        <span class="text-muted">No configurada</span>
+                    {% endif %}
+                </div>
+            </div>
+        
+        </div>
+
+    </div>
+</div>
+{% endblock %}
