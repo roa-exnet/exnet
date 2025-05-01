@@ -12,18 +12,26 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
-    name: 'modulochat:uninstall',
+    name: 'chat:uninstall',
     description: 'Desinstala completamente el módulo de chat'
 )]
 class ChatUninstallCommand extends Command
 {
     private EntityManagerInterface $entityManager;
+    private string $projectDir;
+    private Filesystem $filesystem;
 
-    public function __construct(EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        ParameterBagInterface $parameterBag
+    ) {
         $this->entityManager = $entityManager;
+        $this->projectDir = $parameterBag->get('kernel.project_dir');
+        $this->filesystem = new Filesystem();
         parent::__construct();
     }
 
@@ -34,7 +42,7 @@ class ChatUninstallCommand extends Command
             ->addOption('keep-config', null, InputOption::VALUE_NONE, 'Mantener los archivos de configuración')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Forzar la desinstalación sin confirmaciones')
             ->setHelp(<<<EOT
-                El comando <info>modulochat:uninstall</info> realiza lo siguiente:
+                El comando <info>chat:uninstall</info> realiza lo siguiente:
 
                 1. Elimina las configuraciones del módulo de chat de los archivos:
                    - services.yaml
@@ -43,7 +51,7 @@ class ChatUninstallCommand extends Command
                    - doctrine.yaml
                 2. Elimina el registro del módulo en la base de datos
                 3. Elimina los elementos de menú asociados
-                4. Elimina las tablas de la base de datos directamente mediante SQL
+                4. Elimina las tablas de la base de datos relacionadas con el chat
                 5. Limpia la caché del sistema
 
                 Opciones:
@@ -53,9 +61,9 @@ class ChatUninstallCommand extends Command
 
                 Ejemplo de uso:
 
-                <info>php bin/console modulochat:uninstall</info>
-                <info>php bin/console modulochat:uninstall --keep-tables</info>
-                <info>php bin/console modulochat:uninstall --force</info>
+                <info>php bin/console chat:uninstall</info>
+                <info>php bin/console chat:uninstall --keep-tables</info>
+                <info>php bin/console chat:uninstall --force</info>
                 EOT
             );
     }
@@ -126,10 +134,28 @@ class ChatUninstallCommand extends Command
     private function clearDoctrineCache(SymfonyStyle $io): void
     {
         try {
+            // Limpiar caché de metadatos
             $this->entityManager->getConfiguration()->getMetadataCache()->clear();
-            $io->success('Caché de metadatos de Doctrine limpiada correctamente.');
+            
+            // También limpiar el caché de consultas si está disponible
+            if (method_exists($this->entityManager->getConfiguration(), 'getQueryCache')) {
+                $queryCache = $this->entityManager->getConfiguration()->getQueryCache();
+                if ($queryCache) {
+                    $queryCache->clear();
+                }
+            }
+            
+            // Limpiar el caché de resultados si está disponible
+            if (method_exists($this->entityManager->getConfiguration(), 'getResultCache')) {
+                $resultCache = $this->entityManager->getConfiguration()->getResultCache();
+                if ($resultCache) {
+                    $resultCache->clear();
+                }
+            }
+            
+            $io->success('Caché de Doctrine limpiada correctamente.');
         } catch (\Exception $e) {
-            $io->warning('Error al limpiar la caché de metadatos de Doctrine: ' . $e->getMessage());
+            $io->warning('Error al limpiar la caché de Doctrine: ' . $e->getMessage());
         }
     }
 
@@ -154,113 +180,126 @@ class ChatUninstallCommand extends Command
 
     private function removeServicesConfig(SymfonyStyle $io): void
     {
-        $servicesYamlPath = 'config/services.yaml';
-        $servicesContent = file_get_contents($servicesYamlPath);
-
-        // Patrón para eliminar la sección añadida por ChatSetupCommand
-        $patterns = [
-            '/\n# ----------- modulochat -------.*?# ----------- modulochat -------/s',
-            '/#START\s+----+\s+ModuloChat.*?\n.*?#END\s+----+\s+ModuloChat.*?\n/s'
+        $path = $this->projectDir . '/config/services.yaml';
+        
+        if (!$this->filesystem->exists($path)) {
+            $io->note('No se encontró el archivo services.yaml.');
+            return;
+        }
+        
+        $content = file_get_contents($path);
+        
+        // Buscar las configuraciones específicas del módulo Chat
+        $servicePatternsToRemove = [
+            // Patrones directos
+            '/\n\s*App\\\\ModuloChat\\\\:.*\n\s*resource: \'\.\.\/src\/ModuloChat\/.*\'\n\s*exclude:\n\s*- \'\.\.\/src\/ModuloChat\/DependencyInjection\/\'\n\s*- \'\.\.\/src\/ModuloChat\/Entity\/\'\n\s*- \'\.\.\/src\/ModuloChat\/Kernel\.php\'/m',
+            
+            // Patrones alternativos por si la configuración es diferente
+            '/\n\s*App\\\\ModuloChat\\\\.*?\n\s*resource:.*?ModuloChat.*?(?:\n\s*exclude:.*?)+/m'
         ];
         
-        $removed = false;
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $servicesContent)) {
-                $servicesContent = preg_replace($pattern, '', $servicesContent);
-                $removed = true;
+        $modified = false;
+        foreach ($servicePatternsToRemove as $pattern) {
+            if (preg_match($pattern, $content)) {
+                $content = preg_replace($pattern, '', $content);
+                $modified = true;
             }
         }
         
-        if ($removed) {
-            file_put_contents($servicesYamlPath, $servicesContent);
-            $io->success('Configuración del módulo de chat eliminada de services.yaml.');
+        if ($modified) {
+            file_put_contents($path, $content);
+            $io->success('Configuración del módulo Chat eliminada de services.yaml.');
         } else {
-            $io->note('No se encontró configuración para eliminar en services.yaml.');
+            $io->note('No se encontraron configuraciones específicas del módulo Chat en services.yaml.');
         }
     }
 
     private function removeRoutesConfig(SymfonyStyle $io): void
     {
-        $routesYamlPath = 'config/routes.yaml';
-        $routesContent = file_get_contents($routesYamlPath);
-
-        // Patrones para eliminar la sección añadida por ChatSetupCommand
+        $path = $this->projectDir . '/config/routes.yaml';
+        
+        if (!$this->filesystem->exists($path)) {
+            $io->note('No se encontró el archivo routes.yaml.');
+            return;
+        }
+        
+        $content = file_get_contents($path);
+        
+        // Buscar y eliminar directamente entradas relacionadas con ModuloChat
         $patterns = [
-            '/\n# ----------- modulochat -------.*?# ----------- modulochat -------/s',
             '/\n\nmodulo_chat_controllers:\n\s+resource:\n\s+path: \.\.\/src\/ModuloChat\/Controller\/\n\s+namespace: App\\\\ModuloChat\\\\Controller\n\s+type: attribute/s',
-            '/\n\nmodulo_chat_controllers:.*?type: attribute/s',
-            '/\n\n# modulo_chat_controllers:.*?# type: attribute/s'
+            '/\n\nmodulo_chat_controllers:.*?type: attribute/s'
         ];
         
-        $removed = false;
+        $modified = false;
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $routesContent)) {
-                $routesContent = preg_replace($pattern, '', $routesContent);
-                $removed = true;
+            if (preg_match($pattern, $content)) {
+                $content = preg_replace($pattern, '', $content);
+                $modified = true;
             }
         }
         
-        if ($removed) {
-            file_put_contents($routesYamlPath, $routesContent);
-            $io->success('Configuración del módulo de chat eliminada de routes.yaml.');
+        if ($modified) {
+            file_put_contents($path, $content);
+            $io->success('Configuración de rutas del módulo Chat eliminada de routes.yaml.');
         } else {
-            $io->note('No se encontró configuración para eliminar en routes.yaml.');
+            $io->note('No se encontraron configuraciones de rutas específicas del módulo Chat en routes.yaml.');
         }
     }
 
     private function removeTwigConfig(SymfonyStyle $io): void
     {
-        $twigYamlPath = 'config/packages/twig.yaml';
-        $twigContent = file_get_contents($twigYamlPath);
-
-        // Patrones para eliminar la sección añadida por ChatSetupCommand
+        $path = $this->projectDir . '/config/packages/twig.yaml';
+        
+        if (!$this->filesystem->exists($path)) {
+            $io->note('No se encontró el archivo twig.yaml.');
+            return;
+        }
+        
+        $content = file_get_contents($path);
+        
+        // Patrones para eliminar referencias a ModuloChat en twig.yaml
         $patterns = [
-            "/\n\s+# ----------- modulochat -------\n\s+'%kernel\.project_dir%\/src\/ModuloChat\/templates': ModuloChat\n\s+# ----------- modulochat -------/s",
             "/\n\s+'%kernel\.project_dir%\/src\/ModuloChat\/templates': ModuloChat/",
-            "/\n\s+\"%kernel\.project_dir%\/src\/ModuloChat\/templates\": ModuloChat/",
-            "/\n\s+# '%kernel\.project_dir%\/src\/ModuloChat\/templates':.*?DESACTIVADO/"
+            "/\n\s+\"%kernel\.project_dir%\/src\/ModuloChat\/templates\": ModuloChat/"
         ];
-
-        $removed = false;
+        
+        $modified = false;
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $twigContent)) {
-                $twigContent = preg_replace($pattern, '', $twigContent);
-                $removed = true;
+            if (preg_match($pattern, $content)) {
+                $content = preg_replace($pattern, '', $content);
+                $modified = true;
             }
         }
-
-        if ($removed) {
-            file_put_contents($twigYamlPath, $twigContent);
-            $io->success('Configuración del módulo de chat eliminada de twig.yaml.');
+        
+        if ($modified) {
+            file_put_contents($path, $content);
+            $io->success('Configuración de plantillas del módulo Chat eliminada de twig.yaml.');
         } else {
-            $io->note('No se encontró configuración para eliminar en twig.yaml.');
+            $io->note('No se encontraron configuraciones de plantillas del módulo Chat en twig.yaml.');
         }
     }
 
     private function removeDoctrineConfig(SymfonyStyle $io): void
     {
-        $doctrineYamlPath = 'config/packages/doctrine.yaml';
-        $doctrineContent = file_get_contents($doctrineYamlPath);
-
-        // Patrones para eliminar la sección añadida por ChatSetupCommand
-        $patterns = [
-            "/\n\s+# ----------- modulochat -------\n\s+ModuloChat:.*?# ----------- modulochat -------/s",
-            "/\n\s+ModuloChat:\n\s+type: attribute\n\s+is_bundle: false\n\s+dir: '%kernel\.project_dir%\/src\/ModuloChat\/Entity'\n\s+prefix: 'App\\\\ModuloChat\\\\Entity'\n\s+alias: ModuloChat/s"
-        ];
-
-        $removed = false;
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $doctrineContent)) {
-                $doctrineContent = preg_replace($pattern, '', $doctrineContent);
-                $removed = true;
-            }
+        $path = $this->projectDir . '/config/packages/doctrine.yaml';
+        
+        if (!$this->filesystem->exists($path)) {
+            $io->note('No se encontró el archivo doctrine.yaml.');
+            return;
         }
-
-        if ($removed) {
-            file_put_contents($doctrineYamlPath, $doctrineContent);
-            $io->success('Configuración del módulo de chat eliminada de doctrine.yaml.');
+        
+        $content = file_get_contents($path);
+        
+        // Patrón para eliminar la configuración de ModuloChat en doctrine.yaml
+        $pattern = '/\n\s+ModuloChat:\n\s+type: attribute\n\s+is_bundle: false\n\s+dir:.*?\n\s+prefix:.*?\n\s+alias: ModuloChat/s';
+        
+        if (preg_match($pattern, $content)) {
+            $newContent = preg_replace($pattern, '', $content);
+            file_put_contents($path, $newContent);
+            $io->success('Configuración de entidades del módulo Chat eliminada de doctrine.yaml.');
         } else {
-            $io->note('No se encontró configuración para eliminar en doctrine.yaml.');
+            $io->note('No se encontró configuración de entidades del módulo Chat en doctrine.yaml.');
         }
     }
 
@@ -286,27 +325,26 @@ class ChatUninstallCommand extends Command
                 $io->note('No se encontró el módulo Chat para eliminar registros de menu_element_modulo.');
             }
 
-            $chatMenuItem = $menuRepository->findOneBy(['nombre' => 'Chat']);
+            $mainMenuItem = $menuRepository->findOneBy(['nombre' => 'Chat']);
             
-            if ($chatMenuItem) {
-                $mainMenuId = $chatMenuItem->getId();
+            if ($mainMenuItem) {
+                $mainMenuId = $mainMenuItem->getId();
                 
+                // Buscar y eliminar submenús si existen
                 $subMenuItems = $menuRepository->findBy(['parentId' => $mainMenuId]);
-                
-                if (!empty($subMenuItems)) {
-                    foreach ($subMenuItems as $subMenuItem) {
-                        $this->entityManager->remove($subMenuItem);
-                    }
-                    $io->success('Submenús del módulo Chat eliminados de la base de datos.');
-                } else {
-                    $io->note('No se encontraron submenús para el módulo Chat.');
+                foreach ($subMenuItems as $subMenuItem) {
+                    $this->entityManager->remove($subMenuItem);
                 }
                 
-                $this->entityManager->remove($chatMenuItem);
+                if (count($subMenuItems) > 0) {
+                    $io->success('Submenús del módulo Chat eliminados de la base de datos.');
+                }
+                
+                $this->entityManager->remove($mainMenuItem);
                 $this->entityManager->flush();
-                $io->success('Elemento de menú principal "Chat" eliminado de la base de datos.');
+                $io->success('Elemento de menú "Chat" eliminado de la base de datos.');
             } else {
-                $io->note('No se encontraron elementos de menú para el módulo Chat.');
+                $io->note('No se encontró el elemento de menú para el módulo Chat.');
             }
         } catch (\Exception $e) {
             $io->error('Error al eliminar los elementos de menú: ' . $e->getMessage() . "\nStack trace: " . $e->getTraceAsString());
@@ -372,19 +410,23 @@ class ChatUninstallCommand extends Command
         try {
             $connection = $this->entityManager->getConnection();
             
-            // Drop tables in the correct order to avoid dependency issues
-            $connection->executeStatement('DROP TABLE IF EXISTS chat_message');
-            $io->success('Tabla chat_message eliminada.');
-
-            $connection->executeStatement('DROP TABLE IF EXISTS chat_participant');
-            $io->success('Tabla chat_participant eliminada.');
-
-            $connection->executeStatement('DROP TABLE IF EXISTS chat');
-            $io->success('Tabla chat eliminada.');
-
+            // Lista de tablas a eliminar en orden para evitar problemas de dependencias
+            $tables = [
+                'chat_message',
+                'chat_participant',
+                'chat'
+            ];
+            
+            foreach ($tables as $table) {
+                try {
+                    $connection->executeStatement("DROP TABLE IF EXISTS $table");
+                    $io->success("Tabla $table eliminada.");
+                } catch (\Exception $e) {
+                    $io->error("Error al eliminar la tabla $table: " . $e->getMessage());
+                }
+            }
         } catch (\Exception $e) {
             $io->error('Error al eliminar las tablas: ' . $e->getMessage());
-            throw $e;
         }
     }
     
@@ -392,7 +434,8 @@ class ChatUninstallCommand extends Command
     {
         try {
             $process = new Process(['php', 'bin/console', 'cache:clear']);
-            $process->setTimeout(120);
+            $process->setWorkingDirectory($this->projectDir);
+            $process->setTimeout(300);
             $process->run();
             
             if (!$process->isSuccessful()) {

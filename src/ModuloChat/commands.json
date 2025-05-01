@@ -1,4 +1,4 @@
 {
-    "install": "php bin/console modulochat:setup",
-    "uninstall": "php bin/console modulochat:uninstall --force"
+    "install": "php bin/console chat:install",
+    "uninstall": "php bin/console chat:uninstall --force"
 }

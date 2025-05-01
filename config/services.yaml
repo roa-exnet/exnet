@@ -76,37 +76,7 @@ services:
             $entityManager: '@doctrine.orm.entity_manager'
             $parameterBag: '@parameter_bag'
 
-    #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------
-# ----------- modulochat -------
-    App\ModuloChat\Controller\:
-        resource: '../src/ModuloChat/Controller'
-        tags: ['controller.service_arguments']
-
-    App\ModuloChat\Command\:
-        resource: '../src/ModuloChat/Command'
-        tags: ['console.command']
-
-    App\ModuloChat\Service\:
-        resource: '../src/ModuloChat/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-# ----------- modulochat -------        
-    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
-    App\ModuloExplorador\Controller\:
-        resource: '../src/ModuloExplorador/Controller'
-        tags: ['controller.service_arguments']
-        
-    App\ModuloExplorador\Command\:
-        resource: '../src/ModuloExplorador/Command'
-        tags: ['console.command']
-        
-    App\ModuloExplorador\Service\:
-        resource: '../src/ModuloExplorador/Service/'
-        autowire: true
-        autoconfigure: true
-        public: true
-    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
+    #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
     App\ModuloMusica\Controller\:
         resource: '../src/ModuloMusica/Controller'
@@ -137,3 +107,33 @@ services:
         autoconfigure: true
         public: true
     #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------
+# ----------- modulochat -------
+    App\ModuloChat\Controller\:
+        resource: '../src/ModuloChat/Controller'
+        tags: ['controller.service_arguments']
+
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
+        tags: ['console.command']
+
+    App\ModuloChat\Service\:
+        resource: '../src/ModuloChat/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+# ----------- modulochat -------        

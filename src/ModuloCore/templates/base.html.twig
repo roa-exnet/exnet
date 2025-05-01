@@ -9,12 +9,12 @@
     {% block head %}
         <link rel="stylesheet" href="{{ asset('bootstrap/css/bootstrap.min.css') }}">
         <link rel="stylesheet" href="{{ asset('fontawesome/css/all.min.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/general.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/containers.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/titles.css')}}">
-        <link rel="stylesheet" href="{{ asset('css/navbar.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/buttons.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/responsive.css') }}">
+        <link rel="stylesheet" href="{{ asset('/ModuloCore/css/general.css') }}">
+        <link rel="stylesheet" href="{{ asset('/ModuloCore/css/containers.css') }}">
+        <link rel="stylesheet" href="{{ asset('/ModuloCore/css/titles.css')}}">
+        <link rel="stylesheet" href="{{ asset('/ModuloCore/css/navbar.css') }}">
+        <link rel="stylesheet" href="{{ asset('/ModuloCore/css/buttons.css') }}">
+        <link rel="stylesheet" href="{{ asset('/ModuloCore/css/responsive.css') }}">
     {% endblock %}
 </head>
 <body>
@@ -51,9 +51,7 @@
                 <li><a href="/admin/usuarios" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-users me-2"></i>Usuarios</a></li>
                 <li><hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.1);"></li>
                 {% endif %}
-                <li><a href="/mi-perfil" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-cog me-2"></i>Mi configuración</a></li>
-                <li><a href="/modulos" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-puzzle-piece me-2"></i>Módulos</a></li>
-                <li><a href="/jwt-logout" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-sign-out-alt me-2"></i>Salir</a></li>
+                <li><a href="/mi-perfil" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-cog me-2"></i>Mi perfil</a></li>
             </ul>
         </div>
         {% endif %}
@@ -213,9 +211,7 @@
                             <li><a href="/admin/usuarios" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-users me-2"></i>Usuarios</a></li>
                             <li><hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.1);"></li>
                             {% endif %}
-                            <li><a href="/mi-perfil" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-cog me-2"></i>Mi configuración</a></li>
-                            <li><a href="/modulos" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-puzzle-piece me-2"></i>Módulos</a></li>
-                            <li><a href="/jwt-logout" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-sign-out-alt me-2"></i>Salir</a></li>
+                            <li><a href="/mi-perfil" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-cog me-2"></i>Mi perfil</a></li>
                         </ul>
                     </div>
                 {% endif %}

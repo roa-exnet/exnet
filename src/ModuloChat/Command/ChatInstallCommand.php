@@ -19,10 +19,10 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
-    name: 'modulochat:setup',
+    name: 'chat:install',
     description: 'Configurar el módulo de chat: configura configuraciones y crea tablas directamente'
 )]
-class ChatSetupCommand extends Command
+class ChatInstallCommand extends Command
 {
     private EntityManagerInterface $entityManager;
     private HttpClientInterface $httpClient;
