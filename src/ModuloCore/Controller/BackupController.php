@@ -30,6 +30,13 @@ class BackupController extends AbstractController
     #[Route('/backups', name: 'backups_index')]
     public function index(Request $request): Response
     {
+        // Verificar que el usuario es administrador
+        $user = $this->requireJwtRoles($request, ['ROLE_ADMIN']);
+        if ($user instanceof Response) {
+            $this->addFlash('error', 'Acceso denegado: se requiere rol de administrador.');
+            return $this->redirectToRoute('landing');
+        }
+        
         $backups = $this->backupService->getBackupsList();
         $stats = $this->backupService->getBackupStats();
         
@@ -45,13 +52,13 @@ class BackupController extends AbstractController
         return $response;
     }
     
-    #[Route('/create', name: 'backups_create', methods: ['GET', 'POST'])]
+    #[Route('/backups/create', name: 'backups_create', methods: ['GET', 'POST'])]
     public function create(Request $request): Response
     {
         $user = $this->requireJwtRoles($request, ['ROLE_ADMIN']);
         if ($user instanceof Response) {
             $this->addFlash('error', 'Acceso denegado: se requiere rol de administrador.');
-            return $user;
+            return $this->redirectToRoute('landing');
         }
 
         if ($request->isMethod('POST')) {
@@ -76,12 +83,13 @@ class BackupController extends AbstractController
         return $this->render('backup/create.html.twig', []);
     }
     
-    #[Route('/{id}/download', name: 'backups_download')]
+    #[Route('/backups/{id}/download', name: 'backups_download')]
     public function download(Request $request, string $id): Response
     {
         $user = $this->requireJwtRoles($request, ['ROLE_ADMIN']);
         if ($user instanceof Response) {
-            return $user;
+            $this->addFlash('error', 'Acceso denegado: se requiere rol de administrador.');
+            return $this->redirectToRoute('landing');
         }
         
         try {
@@ -93,12 +101,13 @@ class BackupController extends AbstractController
         }
     }
     
-    #[Route('/{id}/restore', name: 'backups_restore', methods: ['POST'])]
+    #[Route('/backups/{id}/restore', name: 'backups_restore', methods: ['POST'])]
     public function restore(Request $request, string $id): Response
     {
         $user = $this->requireJwtRoles($request, ['ROLE_ADMIN']);
         if ($user instanceof Response) {
-            return $user;
+            $this->addFlash('error', 'Acceso denegado: se requiere rol de administrador.');
+            return $this->redirectToRoute('landing');
         }
         
         if (!$this->isCsrfTokenValid('restore_backup_' . $id, $request->request->get('_token'))) {
@@ -116,13 +125,13 @@ class BackupController extends AbstractController
         return $this->redirectToRoute('backups_index');
     }
     
-    #[Route('/{id}/delete', name: 'backups_delete', methods: ['POST'])]
+    #[Route('/backups/{id}/delete', name: 'backups_delete', methods: ['POST'])]
     public function delete(Request $request, string $id): Response
     {
         $user = $this->requireJwtRoles($request, ['ROLE_ADMIN']);
         if ($user instanceof Response) {
             $this->addFlash('error', 'Acceso denegado: se requiere rol de administrador.');
-            return $user;
+            return $this->redirectToRoute('landing');
         }
         
         if (!$this->isCsrfTokenValid('delete_backup_' . $id, $request->request->get('_token'))) {
@@ -140,7 +149,7 @@ class BackupController extends AbstractController
         return $this->redirectToRoute('backups_index');
     }
     
-    #[Route('/api/create', name: 'api_create', methods: ['POST'])]
+    #[Route('/api/backups/create', name: 'api_create', methods: ['POST'])]
     public function apiCreate(Request $request): JsonResponse
     {
         $auth = $this->requireJwtRoles($request, ['ROLE_ADMIN']);

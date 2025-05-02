@@ -46,9 +46,10 @@
                 <span>{{ app.request.attributes.get('jwt_user').nombre }} {{ app.request.attributes.get('jwt_user').apellidos }}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end" style="background-color: #2c3e50; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-                {% if 'ROLE_ADMIN' in app.request.attributes.get('jwt_user').roles %}
+                {% if isAdmin %}
                 <li><span class="dropdown-item-text" style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 4px 16px;">Administración</span></li>
                 <li><a href="/admin/usuarios" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-users me-2"></i>Usuarios</a></li>
+                <li><a href="/backups" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-database me-2"></i>Respaldos</a></li>
                 <li><hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.1);"></li>
                 {% endif %}
                 <li><a href="/mi-perfil" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-cog me-2"></i>Mi perfil</a></li>
@@ -120,7 +121,7 @@
         
         {% if app.request.attributes.get('jwt_user') %}
             
-            {% if 'ROLE_ADMIN' in app.request.attributes.get('jwt_user').roles %}
+            {% if isAdmin %}
             <div style="margin-top: 10px; padding-top: 10px;">
                 <div style="color: white; padding: 5px 10px; font-size: 0.9rem;">
                     <span style="opacity: 0.7;">Administración</span>
@@ -128,6 +129,10 @@
                 <a href="/admin/usuarios" style="color: white; display: flex; align-items: center; padding: 8px 0 8px 10px; text-decoration: none; border-radius: 4px; margin: 2px 0; transition: background-color 0.2s ease;">
                     <i class="fas fa-users" style="margin-right: 12px; width: 20px; text-align: center;"></i>
                     <span>Usuarios</span>
+                </a>
+                <a href="/backups" style="color: white; display: flex; align-items: center; padding: 8px 0 8px 10px; text-decoration: none; border-radius: 4px; margin: 2px 0; transition: background-color 0.2s ease;">
+                    <i class="fas fa-database" style="margin-right: 12px; width: 20px; text-align: center;"></i>
+                    <span>Respaldos</span>
                 </a>
             </div>
             {% endif %}
@@ -206,9 +211,10 @@
                             <span>{{ app.request.attributes.get('jwt_user').nombre }} {{ app.request.attributes.get('jwt_user').apellidos }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" style="background-color: #2c3e50; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-                            {% if 'ROLE_ADMIN' in app.request.attributes.get('jwt_user').roles %}
+                            {% if isAdmin %}
                             <li><span class="dropdown-item-text" style="color: rgba(255,255,255,0.5); font-size: 0.8rem; padding: 4px 16px;">Administración</span></li>
                             <li><a href="/admin/usuarios" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-users me-2"></i>Usuarios</a></li>
+                            <li><a href="/backups" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-database me-2"></i>Respaldos</a></li>
                             <li><hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.1);"></li>
                             {% endif %}
                             <li><a href="/mi-perfil" class="dropdown-item" style="color: white; padding: 8px 16px;"><i class="fas fa-cog me-2"></i>Mi perfil</a></li>
