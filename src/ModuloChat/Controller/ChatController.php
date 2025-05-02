@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use App\ModuloCore\Service\EncryptionService;
 
 #[Route('/chat', name: 'chat_')]
 class ChatController extends AbstractController
@@ -22,15 +23,18 @@ class ChatController extends AbstractController
     private string $websocketUrl;
     private EntityManagerInterface $entityManager;
     private IpAuthService $ipAuthService;
+    private ?EncryptionService $encryptionService;
     
     public function __construct(
         ChatService $chatService, 
         EntityManagerInterface $entityManager,
-        IpAuthService $ipAuthService
+        IpAuthService $ipAuthService,
+        EncryptionService $encryptionService = null
     ) {
         $this->chatService = $chatService;
         $this->entityManager = $entityManager;
         $this->ipAuthService = $ipAuthService;
+        $this->encryptionService = $encryptionService;
         $this->websocketUrl = 'https://websockettest.exnet.cloud';
     }
     
@@ -616,32 +620,44 @@ class ChatController extends AbstractController
             }
             
             $userRepository = $this->entityManager->getRepository(User::class);
+            $allActiveUsers = $userRepository->findBy(['is_active' => true], null, 20);
             
-            $qb = $userRepository->createQueryBuilder('u');
-            $qb->where('u.nombre LIKE :query')
-               ->orWhere('u.apellidos LIKE :query')
-               ->orWhere('u.email LIKE :query')
-               ->andWhere('u.is_active = :active')
-               ->setParameter('query', '%' . $query . '%')
-               ->setParameter('active', true)
-               ->setMaxResults(10);
+            $matchedUsers = [];
+            $queryLower = strtolower($query);
             
-            $results = $qb->getQuery()->getResult();
-            
-            $users = [];
-            foreach ($results as $searchUser) {
-                if ($searchUser->getId() !== $user->getId()) {
-                    $users[] = [
+            foreach ($allActiveUsers as $searchUser) {
+                if ($this->encryptionService !== null) {
+                    $searchUser->setEncryptionService($this->encryptionService);
+                }
+                
+                $nombre = $searchUser->getNombre();
+                $apellidos = $searchUser->getApellidos();
+                $email = $searchUser->getEmail();
+                $nombreCompleto = $nombre . ' ' . $apellidos;
+                
+                if (
+                    $searchUser->getId() !== $user->getId() && (
+                        stripos($nombre, $query) !== false ||
+                        stripos($apellidos, $query) !== false ||
+                        stripos($nombreCompleto, $query) !== false ||
+                        stripos($email, $query) !== false
+                    )
+                ) {
+                    $matchedUsers[] = [
                         'id' => $searchUser->getId(),
-                        'nombre' => $searchUser->getNombre() . ' ' . $searchUser->getApellidos(),
-                        'email' => $searchUser->getEmail()
+                        'nombre' => $nombreCompleto,
+                        'email' => $email
                     ];
+                    
+                    if (count($matchedUsers) >= 10) {
+                        break;
+                    }
                 }
             }
             
             return $this->json([
                 'success' => true,
-                'users' => $users
+                'users' => $matchedUsers
             ]);
         } catch (AccessDeniedException $e) {
             return $this->json([

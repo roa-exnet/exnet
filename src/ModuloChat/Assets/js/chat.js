@@ -23,7 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let isAuthenticated = false;
     let voiceCallManager = null;
     
+    // Keep track of sent messages to avoid duplicates
     const sentMessageIds = new Set();
+    // Keep track of messages sent by the current user to avoid adding them twice
+    const locallyAddedMessages = new Set();
     
     socket.on('connect', () => {
         console.log('Conectado al servidor WebSocket');
@@ -66,8 +69,16 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.on('message', (message) => {
         console.log('Mensaje recibido del servidor WebSocket:', message);
         if (message.roomId === currentRoomId) {
-            if (!sentMessageIds.has(message.id)) {
+            // Check if the message was already added locally (sent by the current user)
+            const tempMessageId = `temp_${message.timestamp}`;
+            
+            // Only add the message if it wasn't already added locally
+            // or it wasn't sent by the current user
+            if (!sentMessageIds.has(message.id) && 
+                !(message.senderId === storedUserId.toString() && locallyAddedMessages.has(message.content))) {
+                
                 addMessageToChat({
+                    id: message.id,
                     senderId: message.senderId,
                     senderName: message.senderName,
                     content: message.content,
@@ -165,7 +176,8 @@ document.addEventListener('DOMContentLoaded', function() {
         searchResults.innerHTML = '<div class="loading">Buscando usuarios...</div>';
         searchResults.style.display = 'block';
         
-        fetch(`/chat/api/users/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(storedUserToken)}`)
+        // Asegurarse de enviar el token para validar la autenticación
+        fetch(`/chat/api/users/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Error en la respuesta del servidor: ' + response.status);
@@ -175,6 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     console.log(`Encontrados ${data.users.length} usuarios para la consulta: "${query}"`);
+                    // Los nombres ya vienen desencriptados desde el servidor
                     displaySearchResults(data.users);
                 } else {
                     console.error('Error en la búsqueda:', data.error || 'Error desconocido');
@@ -430,6 +443,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         currentRoomId = roomId;
         
+        // Clear the locally added messages set when changing rooms
+        locallyAddedMessages.clear();
+        
         console.log(`Uniéndose a la sala ${roomId}...`);
         socket.emit('join_room', { roomId, userId: storedUserId });
         
@@ -482,7 +498,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.messages && data.messages.length > 0) {
                     console.log(`Mostrando ${data.messages.length} mensajes en orden cronológico`);
                     
+                    // Keep track of received message IDs to avoid duplicates
+                    sentMessageIds.clear();
+                    
                     data.messages.forEach(message => {
+                        sentMessageIds.add(message.id);
+                        
                         addMessageToChatOrdered({
                             id: message.id,
                             senderId: message.senderId,
@@ -572,8 +593,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const content = messageInput.value.trim();
         
         if (!content || !currentRoomId) return;
-
+    
         console.log('Enviando mensaje al WebSocket:', { roomId: currentRoomId, content, type: 'text' });
+        
+        // Eliminar el mensaje "Aún no hay mensajes" inmediatamente
+        const noMessagesEl = document.querySelector('.no-messages');
+        if (noMessagesEl) {
+            noMessagesEl.remove();
+        }
+        
+        // Add message content to tracking set to avoid duplicates
+        locallyAddedMessages.add(content);
+        
+        // Agregar el mensaje localmente de inmediato para mejor UX
+        addMessageToChatOrdered({
+            id: 'temp_' + Date.now(),
+            senderId: storedUserId,
+            senderName: storedUserName,
+            content: content,
+            type: 'text',
+            timestamp: new Date()
+        }, true);
         
         socket.emit('send_message', {
             roomId: currentRoomId,
@@ -602,10 +642,19 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(data => {
             console.log('Respuesta del servidor Symfony:', data);
+            
+            // After successful sending, remove the content from the tracking set
+            // after a short delay to make sure the socket has had time to process
+            setTimeout(() => {
+                locallyAddedMessages.delete(content);
+            }, 5000);
         })
         .catch(error => {
             console.error('Error al enviar el mensaje a Symfony:', error);
             addSystemMessage('Error al enviar el mensaje. Inténtalo de nuevo.');
+            
+            // Remove from tracking set on error
+            locallyAddedMessages.delete(content);
         });
         
         messageInput.value = '';
@@ -615,7 +664,18 @@ function addMessageToChat(message, scroll = true) {
     const messagesContainer = document.querySelector('.chat-messages');
     if (!messagesContainer) return;
     
+    // Check if the message already exists in the DOM
+    if (message.id && document.querySelector(`.message[data-id="${message.id}"]`)) {
+        console.log(`Mensaje con ID ${message.id} ya existe en el DOM, ignorando duplicado`);
+        return;
+    }
+    
     const messageDiv = document.createElement('div');
+    
+    // Add data attributes to help identify the message
+    if (message.id) {
+        messageDiv.setAttribute('data-id', message.id);
+    }
     
     if (message.type === 'system') {
         messageDiv.className = 'message message-system';
@@ -656,7 +716,14 @@ function addMessageToChatOrdered(message, scroll = true) {
     const messagesContainer = document.querySelector('.chat-messages');
     if (!messagesContainer) return;
     
-    const existingMessage = document.querySelector(`.message[data-id="${message.id}"]`);
+    // Eliminar el mensaje "Aún no hay mensajes" si existe
+    const noMessagesEl = document.querySelector('.no-messages');
+    if (noMessagesEl) {
+        noMessagesEl.remove();
+    }
+    
+    // Check if message already exists with the same ID
+    const existingMessage = message.id ? document.querySelector(`.message[data-id="${message.id}"]`) : null;
     if (existingMessage) {
         console.log(`Mensaje con ID ${message.id} ya existe, ignorando duplicado`);
         return;
@@ -705,11 +772,6 @@ function addMessageToChatOrdered(message, scroll = true) {
     }
     
     messagesContainer.appendChild(messageDiv);
-    
-    const noMessagesEl = document.querySelector('.no-messages');
-    if (noMessagesEl) {
-        noMessagesEl.remove();
-    }
     
     if (scroll) {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
