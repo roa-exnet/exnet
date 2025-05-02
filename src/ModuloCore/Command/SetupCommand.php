@@ -642,16 +642,7 @@ class SetupCommand extends Command
                     '/', 
                     $coreModule
                 );
-                
-                // Elemento de menú Respaldos
-                $this->createMenuElement(
-                    'Respaldos', 
-                    'fas fa-database', 
-                    'menu', 
-                    0, 
-                    '/backups', 
-                    $coreModule
-                );
+            
                 
                 $this->entityManager->flush();
                 $io->success('Módulo Core registrado correctamente.');
