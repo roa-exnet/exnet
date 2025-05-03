@@ -1,6 +1,3 @@
-/* Estilos para el módulo de Streaming */
-
-/* Estilos generales del módulo */
 .streaming-container {
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
@@ -8,7 +5,6 @@
     color: white;
 }
 
-/* Admin - Contenedores y secciones */
 .admin-container {
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
@@ -28,7 +24,6 @@
     padding-bottom: 10px;
 }
 
-/* Admin - Tablas de datos */
 .data-table {
     width: 100%;
     table-layout: fixed;
@@ -51,7 +46,6 @@
     background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Anchos específicos para las columnas - Videos */
 .videos-table th:nth-child(1), .videos-table td:nth-child(1) {
     width: 80px;
 }
@@ -81,7 +75,6 @@
     text-align: center;
 }
 
-/* Admin - Botones de acción */
 .action-buttons {
     display: flex;
     gap: 5px;
@@ -119,7 +112,6 @@
     margin-bottom: 15px;
 }
 
-/* Admin - Badges y miniaturas */
 .tipo-badge {
     display: inline-block;
     padding: 5px 10px;
@@ -149,7 +141,6 @@
     display: inline;
 }
 
-/* Formularios */
 .form-container {
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
@@ -227,7 +218,6 @@ textarea.form-control {
     resize: vertical;
 }
 
-/* Selector de iconos */
 .icon-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -268,7 +258,6 @@ textarea.form-control {
     word-break: break-word;
 }
 
-/* Catálogo de videos */
 .video-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -290,7 +279,7 @@ textarea.form-control {
     position: relative;
     width: 100%;
     height: 0;
-    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    padding-bottom: 56.25%; 
     overflow: hidden;
 }
 
@@ -327,7 +316,6 @@ textarea.form-control {
     color: white;
 }
 
-/* Filtros de catálogo */
 .filter-container {
     background-color: rgba(0, 0, 0, 0.6);
     border-radius: 8px;
@@ -365,7 +353,6 @@ textarea.form-control {
     background-color: #007bff;
 }
 
-/* Banners de sección */
 .series-banner, .movies-banner {
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
@@ -385,7 +372,6 @@ textarea.form-control {
     margin-bottom: 20px;
 }
 
-/* Reproductor de video */
 .video-player-page body {
     margin: 0;
     padding: 0;
@@ -395,7 +381,7 @@ textarea.form-control {
 .player-container {
     position: relative;
     width: 100%;
-    height: calc(100vh - 60px); /* Ajuste para la barra de navegación */
+    height: calc(100vh - 60px); 
     display: flex;
     flex-direction: column;
     background-color: #000;
@@ -446,7 +432,6 @@ textarea.form-control {
     padding: 20px;
 }
 
-/* Página de detalle de video */
 .video-detail-container {
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
@@ -475,7 +460,6 @@ textarea.form-control {
     object-fit: cover;
 }
 
-/* Botón de reproducción */
 .play-button {
     display: inline-block;
     padding: 10px 20px;
@@ -492,7 +476,6 @@ textarea.form-control {
     color: white;
 }
 
-/* Sección de episodios */
 .seasons-section {
     margin-top: 30px;
 }
@@ -556,13 +539,11 @@ textarea.form-control {
     margin-left: 10px;
 }
 
-/* Texto auxiliar */
 .text-muted {
     color: rgba(255, 255, 255, 0.6);
     font-size: 0.85rem;
 }
 
-/* Media queries para responsividad */
 @media (max-width: 992px) {
     .data-table {
         table-layout: auto;

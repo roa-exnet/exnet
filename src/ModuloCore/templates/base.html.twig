@@ -248,10 +248,7 @@
         {% if not auth_js_imported is defined %}
             <script src="{{ asset('ModuloCore/js/auth.js') }}"></script>
             {% set auth_js_imported = true %}
-        {% endif %}
-        
-        {# <script src="{{ asset('/ModuloCore/js/auth-loader.js') }}"></script> #}
-        
+        {% endif %}        
     {% endblock %}
 </body>
 </html>
