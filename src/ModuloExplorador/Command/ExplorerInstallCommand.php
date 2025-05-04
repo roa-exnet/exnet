@@ -50,7 +50,6 @@ class ExplorerInstallCommand extends Command
         }
 
         try {
-            // Limpiar caché de metadatos de Doctrine al inicio
             $io->section('Limpiando caché de metadatos de Doctrine');
             $this->clearDoctrineCache($io);
             
@@ -59,46 +58,37 @@ class ExplorerInstallCommand extends Command
                 return Command::SUCCESS;
             }
 
-            // Actualizar archivos de configuración
             $this->updateServicesYaml($io);
             $this->updateRoutesYaml($io);
             $this->updateTwigYaml($io);
             $this->updateDoctrineYaml($io);
 
-            // Limpiar caché después de actualizar los archivos de configuración
             $io->section('Limpiando caché del sistema');
             $this->clearCache($io);
             
-            // Registrar el módulo en la base de datos
             $modulo = $this->registerModule($io);
             
-            // Crear elementos de menú si no se ha omitido
             if (!$input->getOption('skip-menu')) {
                 $this->createMenuItems($io, $modulo);
             }
 
-            // Si se omiten las tablas, terminar aquí
             if ($input->getOption('skip-tables')) {
                 $io->note('La creación de tablas ha sido omitida según los parámetros de entrada.');
                 $io->success('Configuración del Módulo de Explorador completada exitosamente (sin tablas).');
                 return Command::SUCCESS;
             }
             
-            // Confirmar creación de tablas si no es automático
             if (!$input->getOption('yes') && !$io->confirm('¿Deseas crear las tablas en la base de datos ahora?', true)) {
                 $io->note('Operaciones de base de datos omitidas. Puedes ejecutarlas manualmente más tarde.');
                 $io->success('Configuración de archivos completada.');
                 return Command::SUCCESS;
             }
             
-            // Crear carpetas necesarias para el explorador
             $this->createExplorerDirectories($io);
 
-            // Configurar carpeta de assets
             $io->section('Configurando acceso a los assets del módulo');
             $this->setupAssetsSymlink($io);
 
-            // Limpiar completamente la caché después de todas las operaciones
             $io->section('Reiniciando el kernel y limpiando caché');
             $this->resetKernel($io);
             
@@ -130,10 +120,8 @@ class ExplorerInstallCommand extends Command
     private function clearDoctrineCache(SymfonyStyle $io): void
     {
         try {
-            // Limpiar caché de metadatos
             $this->entityManager->getConfiguration()->getMetadataCache()->clear();
             
-            // También limpiar el caché de consultas si está disponible
             if (method_exists($this->entityManager->getConfiguration(), 'getQueryCache')) {
                 $queryCache = $this->entityManager->getConfiguration()->getQueryCache();
                 if ($queryCache) {
@@ -141,7 +129,6 @@ class ExplorerInstallCommand extends Command
                 }
             }
             
-            // Limpiar el caché de resultados si está disponible
             if (method_exists($this->entityManager->getConfiguration(), 'getResultCache')) {
                 $resultCache = $this->entityManager->getConfiguration()->getResultCache();
                 if ($resultCache) {
@@ -175,15 +162,12 @@ class ExplorerInstallCommand extends Command
     private function resetKernel(SymfonyStyle $io): void
     {
         try {
-            // Limpiar caché de Doctrine
             $this->clearDoctrineCache($io);
             
-            // Limpiar caché del sistema
             $process1 = new Process(['php', 'bin/console', 'cache:clear', '--no-warmup']);
             $process1->setWorkingDirectory($this->projectDir);
             $process1->run();
             
-            // Reconstruir el caché
             $process2 = new Process(['php', 'bin/console', 'cache:warmup']);
             $process2->setWorkingDirectory($this->projectDir);
             $process2->run();
@@ -442,17 +426,16 @@ EOT;
                 return;
             }
             
-            // Cambio aquí: Ahora usamos directamente la carpeta public como directorio objetivo
             $targetParentDir = $this->projectDir . '/public';
             
-            $symlinkPath = $targetParentDir . '/explorer';
+            $symlinkPath = $targetParentDir . '/ModuloExplorador';
             
             if ($filesystem->exists($symlinkPath)) {
                 if (is_link($symlinkPath)) {
                     $filesystem->remove($symlinkPath);
                     $io->text('Enlace simbólico existente eliminado');
                 } else {
-                    $io->warning('La ruta /public/explorer existe pero no es un enlace simbólico. Eliminando...');
+                    $io->warning('La ruta /public/ModuloExplorador existe pero no es un enlace simbólico. Eliminando...');
                     $filesystem->remove($symlinkPath);
                 }
             }
@@ -462,7 +445,7 @@ EOT;
                     $assetsSourcePath,
                     $symlinkPath
                 );
-                $io->success('Enlace simbólico creado correctamente: /public/explorer -> /src/ModuloExplorador/Assets');
+                $io->success('Enlace simbólico creado correctamente: /public/ModuloExplorador -> /src/ModuloExplorador/Assets');
             } else {
                 $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
                 
@@ -471,7 +454,7 @@ EOT;
                 }
                 
                 $filesystem->mirror($assetsSourcePath, $symlinkPath);
-                $io->text('Archivos copiados a /public/explorer');
+                $io->text('Archivos copiados a /public/ModuloExplorador');
                 
                 $filesystem->dumpFile(
                     $symlinkPath . '/README.txt',
@@ -488,10 +471,8 @@ EOT;
     {
         $io->section('Creando directorios necesarios para el explorador de archivos');
         
-        // Directorio principal para almacenar archivos
         $rootExplorerPath = '/root/explorador';
         
-        // Verifica si el directorio principal ya existe
         if (!is_dir($rootExplorerPath)) {
             try {
                 mkdir($rootExplorerPath, 0755, true);
@@ -504,7 +485,6 @@ EOT;
             $io->note("El directorio principal $rootExplorerPath ya existe.");
         }
         
-        // Ejemplo de carpetas adicionales que podrían ser útiles para el explorador
         $subDirectories = [
             $rootExplorerPath . '/documentos',
             $rootExplorerPath . '/imagenes',
@@ -526,7 +506,6 @@ EOT;
             }
         }
         
-        // Crear un archivo de bienvenida
         $welcomeFile = $rootExplorerPath . '/bienvenido.txt';
         if (!file_exists($welcomeFile)) {
             try {
@@ -549,23 +528,19 @@ EOT;
         $doctrineYamlPath = $this->projectDir . '/config/packages/doctrine.yaml';
         $doctrineContent = file_get_contents($doctrineYamlPath);
         
-        // Verificar si la configuración de ModuloExplorador ya existe
         if (preg_match('/ModuloExplorador:.*?\n\s+type: attribute\n\s+is_bundle: false\n\s+dir:.*?\n\s+prefix:.*?\n\s+alias: ModuloExplorador/s', $doctrineContent)) {
             $io->note('La configuración de Doctrine ya incluye las entidades del módulo de explorador.');
             return;
         }
         
-        // Verificar si existe la sección mappings
         if (!preg_match('/mappings:/', $doctrineContent)) {
             $io->error('No se pudo encontrar la sección "mappings" en doctrine.yaml');
             return;
         }
         
-        // Determinar la indentación para la sección mappings
-        $mappingsIndentation = '        '; // Indentación por defecto (8 espacios)
-        $moduleIndentation = '            '; // Indentación para el módulo (12 espacios)
+        $mappingsIndentation = '        ';
+        $moduleIndentation = '            ';
         
-        // Configuración del módulo de explorador
         $explorerConfig = "\n{$moduleIndentation}ModuloExplorador:
     {$moduleIndentation}    type: attribute
     {$moduleIndentation}    is_bundle: false
@@ -573,7 +548,6 @@ EOT;
     {$moduleIndentation}    prefix: 'App\\ModuloExplorador\\Entity'
     {$moduleIndentation}    alias: ModuloExplorador";
         
-        // Insertar la configuración justo debajo de mappings:
         $newContent = preg_replace(
             '/(mappings:)/',
             "$1{$explorerConfig}",

@@ -454,28 +454,28 @@ EOT;
                 $io->text('Creado directorio: /public/js');
             }
     
-            $symlinkPath = $targetDir . '/moduloStreaming';
+            $symlinkPath = $targetDir . '/ModuloStreaming';
     
             if ($filesystem->exists($symlinkPath)) {
                 if (is_link($symlinkPath)) {
                     $filesystem->remove($symlinkPath);
                     $io->text('Enlace simbólico existente eliminado');
                 } else {
-                    $io->warning('La ruta /public/moduloStreaming existe pero no es un enlace simbólico. Eliminando...');
+                    $io->warning('La ruta /public/ModuloStreaming existe pero no es un enlace simbólico. Eliminando...');
                     $filesystem->remove($symlinkPath);
                 }
             }
     
             if (function_exists('symlink')) {
                 $filesystem->symlink($assetsSourcePath, $symlinkPath);
-                $io->success('Enlace simbólico creado correctamente: /public/moduloStreaming -> /src/ModuloStreaming/Assets');
+                $io->success('Enlace simbólico creado correctamente: /public/ModuloStreaming -> /src/ModuloStreaming/Assets');
             } else {
                 $io->warning('Tu sistema no soporta enlaces simbólicos. Copiando archivos en su lugar...');
                 if (!$filesystem->exists($symlinkPath)) {
                     $filesystem->mkdir($symlinkPath);
                 }
                 $filesystem->mirror($assetsSourcePath, $symlinkPath);
-                $io->text('Archivos copiados a /public/moduloStreaming');
+                $io->text('Archivos copiados a /public/ModuloStreaming');
                 $filesystem->dumpFile(
                     $symlinkPath . '/README.txt',
                     "Esta carpeta contiene una copia de los assets de src/ModuloStreaming/Assets.\n" .

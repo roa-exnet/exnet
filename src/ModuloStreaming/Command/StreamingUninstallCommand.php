@@ -327,18 +327,18 @@ class StreamingUninstallCommand extends Command
     private function removeAssetsSymlink(SymfonyStyle $io): void
     {
         try {
-            $symlinkPath = $this->projectDir . '/public/moduloStreaming';
+            $symlinkPath = $this->projectDir . '/public/ModuloStreaming';
             if (is_link($symlinkPath) || is_dir($symlinkPath)) {
                 if (is_link($symlinkPath)) {
                     unlink($symlinkPath);
-                    $io->success('Enlace simbólico eliminado: /public/moduloStreaming');
+                    $io->success('Enlace simbólico eliminado: /public/ModuloStreaming');
                 } else {
                     $filesystem = new \Symfony\Component\Filesystem\Filesystem();
                     $filesystem->remove($symlinkPath);
-                    $io->success('Directorio eliminado: /public/moduloStreaming');
+                    $io->success('Directorio eliminado: /public/ModuloStreaming');
                 }
             } else {
-                $io->note('No se encontró el enlace simbólico o directorio /public/moduloStreaming.');
+                $io->note('No se encontró el enlace simbólico o directorio /public/ModuloStreaming.');
             }
 
             $jsDir = $this->projectDir . '/public/js';

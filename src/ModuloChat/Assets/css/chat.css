@@ -826,3 +826,15 @@
     padding: 10px;
   }
 }
+
+@media (max-width: 768px) {
+  .modal {
+    padding-top: 60px;
+  }
+  
+  .modal-content {
+    margin: 5% auto;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+}

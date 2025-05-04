@@ -4,7 +4,7 @@
 
 {% block head %}
     {{ parent() }}
-    <link rel="stylesheet" href="{{ asset('/explorer/css/explorer.css') }}">
+    <link rel="stylesheet" href="{{ asset('/ModuloExplorador/css/explorer.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -19,7 +19,7 @@
     </div>
 
     <div class="file-toolbar">
-        <button type="button" class="btn-create-folder" onclick="promptFolderName()">
+        <button type="button" class="btn-create-folder" onclick="openCreateFolderModal()">
             <i class="fas fa-folder-plus"></i> Crear Carpeta
         </button>
         
@@ -161,24 +161,69 @@
     </div>
 </div>
 
+<!-- Modal para crear carpeta -->
+<div id="createFolderModal" class="exnet-modal-overlay">
+    <div class="exnet-modal">
+        <div class="exnet-modal-header">
+            <h3 class="exnet-modal-title">Crear nueva carpeta</h3>
+            <button type="button" class="exnet-modal-close" onclick="closeCreateFolderModal()">×</button>
+        </div>
+        <div class="exnet-modal-body">
+            <div class="exnet-form-group">
+                <label for="modalFolderName" class="exnet-form-label">Nombre de la carpeta</label>
+                <input type="text" id="modalFolderName" class="exnet-form-control" placeholder="Ingrese el nombre de la carpeta" autofocus>
+            </div>
+        </div>
+        <div class="exnet-modal-footer">
+            <button type="button" class="exnet-btn exnet-btn-outline-light" onclick="closeCreateFolderModal()">Cancelar</button>
+            <button type="button" class="exnet-btn exnet-btn-blue" onclick="submitFolderCreation()">Crear</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    function promptFolderName() {
-        let folderName = prompt("Ingrese el nombre de la nueva carpeta:");
-        if (folderName && folderName.trim() !== "") {
-            document.getElementById('folderName').value = folderName.trim();
+    function openCreateFolderModal() {
+        document.getElementById('createFolderModal').style.display = 'flex';
+        document.getElementById('modalFolderName').focus();
+    }
+    
+    function closeCreateFolderModal() {
+        document.getElementById('createFolderModal').style.display = 'none';
+        document.getElementById('modalFolderName').value = '';
+    }
+    
+    function submitFolderCreation() {
+        let folderName = document.getElementById('modalFolderName').value.trim();
+        if (folderName !== "") {
+            document.getElementById('folderName').value = folderName;
             document.getElementById('createFolderForm').submit();
+        } else {
+            // Opcional: mostrar un mensaje de error
+            alert("El nombre de la carpeta no puede estar vacío");
         }
     }
+    
+    // Permitir cerrar el modal con la tecla Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeCreateFolderModal();
+        }
+    });
+    
+    // Permitir enviar con Enter desde el campo de texto
+    document.getElementById('modalFolderName').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            submitFolderCreation();
+        }
+    });
 
     function handleFolderSelection() {
         var folderInput = document.getElementById('folderInput');
 
-        // Verificar si se seleccionaron archivos
         if (folderInput.files.length > 0) {
             var folderPath = folderInput.files[0].webkitRelativePath;
             var folderName = folderPath.split('/')[0];
             
-            // Asignar el nombre de carpeta al campo oculto
             document.getElementById('uploadedFolderName').value = folderName;
             document.getElementById('uploadFolderForm').submit();
         } else {
