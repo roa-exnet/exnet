@@ -35,26 +35,34 @@ class CdnService
 
     public function getModuleAttributes(Modulo $modulo): array
     {
+
         $moduleAttributes = [
             'name' => $modulo->getNombre(),
             'description' => $modulo->getDescripcion(),
-            'version' => $modulo->getVersion() ?? '1.0.0',
             'icon' => $modulo->getIcon(),
             'route' => $modulo->getRuta()
         ];
-        
+
+        $version = '1.0.0';
+
         $modulePath = $modulo->getRuta();
         if ($modulePath && $this->filesystem->exists($modulePath)) {
             $settingsPath = rtrim($modulePath, '/') . '/settings.json';
-            
+
             if ($this->filesystem->exists($settingsPath)) {
                 try {
                     $settingsJson = file_get_contents($settingsPath);
                     $settings = json_decode($settingsJson, true);
-                    
+
                     if (json_last_error() === JSON_ERROR_NONE && is_array($settings)) {
+
+                        if (isset($settings['version']) && !empty($settings['version'])) {
+                            $version = $settings['version'];
+                            $this->logInfo("Versión obtenida de settings.json para el módulo {$modulo->getNombre()}: $version");
+                        }
+
                         $moduleAttributes = array_merge($moduleAttributes, $settings);
-                        
+
                         $this->logInfo("Leídos atributos de settings.json para el módulo {$modulo->getNombre()}");
                     } else {
                         $this->logWarning("Error al decodificar settings.json para el módulo {$modulo->getNombre()}: " . json_last_error_msg());
@@ -68,107 +76,149 @@ class CdnService
         } else {
             $this->logWarning("La ruta del módulo {$modulo->getNombre()} no existe: $modulePath");
         }
-        
+
+        $moduleAttributes['version'] = $version;
+
+        if ($modulo->getVersion() !== $version) {
+            try {
+                $modulo->setVersion($version);
+                $this->entityManager->flush();
+                $this->logInfo("Actualizada versión en base de datos para el módulo {$modulo->getNombre()}: $version");
+            } catch (\Exception $e) {
+                $this->logError("Error al actualizar la versión en la base de datos: " . $e->getMessage());
+            }
+        }
+
         return $moduleAttributes;
     }
 
-    /**
-     * Obtiene la lista de módulos disponibles del mercado
-     */
-    public function getAvailableModules(): array
-    {
-        try {
-            $response = $this->httpClient->request('GET', $this->cdnBaseUrl . '/api/marketplace');
+public function getAvailableModules(): array
+{
+    try {
+        $response = $this->httpClient->request('GET', $this->cdnBaseUrl . '/api/marketplace');
 
-            $statusCode = $response->getStatusCode();
-            if ($statusCode !== 200) {
-                return ['error' => 'Error al conectar con el servidor CDN: ' . $statusCode];
-            }
-
-            $data = $response->toArray();
-            if (!isset($data['marketplace'])) {
-                return ['error' => 'Formato de respuesta inesperado'];
-            }
-
-            $installedModules = $this->entityManager->getRepository(Modulo::class)->findAll();
-
-            $installedModuleMap = [];
-            foreach ($installedModules as $module) {
-                $name = strtolower($module->getNombre());
-                $installedModuleMap[$name] = $module;
-
-                if (strpos($name, 'modulo') === 0) {
-                    $normalizedName = substr($name, 6);
-                    $installedModuleMap[$normalizedName] = $module;
-                }
-            }
-
-            $marketplace = [];
-            $processedModules = [];
-
-            foreach ($data['marketplace'] as $moduleType => $modules) {
-                if (!isset($marketplace[$moduleType])) {
-                    $marketplace[$moduleType] = [];
-                }
-
-                foreach ($modules as $module) {
-                    if (!isset($module['filename'])) {
-                        $this->logError("Módulo sin 'filename' en marketplace API: " . json_encode($module));
-                        continue;
-                    }
-                    
-                    $moduleName = $module['name'] ?? basename($module['filename'], '.zip');
-                    $normalizedName = strtolower($moduleName);
-
-                    if (strpos($normalizedName, 'modulo') === 0) {
-                        $normalizedNameWithoutPrefix = substr($normalizedName, 6);
-                    } else {
-                        $normalizedNameWithoutPrefix = $normalizedName;
-                    }
-
-                    $isInstalled = isset($installedModuleMap[$normalizedName]) ||
-                                   isset($installedModuleMap[$normalizedNameWithoutPrefix]);
-                    
-                    $moduleAttributes = [];
-                    if ($isInstalled) {
-                        $installedModule = $installedModuleMap[$normalizedName] ?? $installedModuleMap[$normalizedNameWithoutPrefix] ?? null;
-                        if ($installedModule) {
-                            $moduleAttributes = $this->getModuleAttributes($installedModule);
-                        }
-                    }
-
-                    $moduleIdentifier = $moduleType . '_' . $normalizedName;
-                    if (isset($processedModules[$moduleIdentifier])) {
-                        continue;
-                    }
-
-                    $processedModules[$moduleIdentifier] = true;
-
-                    $marketplace[$moduleType][] = array_merge([
-                        'name' => $moduleName,
-                        'filename' => $module['filename'],
-                        'description' => $module['description'] ?? 'Módulo para Exnet',
-                        'version' => $module['version'] ?? '1.0.0',
-                        'price' => $module['price'] ?? 'free',
-                        'downloadUrl' => $module['downloadUrl'] ?? null,
-                        'installed' => $isInstalled,
-                        'installCommand' => $module['installCommand'] ?? null
-                    ], $isInstalled ? $moduleAttributes : []);
-                }
-            }
-
-            foreach ($marketplace as $moduleType => $modules) {
-                if (empty($modules)) {
-                    unset($marketplace[$moduleType]);
-                }
-            }
-
-            return $marketplace;
-        } catch (\Exception $e) {
-            $this->logError("Error en getAvailableModules: " . $e->getMessage());
-            return ['error' => 'Error al obtener módulos: ' . $e->getMessage()];
+        $statusCode = $response->getStatusCode();
+        if ($statusCode !== 200) {
+            return ['error' => 'Error al conectar con el servidor CDN: ' . $statusCode];
         }
+
+        $data = $response->toArray();
+        if (!isset($data['marketplace'])) {
+            return ['error' => 'Formato de respuesta inesperado'];
+        }
+
+        $installedModules = $this->entityManager->getRepository(Modulo::class)->findAll();
+
+        $installedModuleMap = [];
+        foreach ($installedModules as $module) {
+            $name = strtolower($module->getNombre());
+            $installedModuleMap[$name] = $module;
+
+            if (strpos($name, 'modulo') === 0) {
+                $normalizedName = substr($name, 6);
+                $installedModuleMap[$normalizedName] = $module;
+            }
+        }
+
+        $marketplace = [];
+        $processedModules = [];
+
+        foreach ($data['marketplace'] as $moduleType => $modules) {
+            if (!isset($marketplace[$moduleType])) {
+                $marketplace[$moduleType] = [];
+            }
+
+            foreach ($modules as $module) {
+                if (!isset($module['filename'])) {
+                    $this->logError("Módulo sin 'filename' en marketplace API: " . json_encode($module));
+                    continue;
+                }
+
+                $moduleName = $module['name'] ?? basename($module['filename'], '.zip');
+                $normalizedName = strtolower($moduleName);
+
+                if (strpos($normalizedName, 'modulo') === 0) {
+                    $normalizedNameWithoutPrefix = substr($normalizedName, 6);
+                } else {
+                    $normalizedNameWithoutPrefix = $normalizedName;
+                }
+
+                $isInstalled = isset($installedModuleMap[$normalizedName]) ||
+                               isset($installedModuleMap[$normalizedNameWithoutPrefix]);
+
+                $moduleAttributes = [];
+                $needsUpdate = false;
+                $installedVersion = '1.0.0'; 
+                $marketplaceVersion = $module['version'] ?? '1.0.0';
+
+                if ($isInstalled) {
+                    $installedModule = $installedModuleMap[$normalizedName] ?? $installedModuleMap[$normalizedNameWithoutPrefix] ?? null;
+                    if ($installedModule) {
+                        $moduleAttributes = $this->getModuleAttributes($installedModule);
+
+                        $installedVersion = $installedModule->getVersion() ?? '1.0.0';
+
+                        $originalMarketplaceVersion = $marketplaceVersion;
+
+                        $this->logInfo("Módulo {$moduleName}: instalado={$installedVersion}, marketplace={$marketplaceVersion}");
+
+                        if ($this->compareVersions($installedVersion, $marketplaceVersion) < 0) {
+                            $needsUpdate = true;
+                            $this->logInfo("Módulo {$moduleName} necesita actualización: {$installedVersion} -> {$marketplaceVersion}");
+                        }
+
+                        $moduleData = array_merge([
+                            'name' => $moduleName,
+                            'filename' => $module['filename'],
+                            'description' => $module['description'] ?? 'Módulo para Exnet',
+                            'price' => $module['price'] ?? 'free',
+                            'downloadUrl' => $module['downloadUrl'] ?? null,
+                            'installed' => $isInstalled,
+                            'needsUpdate' => $needsUpdate,
+                            'installedVersion' => $installedVersion,
+                            'installCommand' => $module['installCommand'] ?? null
+                        ], $moduleAttributes);
+
+                        $moduleData['version'] = $originalMarketplaceVersion;
+
+                        $marketplace[$moduleType][] = $moduleData;
+                    }
+                }
+
+                $moduleIdentifier = $moduleType . '_' . $normalizedName;
+                if (isset($processedModules[$moduleIdentifier])) {
+                    continue;
+                }
+
+                $processedModules[$moduleIdentifier] = true;
+
+                $marketplace[$moduleType][] = array_merge([
+                    'name' => $moduleName,
+                    'filename' => $module['filename'],
+                    'description' => $module['description'] ?? 'Módulo para Exnet',
+                    'version' => $marketplaceVersion, 
+                    'price' => $module['price'] ?? 'free',
+                    'downloadUrl' => $module['downloadUrl'] ?? null,
+                    'installed' => $isInstalled,
+                    'needsUpdate' => $needsUpdate,
+                    'installedVersion' => $installedVersion, 
+                    'installCommand' => $module['installCommand'] ?? null
+                ], $isInstalled ? $moduleAttributes : []);
+            }
+        }
+
+        foreach ($marketplace as $moduleType => $modules) {
+            if (empty($modules)) {
+                unset($marketplace[$moduleType]);
+            }
+        }
+
+        return $marketplace;
+    } catch (\Exception $e) {
+        $this->logError("Error en getAvailableModules: " . $e->getMessage());
+        return ['error' => 'Error al obtener módulos: ' . $e->getMessage()];
     }
+}
 
     public function verifyLicense(string $licenseKey, string $moduleFilename): array
     {
@@ -216,9 +266,9 @@ class CdnService
                 $existingModulo->setInstallDate($now);
                 $existingModulo->setUninstallDate(null);
                 $this->entityManager->flush();
-                
+
                 $moduleAttributes = $this->getModuleAttributes($existingModulo);
-                
+
                 return [
                     'success' => true,
                     'message' => 'El módulo ya estaba instalado y ha sido activado',
@@ -271,7 +321,7 @@ class CdnService
 
             $settingsJson = null;
             $moduleJson = null;
-            
+
             $settingsJsonContent = $zipArchive->getFromName('settings.json');
             if ($settingsJsonContent !== false) {
                 $installCommandOutput .= "\nContenido de settings.json encontrado:\n" . $settingsJsonContent . "\n\n";
@@ -283,7 +333,7 @@ class CdnService
             } else {
                 $installCommandOutput .= "No se encontró el archivo settings.json en la raíz del ZIP\n";
             }
-            
+
             $moduleJsonContent = $zipArchive->getFromName('module.json');
             if ($moduleJsonContent !== false) {
                 $installCommandOutput .= "\nContenido de module.json (raíz) encontrado:\n" . $moduleJsonContent . "\n\n";
@@ -297,7 +347,7 @@ class CdnService
             }
 
             $moduleSettings = $settingsJson ?? $moduleJson ?? null;
-            
+
             if (!$moduleSettings) {
                 $installCommandOutput .= "Usando información de la API (si existe) o predeterminada como respaldo\n";
                 if ($moduleInfo) {
@@ -326,7 +376,6 @@ class CdnService
             $zipArchive->close();
             $installCommandOutput .= "Archivos extraídos en: $extractPath\n";
             $this->filesystem->remove($tempFile);
-
 
             $installCommand = null;
 
@@ -472,7 +521,7 @@ class CdnService
                 if (!isset($moduleSettings['icon'])) {
                     $moduleSettings['icon'] = 'fas fa-puzzle-piece';
                 }
-                
+
                 $installCommandOutput .= "\nEntidad Modulo creada/actualizada en la base de datos local.\n";
             }
 
@@ -498,7 +547,7 @@ class CdnService
                     $installCommandOutput .= "\nError al crear settings.json: " . $e->getMessage() . "\n";
                 }
             }
-        
+
             return [
                 'success' => true,
                 'message' => $installCommand ? ($commandSuccess ? 'Módulo instalado y comando ejecutado correctamente' : 'Módulo instalado, pero hubo un error al ejecutar el comando') : 'Módulo instalado correctamente (sin comando de instalación)',
@@ -528,7 +577,6 @@ class CdnService
             ];
         }
     }
-
 
     private function findModuleDirectoryPath(string $baseModuleName, string &$installCommandOutput): ?string
     {
@@ -601,21 +649,21 @@ class CdnService
             return false;
         }
     }
-    
+
     private function logInfo(string $message): void
     {
         if ($this->logger) {
             $this->logger->info($message);
         }
     }
-    
+
     private function logWarning(string $message): void
     {
         if ($this->logger) {
             $this->logger->warning($message);
         }
     }
-    
+
     private function logError(string $message): void
     {
         if ($this->logger) {
@@ -623,5 +671,22 @@ class CdnService
         } else {
             error_log($message);
         }
+    }
+
+    private function compareVersions(string $version1, string $version2): int
+    {
+
+        $v1 = array_map('intval', explode('.', $version1));
+        $v2 = array_map('intval', explode('.', $version2));
+
+        while (count($v1) < 3) $v1[] = 0;
+        while (count($v2) < 3) $v2[] = 0;
+
+        for ($i = 0; $i < 3; $i++) {
+            if ($v1[$i] < $v2[$i]) return -1;
+            if ($v1[$i] > $v2[$i]) return 1;
+        }
+
+        return 0; 
     }
 }

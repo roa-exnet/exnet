@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const installedModules = [];
+        const updateableModules = [];
         const availableModules = {};
         
         for (const category in marketplace) {
@@ -63,12 +64,24 @@ document.addEventListener('DOMContentLoaded', function() {
             
             modules.forEach(module => {
                 if (module.installed) {
-                    const exists = installedModules.some(m => 
-                        m.name.toLowerCase() === module.name.toLowerCase() ||
-                        m.name.toLowerCase() === 'modulo' + module.name.toLowerCase()
-                    );
-                    if (!exists) {
-                        installedModules.push({...module, category});
+                    if (module.needsUpdate) {
+                        // Si necesita actualización, lo añadimos a la lista de actualizables
+                        const exists = updateableModules.some(m => 
+                            m.name.toLowerCase() === module.name.toLowerCase() ||
+                            m.name.toLowerCase() === 'modulo' + module.name.toLowerCase()
+                        );
+                        if (!exists) {
+                            updateableModules.push({...module, category});
+                        }
+                    } else {
+                        // Si no necesita actualización, va a la lista de instalados
+                        const exists = installedModules.some(m => 
+                            m.name.toLowerCase() === module.name.toLowerCase() ||
+                            m.name.toLowerCase() === 'modulo' + module.name.toLowerCase()
+                        );
+                        if (!exists) {
+                            installedModules.push({...module, category});
+                        }
                     }
                 } else {
                     if (!availableModules[category]) {
@@ -79,9 +92,32 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
+        // Sección para módulos que necesitan actualización
+        if (updateableModules.length > 0) {
+            const updateTitle = document.createElement('h3');
+            updateTitle.className = 'exnet-category-title';
+            updateTitle.textContent = 'Actualizaciones disponibles';
+            container.appendChild(updateTitle);
+            
+            const updateInfo = document.createElement('p');
+            updateInfo.className = 'text-white-50 mb-4';
+            updateInfo.textContent = 'Los siguientes módulos tienen nuevas versiones disponibles.';
+            container.appendChild(updateInfo);
+            
+            const updateGrid = document.createElement('div');
+            updateGrid.className = 'exnet-module-grid';
+            
+            updateableModules.forEach(module => {
+                updateGrid.appendChild(createModuleCard(module, module.category, true));
+            });
+            
+            container.appendChild(updateGrid);
+        }
+        
+        // Sección para módulos ya instalados (sin actualizaciones pendientes)
         if (installedModules.length > 0) {
             const installedTitle = document.createElement('h3');
-            installedTitle.className = 'exnet-category-title';
+            installedTitle.className = 'exnet-category-title' + (updateableModules.length > 0 ? ' mt-5' : '');
             installedTitle.textContent = 'Módulos Instalados';
             container.appendChild(installedTitle);
             
@@ -100,6 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
             container.appendChild(installedGrid);
         }
         
+        // Sección para módulos disponibles para instalar
         if (Object.keys(availableModules).length > 0) {
             const availableTitle = document.createElement('h3');
             availableTitle.className = 'exnet-category-title mt-5';
@@ -127,9 +164,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function createModuleCard(module, category) {
+    function createModuleCard(module, category, needsUpdate = false) {
         const card = document.createElement('div');
         card.className = 'exnet-module-card';
+        
+        if (needsUpdate) {
+            console.log(`[DEBUG] Módulo ${module.name} necesita actualización:`, {
+                installedVersion: module.installedVersion,
+                marketplaceVersion: module.version
+            });
+        }
         
         if (module.price === 'premium') {
             const premiumBadge = document.createElement('span');
@@ -138,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
             card.appendChild(premiumBadge);
         }
         
-        if (module.installed) {
+        if (module.installed && !needsUpdate) {
             const installedBadge = document.createElement('span');
             installedBadge.className = 'exnet-installed-badge';
             installedBadge.innerHTML = '<i class="fas fa-check me-1"></i> Instalado';
@@ -150,14 +194,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 <i class="fas fa-puzzle-piece"></i>
             </div>
             <h4 class="exnet-module-title">${module.name}</h4>
-            <div class="exnet-module-version">v${module.version}</div>
+            <div class="exnet-module-version">
+                ${needsUpdate 
+                    ? `<span class="current-version">v${module.installedVersion}</span> → <span class="new-version">v${module.version}</span>` 
+                    : `v${module.version}`}
+            </div>
             <p class="exnet-module-description">${module.description}</p>
         `;
         
-        if (!module.installed) {
+        if (!module.installed || needsUpdate) {
             const installButton = document.createElement('button');
-            installButton.className = 'exnet-btn exnet-btn-blue w-100';
-            installButton.innerHTML = '<i class="fas fa-download me-2"></i> Instalar';
+            
+            if (needsUpdate) {
+                installButton.className = 'exnet-btn exnet-btn-warning w-100';
+                installButton.innerHTML = '<i class="fas fa-arrow-up me-2"></i> Actualizar';
+            } else {
+                installButton.className = 'exnet-btn exnet-btn-blue w-100';
+                installButton.innerHTML = '<i class="fas fa-download me-2"></i> Instalar';
+            }
             
             if (module.price === 'premium') {
                 installButton.onclick = function() {
@@ -165,7 +219,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
             } else {
                 installButton.onclick = function() {
-                    installModule(module, category);
+                    if (needsUpdate) {
+                        updateModule(module, category);
+                    } else {
+                        installModule(module, category);
+                    }
                 };
             }
             
@@ -185,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 verifyButton.onclick = function() {
                     const licenseKey = licenseForm.querySelector('.exnet-license-input').value.trim();
                     if (licenseKey) {
-                        verifyLicense(licenseKey, module, category);
+                        verifyLicense(licenseKey, module, category, needsUpdate);
                     }
                 };
                 
@@ -202,14 +260,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (licenseForm.style.display === 'block') {
             licenseForm.style.display = 'none';
-            button.innerHTML = '<i class="fas fa-download me-2"></i> Instalar';
+            button.innerHTML = `<i class="fas fa-${module.needsUpdate ? 'arrow-up' : 'download'} me-2"></i> ${module.needsUpdate ? 'Actualizar' : 'Instalar'}`;
         } else {
             licenseForm.style.display = 'block';
             button.innerHTML = '<i class="fas fa-times me-2"></i> Cancelar';
         }
     }
     
-    function verifyLicense(licenseKey, module, category) {
+    function verifyLicense(licenseKey, module, category, isUpdate = false) {
         fetch('/api/modulos/verify-license', {
             method: 'POST',
             headers: {
@@ -223,7 +281,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.valid) {
-                installModule(module, category, data.downloadToken);
+                if (isUpdate) {
+                    updateModule(module, category, data.downloadToken);
+                } else {
+                    installModule(module, category, data.downloadToken);
+                }
             } else {
                 showError(data.message || 'Licencia inválida');
             }
@@ -231,6 +293,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             showError('Error al verificar la licencia: ' + error);
         });
+    }
+    
+    function updateModule(module, category, downloadToken = null) {
+        // Primero debemos desinstalar el módulo actual
+        // Luego proceder con la instalación normal
+        // Para simplificar, reutilizamos el mismo método de instalación que el original
+        // ya que el Backend maneja la lógica de reemplazar un módulo existente
+        installModule(module, category, downloadToken);
     }
     
     function installModule(module, category, downloadToken = null) {
@@ -241,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = `
             <div class="d-flex justify-content-center p-5 flex-column align-items-center">
                 <div class="exnet-loader" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
-                <h4 class="text-white mb-3">Instalando módulo ${module.name}</h4>
+                <h4 class="text-white mb-3">${module.needsUpdate ? 'Actualizando' : 'Instalando'} módulo ${module.name}</h4>
                 <p class="text-white-50">Este proceso puede tardar unos minutos. No cierres esta página.</p>
             </div>
         `;

@@ -76,18 +76,28 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
-    App\ModuloStreaming\Controller\:
-        resource: '../src/ModuloStreaming/Controller'
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    App\ModuloChat\Controller\:
+        resource: '../src/ModuloChat/Controller'
         tags: ['controller.service_arguments']
         
-    App\ModuloStreaming\Command\:
-        resource: '../src/ModuloStreaming/Command'
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
         tags: ['console.command']
         
-    App\ModuloStreaming\Service\:
-        resource: '../src/ModuloStreaming/Service/'
+    App\ModuloChat\Service\:
+        resource: '../src/ModuloChat/Service/'
         autowire: true
         autoconfigure: true
         public: true
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
+    #START -----------------------------------------------------  ModuloStreaming -------------------------------------------------------------------------- 
+    App\ModuloStreaming\Controller\:
+        resource: '../src/ModuloStreaming/Controller'
+        
+    App\ModuloStreaming\Command\:
+        resource: '../src/ModuloStreaming/Command'
+        
+    App\ModuloStreaming\Service\:
+        resource: '../src/ModuloStreaming/Service/'
     #END ------------------------------------------------------- ModuloStreaming -----------------------------------------------------------------------------        
