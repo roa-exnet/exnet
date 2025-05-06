@@ -96,11 +96,12 @@
             </div>
             
             <div class="form-group">
-                <label for="imagen" class="form-label">URL de la Imagen</label>
-                <input type="url" id="imagen" name="imagen" class="form-control" placeholder="https://example.com/imagen.jpg" oninput="previewImage(this.value)">
-                <small class="text-muted">Enlace a una imagen de portada (preferiblemente cuadrada)</small>
+                <label for="imagenFile" class="form-label">Imagen de Portada</label>
+                <input type="file" id="imagenFile" class="form-control" accept="image/png,image/jpeg,image/jpg,image/webp">
+                <input type="hidden" id="imagenBase64" name="imagenBase64">
+                <small class="text-muted">Formatos aceptados: PNG, JPG, WEBP (máx. 2MB)</small>
                 
-                <div id="imagePreviewContainer" class="preview-container">
+                <div id="imagePreviewContainer" class="preview-container" style="display:none;">
                     <img id="imagePreview" src="" alt="Preview" class="image-preview">
                 </div>
             </div>
