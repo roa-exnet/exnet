@@ -486,95 +486,155 @@ class MusicaController extends AbstractController
     #[Route('/playlist/{id}/editar', name: 'musica_playlist_editar')]
     public function editarPlaylist(int $id, Request $request): Response
     {
+        // Asegurar que el ID sea un entero
+        $id = (int)$id;
+        
+        // Log para depuración
+        error_log('Intentando editar playlist con ID: ' . $id);
+        
         $user = $this->ipAuthService->getCurrentUser();
         if (!$user) {
+            error_log('Usuario no autenticado, redirigiendo a login');
             return $this->redirectToRoute('app_register_ip', [
                 'redirect' => $this->generateUrl('musica_playlist_editar', ['id' => $id])
             ]);
         }
-
+        
+        // Log del usuario
+        error_log('Usuario autenticado: ' . $user->getId() . ' - ' . $user->getNombre());
+    
         $playlist = $this->playlistRepository->find($id);
         if (!$playlist) {
+            error_log('Playlist no encontrada: ' . $id);
             throw $this->createNotFoundException('La playlist no existe');
         }
-
-        if ($playlist->getCreadorId() !== $user->getId()) {
+        
+        // Log de la playlist
+        error_log('Playlist encontrada: ' . $playlist->getId() . ' - ' . $playlist->getNombre());
+        error_log('Creador de la playlist: ' . $playlist->getCreadorId());
+    
+        // Comparación forzando strings para evitar problemas de tipo
+        $userId = (string)$user->getId();
+        $playlistCreadorId = (string)$playlist->getCreadorId();
+        
+        error_log('User ID (string): ' . $userId);
+        error_log('Playlist creador ID (string): ' . $playlistCreadorId);
+        
+        $userIsOwner = ($userId === $playlistCreadorId);
+        error_log('¿Es propietario? ' . ($userIsOwner ? 'Sí' : 'No'));
+    
+        if (!$userIsOwner) {
+            error_log('Acceso denegado: El usuario no es propietario de la playlist');
             throw $this->createAccessDeniedException('No tienes permisos para modificar esta playlist');
         }
-
+    
         if ($request->isMethod('POST')) {
+            error_log('Recibido método POST para editar playlist');
+            
             $nombre = $request->request->get('nombre');
             $descripcion = $request->request->get('descripcion');
             $esPublica = $request->request->has('esPublica');
             $imagenBase64 = $request->request->get('imagenBase64');
             $mantenerImagen = $request->request->has('mantenerImagen');
-
+    
+            error_log('Nombre recibido: ' . $nombre);
+            error_log('¿Es pública? ' . ($esPublica ? 'Sí' : 'No'));
+            error_log('¿Mantener imagen? ' . ($mantenerImagen ? 'Sí' : 'No'));
+            
+            // Validar nombre obligatorio
+            if (empty($nombre)) {
+                $this->addFlash('error', 'El nombre de la playlist es obligatorio');
+                return $this->render('@ModuloMusica/editar_playlist.html.twig', [
+                    'playlist' => $playlist,
+                    'user' => $user
+                ]);
+            }
+    
             $playlist->setNombre($nombre);
             $playlist->setDescripcion($descripcion);
             $playlist->setEsPublica($esPublica);
             $playlist->setActualizadoEn(new \DateTimeImmutable());
-
+    
+            // Procesar imagen nueva si se proporcionó
             if (!empty($imagenBase64)) {
                 try {
+                    error_log('Procesando nueva imagen');
                     $imageData = base64_decode($imagenBase64);
                     if ($imageData === false) {
                         throw new \Exception('No se pudo decodificar la imagen.');
                     }
-
+                    
                     $imageSize = strlen($imageData);
+                    error_log('Tamaño de la imagen: ' . $imageSize . ' bytes');
                     if ($imageSize > 2 * 1024 * 1024) {
                         throw new \Exception('La imagen excede el tamaño máximo de 2MB.');
                     }
-
+                    
                     $finfo = new \finfo(FILEINFO_MIME_TYPE);
                     $imageMimeType = $finfo->buffer($imageData);
+                    error_log('Tipo MIME: ' . $imageMimeType);
                     $imageExtension = $this->getImageExtensionFromMimeType($imageMimeType);
-
+                    
                     if (!$imageExtension) {
                         throw new \Exception('Formato de imagen no soportado. Use PNG, JPG o WEBP.');
                     }
-
+                    
                     $safeImagename = $this->slugger->slug($nombre . '-playlist');
                     $newImagename = $safeImagename . '-' . uniqid() . '.' . $imageExtension;
-
+                    
                     $imagesPath = $this->getUploadsPath('images');
                     $imagePath = $imagesPath . '/' . $newImagename;
+                    error_log('Guardando imagen en: ' . $imagePath);
                     if (!file_put_contents($imagePath, $imageData)) {
                         throw new \Exception('No se pudo guardar la imagen.');
                     }
-
+                    
+                    // Eliminar imagen anterior si existe
                     $oldImageUrl = $playlist->getImagen();
                     if ($oldImageUrl && strpos($oldImageUrl, '/uploads/images/') === 0) {
                         $oldImagename = basename($oldImageUrl);
                         $oldImagePath = $imagesPath . '/' . $oldImagename;
                         if (file_exists($oldImagePath)) {
                             unlink($oldImagePath);
+                            error_log('Imagen anterior eliminada: ' . $oldImagePath);
                         }
                     }
-
+                    
                     $playlist->setImagen('/uploads/images/' . $newImagename);
+                    error_log('Nueva URL de imagen establecida: /uploads/images/' . $newImagename);
                 } catch (\Exception $e) {
+                    error_log('Error al procesar la imagen: ' . $e->getMessage());
                     $this->addFlash('warning', 'Error al procesar la imagen: ' . $e->getMessage());
                 }
             } elseif (!$mantenerImagen && $playlist->getImagen()) {
-
+                // Eliminar imagen actual si no se quiere mantener
                 $oldImageUrl = $playlist->getImagen();
                 if ($oldImageUrl && strpos($oldImageUrl, '/uploads/images/') === 0) {
                     $oldImagename = basename($oldImageUrl);
                     $oldImagePath = $this->getUploadsPath('images') . '/' . $oldImagename;
                     if (file_exists($oldImagePath)) {
                         unlink($oldImagePath);
+                        error_log('Imagen eliminada porque no se mantiene: ' . $oldImagePath);
                     }
                 }
                 $playlist->setImagen(null);
+                error_log('URL de imagen establecida a null');
             }
-
-            $this->entityManager->flush();
-
-            $this->addFlash('success', 'Playlist actualizada correctamente');
-            return $this->redirectToRoute('musica_playlist_detalle', ['id' => $playlist->getId()]);
+    
+            try {
+                $this->entityManager->flush();
+                error_log('Cambios guardados en la base de datos');
+                $this->addFlash('success', 'Playlist actualizada correctamente');
+                
+                error_log('Redirigiendo a detalle de playlist: ' . $id);
+                return $this->redirectToRoute('musica_playlist_detalle', ['id' => $id]);
+            } catch (\Exception $e) {
+                error_log('Error al guardar cambios: ' . $e->getMessage());
+                $this->addFlash('error', 'Error al guardar los cambios: ' . $e->getMessage());
+            }
         }
-
+    
+        error_log('Renderizando formulario de edición para playlist: ' . $id);
         return $this->render('@ModuloMusica/editar_playlist.html.twig', [
             'playlist' => $playlist,
             'user' => $user
