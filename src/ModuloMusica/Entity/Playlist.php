@@ -25,6 +25,7 @@ class Playlist
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $imagen = null;
 
+    // Cambiamos a string para evitar problemas de comparación de tipos
     #[ORM\Column(length: 255)]
     private ?string $creadorId = null;
 
@@ -96,9 +97,10 @@ class Playlist
         return $this->creadorId;
     }
 
-    public function setCreadorId(string $creadorId): static
+    public function setCreadorId($creadorId): static
     {
-        $this->creadorId = $creadorId;
+        // Forzar conversión a string para evitar problemas de tipo
+        $this->creadorId = (string) $creadorId;
 
         return $this;
     }

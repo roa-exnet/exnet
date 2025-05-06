@@ -96,7 +96,7 @@
             <p>Crea una playlist para organizar tus canciones favoritas. Después de crear la playlist, podrás añadir canciones desde el explorador de música.</p>
         </div>
         
-        <form method="post" action="{{ path('musica_playlist_nueva') }}">
+        <form method="post" action="{{ path('musica_playlist_nueva') }}" id="playlistForm">
             <div class="form-group">
                 <label for="nombre" class="form-label">Nombre de la playlist *</label>
                 <input type="text" id="nombre" name="nombre" class="form-control" required placeholder="Ej: Mis favoritas, Música para estudiar, Lo mejor de rock...">
@@ -108,9 +108,10 @@
             </div>
             
             <div class="form-group">
-                <label for="imagen" class="form-label">URL de la Imagen (opcional)</label>
-                <input type="url" id="imagen" name="imagen" class="form-control" placeholder="https://example.com/imagen.jpg" oninput="previewImage(this.value)">
-                <small class="text-muted">Enlace a una imagen de portada para tu playlist</small>
+                <label for="imagenFile" class="form-label">Imagen de Portada</label>
+                <input type="file" id="imagenFile" class="form-control" accept="image/png,image/jpeg,image/jpg,image/webp">
+                <input type="hidden" id="imagenBase64" name="imagenBase64">
+                <small class="text-muted">Formatos aceptados: PNG, JPG, WEBP (máx. 2MB)</small>
                 
                 <div id="imagePreviewContainer" class="preview-container">
                     <img id="imagePreview" src="" alt="Preview" class="image-preview">
@@ -133,17 +134,71 @@
 </div>
 
 <script>
-    function previewImage(src) {
-        const preview = document.getElementById('imagePreview');
-        const container = document.getElementById('imagePreviewContainer');
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('playlistForm');
+        const imagenFileInput = document.getElementById('imagenFile');
+        const imagenBase64Input = document.getElementById('imagenBase64');
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
         
-        if (src) {
-            preview.src = src;
-            container.style.display = 'block';
-        } else {
-            preview.src = '';
-            container.style.display = 'none';
+        // Previsualización de imagen
+        if (imagenFileInput) {
+            imagenFileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    
+                    // Validar tamaño (2MB)
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert('La imagen excede el tamaño máximo de 2MB.');
+                        this.value = '';
+                        imagePreviewContainer.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Validar tipo de archivo
+                    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        alert('Formato de imagen no permitido. Usa PNG, JPG o WEBP.');
+                        this.value = '';
+                        imagePreviewContainer.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Mostrar previsualización
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagePreview.src = e.target.result;
+                        imagePreviewContainer.style.display = 'block';
+                        
+                        // Extraer la parte Base64 y guardarla en el campo oculto
+                        imagenBase64Input.value = e.target.result.split(',')[1];
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    imagePreviewContainer.style.display = 'none';
+                }
+            });
         }
-    }
+        
+        // Manejar envío del formulario
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                // Solo prevenir el envío normal si hay imagen para procesar
+                if (imagenFileInput && imagenFileInput.files.length > 0) {
+                    event.preventDefault();
+                    
+                    // Ya tenemos el base64 guardado en el input oculto desde el evento change
+                    // así que podemos enviar el formulario directamente
+                    const submitBtn = form.querySelector('.btn-submit');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.textContent = 'Creando...';
+                    submitBtn.disabled = true;
+                    
+                    form.submit();
+                }
+                // Si no hay imagen, deja que el formulario se envíe normalmente
+            });
+        }
+    });
 </script>
 {% endblock %}
