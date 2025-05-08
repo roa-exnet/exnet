@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
 
-#[Route('/musica')]
+#[Route('kc/musica')]
 class MusicaController extends AbstractController
 {
     private EntityManagerInterface $entityManager;

@@ -34,6 +34,17 @@ services:
     #START -----------------------------------------------------  ModuloCore -------------------------------------------------------------------------
     App\ModuloCore\Controller\:
         resource: '../src/ModuloCore/Controller'
+        tags: ['controller.service_arguments']
+        autowire: true
+        autoconfigure: true
+        
+    App\ModuloCore\Service\CookieValidatorService:
+        public: true
+
+    App\ModuloCore\Security\AccessDeniedHandler:
+        arguments:
+            $router: '@router'
+        tags: ['monolog.logger']
 
     App\ModuloCore\EventSubscriber\MenuSubscriber:
         tags: ['kernel.event_subscriber']
@@ -76,6 +87,21 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
     App\ModuloMusica\Controller\:
         resource: '../src/ModuloMusica/Controller'

@@ -16,7 +16,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use App\ModuloCore\Service\EncryptionService;
 
-#[Route('/chat', name: 'chat_')]
+#[Route('/kc/chat', name: 'chat_')]
 class ChatController extends AbstractController
 {
     private ChatService $chatService;

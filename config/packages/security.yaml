@@ -21,6 +21,8 @@ security:
             custom_authenticators:
                 - App\ModuloCore\Security\KeycloakAuthenticator
             entry_point: App\ModuloCore\Security\KeycloakAuthenticator
+            access_denied_handler: App\ModuloCore\Security\AccessDeniedHandler
+
 
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
@@ -47,8 +49,9 @@ security:
                 target: landing
                 # target: app_any_route
 
+
     access_control:
-        - { path: ^/kc, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/musica, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         # - { path: ^/kc, roles: IS_AUTHENTICATED_ANONYMOUSLY }
         # - { path: ^/profile, roles: ROLE_USER }
 
