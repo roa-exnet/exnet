@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         searchResults.style.display = 'block';
         
         // Asegurarse de enviar el token para validar la autenticación
-        fetch(`/chat/api/users/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
+        fetch(`/kc/chat/api/users/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Error en la respuesta del servidor: ' + response.status);
@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function createRoom(name, participantIds) {
-        return fetch(`/chat/rooms`, {
+        return fetch(`/kc/chat/rooms`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function loadUserRooms() {
         console.log('Cargando salas del usuario...');
-        fetch(`/chat/user/rooms?token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
+        fetch(`/kc/chat/user/rooms?token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Error de servidor: ${response.status}`);
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Uniéndose a la sala ${roomId}...`);
         socket.emit('join_room', { roomId, userId: storedUserId });
         
-        fetch(`/chat/rooms/${roomId}?token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
+        fetch(`/kc/chat/rooms/${roomId}?token=${encodeURIComponent(storedUserToken)}&userId=${storedUserId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Error de servidor: ${response.status}`);
@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', function() {
             type: 'text'
         });
         
-        fetch(`/chat/rooms/${currentRoomId}/messages`, {
+        fetch(`/kc/chat/rooms/${currentRoomId}/messages`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -932,7 +932,7 @@ class VoiceCallManager {
             
             await this.requestMediaPermissions();
             
-            const response = await fetch(`/chat/voice/call/${roomId}`, {
+            const response = await fetch(`/kc/chat/voice/call/${roomId}`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json' 
@@ -1323,7 +1323,7 @@ class VoiceCallManager {
         
         if (notifyServer) {
             try {
-                fetch(`/chat/voice/call/${this.activeRoom}/end`, {
+                fetch(`/kc/chat/voice/call/${this.activeRoom}/end`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

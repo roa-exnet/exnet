@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
-#[Route('/chat/voice', name: 'chat_voice_')]
+#[Route('/kc/chat/voice', name: 'chat_voice_')]
 class VoiceCallController extends AbstractController
 {
    private ChatService $chatService;
