@@ -3,5 +3,5 @@
     "description": "Módulo para escuchar canciones",
     "version": "1.0.0",
     "author": "Exnet",
-    "open": "/musica"
+    "open": "/kc/musica"
 }

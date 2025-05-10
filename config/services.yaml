@@ -86,18 +86,28 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
-    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
-    App\ModuloExplorador\Controller\:
-        resource: '../src/ModuloExplorador/Controller'
+    #START -----------------------------------------------------  ModuloChat -------------------------------------------------------------------------- 
+    App\ModuloChat\Controller\:
+        resource: '../src/ModuloChat/Controller'
         tags: ['controller.service_arguments']
         
-    App\ModuloExplorador\Command\:
-        resource: '../src/ModuloExplorador/Command'
+    App\ModuloChat\Command\:
+        resource: '../src/ModuloChat/Command'
         tags: ['console.command']
         
-    App\ModuloExplorador\Service\:
-        resource: '../src/ModuloExplorador/Service/'
+    App\ModuloChat\Service\:
+        resource: '../src/ModuloChat/Service/'
         autowire: true
         autoconfigure: true
         public: true
+    #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
     #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
