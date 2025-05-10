@@ -13,6 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Filesystem\Filesystem;
 
 #[AsCommand(
@@ -22,12 +23,16 @@ use Symfony\Component\Filesystem\Filesystem;
 class ExplorerInstallCommand extends Command
 {
     private EntityManagerInterface $entityManager;
+    private HttpClientInterface $httpClient;
+    private ParameterBagInterface $parameterBag;
     private string $projectDir;
 
-    public function __construct(EntityManagerInterface $entityManager, ParameterBagInterface $parameterBag)
+    public function __construct(EntityManagerInterface $entityManager, ParameterBagInterface $parameterBag, HttpClientInterface $httpClient)
     {
         $this->entityManager = $entityManager;
         $this->projectDir = $parameterBag->get('kernel.project_dir');
+        $this->httpClient = $httpClient;
+        $this->parameterBag = $parameterBag;
         parent::__construct();
     }
 
@@ -94,8 +99,57 @@ class ExplorerInstallCommand extends Command
             
             $io->success([
                 'Módulo de Explorador de Archivos instalado correctamente.',
-                'Puedes acceder a él en: /archivos'
+                'Puedes acceder a él en: /kc/explorador/archivos'
             ]);
+
+            // 8. Crear cliente y licencia de keycloak para el modulo
+            $io->section('Paso 8: Registrar licencia del módulo');
+
+            $moduleFilePath = __DIR__;
+            $modulePath = dirname($moduleFilePath);
+
+            $settingsPath = $modulePath . "/settings.json";
+
+            if (!file_exists($settingsPath)) {
+                $io->error('No se encontró settings.json en la ruta: ' . $settingsPath);
+                return Command::FAILURE;
+            }
+
+
+            $settings = json_decode(file_get_contents($settingsPath), true);
+            $moduloNombre = $settings['name'] ?? null;
+            $io->success('nombre del modulo: ' . $moduloNombre);
+            if (!$moduloNombre) {
+                $io->error('El archivo settings.json no contiene un campo "nombre".');
+                return Command::FAILURE;
+            }
+
+            $moduleService = new \App\ModuloCore\Service\KeycloakModuleService(
+                $this->httpClient,
+                $this->entityManager->getConnection(),
+                $this->parameterBag
+            );
+
+            $res = $moduleService->registrarLicencia($moduloNombre);
+            if ($res['success']) {
+                $io->success('Licencia registrada exitosamente');
+            } else {
+                $io->error('Error registrando licencia: ' . $res['error']);
+                return Command::FAILURE;
+            }
+
+            $io->section('Limpieza final de caché');
+            $cacheClearProcess = new Process(['php', 'bin/console', 'cache:clear']);
+            $cacheClearProcess->setTimeout(120);
+            $cacheClearProcess->run(function ($type, $buffer) use ($io) {
+                $io->write($buffer);
+            });
+    
+            if (!$cacheClearProcess->isSuccessful()) {
+                $io->warning('Advertencia: No se pudo completar la limpieza final de caché. Es posible que necesites ejecutar manualmente: php bin/console cache:clear');
+            } else {
+                $io->success('Caché limpiada correctamente. Todas las configuraciones han sido aplicadas.');
+            }
 
             return Command::SUCCESS;
         } catch (\Exception $e) {
@@ -471,7 +525,7 @@ EOT;
     {
         $io->section('Creando directorios necesarios para el explorador de archivos');
         
-        $rootExplorerPath = '/root/explorador';
+        $rootExplorerPath = $this->projectDir . '/var/workspace';
         
         if (!is_dir($rootExplorerPath)) {
             try {
@@ -579,7 +633,7 @@ EOT;
                 $exploradorModule->setNombre('Explorador');
                 $exploradorModule->setDescripcion('Módulo para explorar y gestionar archivos del sistema');
                 $exploradorModule->setIcon('fas fa-folder-open');
-                $exploradorModule->setRuta('/archivos');
+                $exploradorModule->setRuta('/kc/explorador/archivos');  // Actualizado con prefijo /kc
                 $exploradorModule->setEstado(true);
                 $exploradorModule->setInstallDate(new \DateTimeImmutable());
                 
@@ -609,14 +663,17 @@ EOT;
             $existingMenuItem = $menuRepository->findOneBy(['nombre' => 'Explorador']);
             if ($existingMenuItem) {
                 $existingMenuItem->setEnabled(true);
-                $io->note('El elemento de menú para Explorador ya existe. Se ha activado.');
+                // Actualizar la ruta para que use el prefijo kc
+                $existingMenuItem->setRuta('/kc/explorador/archivos');
+                $io->note('El elemento de menú para Explorador ya existe. Se ha activado y actualizado su ruta.');
+                $this->entityManager->flush();
             } else {
                 $menuItem = new MenuElement();
                 $menuItem->setNombre('Explorador');
                 $menuItem->setIcon('fas fa-folder-open');
                 $menuItem->setType('menu');
                 $menuItem->setParentId(0);
-                $menuItem->setRuta('/archivos');
+                $menuItem->setRuta('/kc/explorador/archivos');  // Actualizado con prefijo /kc
                 $menuItem->setEnabled(true);
                 $menuItem->addModulo($modulo);
                 

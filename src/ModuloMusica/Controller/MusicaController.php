@@ -43,6 +43,22 @@ class MusicaController extends AbstractController
         $this->slugger = $slugger;
     }
 
+    private function checkAdmin(): ?Response
+    {
+        $user = $this->ipAuthService->getCurrentUser();
+        if (!$user) {
+            return $this->redirectToRoute('app_register_ip', [
+                'redirect' => $this->generateUrl('musica_admin')
+            ]);
+        }
+
+        if (!in_array('ROLE_ADMIN', $user->getRoles())) {
+            throw $this->createAccessDeniedException('No tienes permisos para acceder a esta sección');
+        }
+
+        return null;
+    }
+
     #[Route('', name: 'musica_index')]
     public function index(Request $request): Response
     {
@@ -486,12 +502,11 @@ class MusicaController extends AbstractController
     #[Route('/playlist/{id}/editar', name: 'musica_playlist_editar')]
     public function editarPlaylist(int $id, Request $request): Response
     {
-        // Asegurar que el ID sea un entero
+
         $id = (int)$id;
-        
-        // Log para depuración
+
         error_log('Intentando editar playlist con ID: ' . $id);
-        
+
         $user = $this->ipAuthService->getCurrentUser();
         if (!$user) {
             error_log('Usuario no autenticado, redirigiendo a login');
@@ -499,49 +514,45 @@ class MusicaController extends AbstractController
                 'redirect' => $this->generateUrl('musica_playlist_editar', ['id' => $id])
             ]);
         }
-        
-        // Log del usuario
+
         error_log('Usuario autenticado: ' . $user->getId() . ' - ' . $user->getNombre());
-    
+
         $playlist = $this->playlistRepository->find($id);
         if (!$playlist) {
             error_log('Playlist no encontrada: ' . $id);
             throw $this->createNotFoundException('La playlist no existe');
         }
-        
-        // Log de la playlist
+
         error_log('Playlist encontrada: ' . $playlist->getId() . ' - ' . $playlist->getNombre());
         error_log('Creador de la playlist: ' . $playlist->getCreadorId());
-    
-        // Comparación forzando strings para evitar problemas de tipo
+
         $userId = (string)$user->getId();
         $playlistCreadorId = (string)$playlist->getCreadorId();
-        
+
         error_log('User ID (string): ' . $userId);
         error_log('Playlist creador ID (string): ' . $playlistCreadorId);
-        
+
         $userIsOwner = ($userId === $playlistCreadorId);
         error_log('¿Es propietario? ' . ($userIsOwner ? 'Sí' : 'No'));
-    
+
         if (!$userIsOwner) {
             error_log('Acceso denegado: El usuario no es propietario de la playlist');
             throw $this->createAccessDeniedException('No tienes permisos para modificar esta playlist');
         }
-    
+
         if ($request->isMethod('POST')) {
             error_log('Recibido método POST para editar playlist');
-            
+
             $nombre = $request->request->get('nombre');
             $descripcion = $request->request->get('descripcion');
             $esPublica = $request->request->has('esPublica');
             $imagenBase64 = $request->request->get('imagenBase64');
             $mantenerImagen = $request->request->has('mantenerImagen');
-    
+
             error_log('Nombre recibido: ' . $nombre);
             error_log('¿Es pública? ' . ($esPublica ? 'Sí' : 'No'));
             error_log('¿Mantener imagen? ' . ($mantenerImagen ? 'Sí' : 'No'));
-            
-            // Validar nombre obligatorio
+
             if (empty($nombre)) {
                 $this->addFlash('error', 'El nombre de la playlist es obligatorio');
                 return $this->render('@ModuloMusica/editar_playlist.html.twig', [
@@ -549,13 +560,12 @@ class MusicaController extends AbstractController
                     'user' => $user
                 ]);
             }
-    
+
             $playlist->setNombre($nombre);
             $playlist->setDescripcion($descripcion);
             $playlist->setEsPublica($esPublica);
             $playlist->setActualizadoEn(new \DateTimeImmutable());
-    
-            // Procesar imagen nueva si se proporcionó
+
             if (!empty($imagenBase64)) {
                 try {
                     error_log('Procesando nueva imagen');
@@ -563,33 +573,32 @@ class MusicaController extends AbstractController
                     if ($imageData === false) {
                         throw new \Exception('No se pudo decodificar la imagen.');
                     }
-                    
+
                     $imageSize = strlen($imageData);
                     error_log('Tamaño de la imagen: ' . $imageSize . ' bytes');
                     if ($imageSize > 2 * 1024 * 1024) {
                         throw new \Exception('La imagen excede el tamaño máximo de 2MB.');
                     }
-                    
+
                     $finfo = new \finfo(FILEINFO_MIME_TYPE);
                     $imageMimeType = $finfo->buffer($imageData);
                     error_log('Tipo MIME: ' . $imageMimeType);
                     $imageExtension = $this->getImageExtensionFromMimeType($imageMimeType);
-                    
+
                     if (!$imageExtension) {
                         throw new \Exception('Formato de imagen no soportado. Use PNG, JPG o WEBP.');
                     }
-                    
+
                     $safeImagename = $this->slugger->slug($nombre . '-playlist');
                     $newImagename = $safeImagename . '-' . uniqid() . '.' . $imageExtension;
-                    
+
                     $imagesPath = $this->getUploadsPath('images');
                     $imagePath = $imagesPath . '/' . $newImagename;
                     error_log('Guardando imagen en: ' . $imagePath);
                     if (!file_put_contents($imagePath, $imageData)) {
                         throw new \Exception('No se pudo guardar la imagen.');
                     }
-                    
-                    // Eliminar imagen anterior si existe
+
                     $oldImageUrl = $playlist->getImagen();
                     if ($oldImageUrl && strpos($oldImageUrl, '/uploads/images/') === 0) {
                         $oldImagename = basename($oldImageUrl);
@@ -599,7 +608,7 @@ class MusicaController extends AbstractController
                             error_log('Imagen anterior eliminada: ' . $oldImagePath);
                         }
                     }
-                    
+
                     $playlist->setImagen('/uploads/images/' . $newImagename);
                     error_log('Nueva URL de imagen establecida: /uploads/images/' . $newImagename);
                 } catch (\Exception $e) {
@@ -607,7 +616,7 @@ class MusicaController extends AbstractController
                     $this->addFlash('warning', 'Error al procesar la imagen: ' . $e->getMessage());
                 }
             } elseif (!$mantenerImagen && $playlist->getImagen()) {
-                // Eliminar imagen actual si no se quiere mantener
+
                 $oldImageUrl = $playlist->getImagen();
                 if ($oldImageUrl && strpos($oldImageUrl, '/uploads/images/') === 0) {
                     $oldImagename = basename($oldImageUrl);
@@ -620,12 +629,12 @@ class MusicaController extends AbstractController
                 $playlist->setImagen(null);
                 error_log('URL de imagen establecida a null');
             }
-    
+
             try {
                 $this->entityManager->flush();
                 error_log('Cambios guardados en la base de datos');
                 $this->addFlash('success', 'Playlist actualizada correctamente');
-                
+
                 error_log('Redirigiendo a detalle de playlist: ' . $id);
                 return $this->redirectToRoute('musica_playlist_detalle', ['id' => $id]);
             } catch (\Exception $e) {
@@ -633,7 +642,7 @@ class MusicaController extends AbstractController
                 $this->addFlash('error', 'Error al guardar los cambios: ' . $e->getMessage());
             }
         }
-    
+
         error_log('Renderizando formulario de edición para playlist: ' . $id);
         return $this->render('@ModuloMusica/editar_playlist.html.twig', [
             'playlist' => $playlist,
@@ -719,12 +728,479 @@ class MusicaController extends AbstractController
         ]);
     }
 
+    #[Route('/admin/nueva-cancion', name: 'musica_admin_nueva_cancion', methods: ['GET', 'POST'])]
+    public function nuevaCancion(Request $request): Response
+    {
+        $checkResult = $this->checkAdmin();
+        if ($checkResult) {
+            return $checkResult;
+        }
+
+        $cancion = new Cancion();
+        $generos = $this->generoRepository->findAllOrdered();
+
+        if ($request->isMethod('POST')) {
+
+            error_log('Request data: ' . print_r($request->request->all(), true));
+
+            if (!$this->isCsrfTokenValid('nueva-cancion', $request->request->get('_token'))) {
+                return $this->handleError('Token CSRF inválido.', $request);
+            }
+
+            $titulo = $request->request->get('titulo', '');
+            $artista = $request->request->get('artista', '');
+            $album = $request->request->get('album', '');
+            $descripcion = $request->request->get('descripcion', '');
+            $generoId = $request->request->get('genero');
+            $anio = $request->request->get('anio');
+            $duracion = $request->request->get('duracion');
+            $esPublico = $request->request->has('esPublico');
+            $audioBase64 = $request->request->get('audioBase64');
+            $imagenBase64 = $request->request->get('imagenBase64');
+
+            if (empty($titulo)) {
+                return $this->handleError('El título es obligatorio.', $request);
+            }
+            if (empty($audioBase64)) {
+                return $this->handleError('No se recibió el archivo de audio.', $request);
+            }
+
+            $cancion->setTitulo($titulo);
+            $cancion->setArtista($artista);
+            $cancion->setAlbum($album);
+            $cancion->setDescripcion($descripcion);
+            $cancion->setAnio($anio ? (int)$anio : null);
+            $cancion->setDuracion($duracion ? (int)$duracion : null);
+            $cancion->setEsPublico($esPublico);
+
+            try {
+
+                $audioData = base64_decode($audioBase64);
+                if ($audioData === false) {
+                    throw new \Exception('No se pudo decodificar el archivo de audio.');
+                }
+
+                $fileSize = strlen($audioData);
+                if ($fileSize > 20 * 1024 * 1024) {
+                    throw new \Exception('El archivo excede el tamaño máximo de 20MB.');
+                }
+
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo->buffer($audioData);
+                $extension = $this->getExtensionFromMimeType($mimeType);
+
+                $safeFilename = $this->slugger->slug($titulo);
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
+
+                $musicPath = $this->getUploadsPath('music');
+                $filePath = $musicPath . '/' . $newFilename;
+                if (!file_put_contents($filePath, $audioData)) {
+                    throw new \Exception('No se pudo guardar el archivo de audio.');
+                }
+
+                $cancion->setUrl('/uploads/music/' . $newFilename);
+            } catch (\Exception $e) {
+                error_log('Error al procesar el archivo de audio: ' . $e->getMessage());
+                return $this->handleError('Error al procesar el archivo de audio: ' . $e->getMessage(), $request);
+            }
+
+            if (!empty($imagenBase64)) {
+                try {
+
+                    $imageData = base64_decode($imagenBase64);
+                    if ($imageData === false) {
+                        throw new \Exception('No se pudo decodificar la imagen.');
+                    }
+
+                    $imageSize = strlen($imageData);
+                    if ($imageSize > 2 * 1024 * 1024) {
+                        throw new \Exception('La imagen excede el tamaño máximo de 2MB.');
+                    }
+
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $imageMimeType = $finfo->buffer($imageData);
+                    $imageExtension = $this->getImageExtensionFromMimeType($imageMimeType);
+
+                    if (!$imageExtension) {
+                        throw new \Exception('Formato de imagen no soportado. Use PNG, JPG o WEBP.');
+                    }
+
+                    $safeImagename = $this->slugger->slug($titulo . '-cover');
+                    $newImagename = $safeImagename . '-' . uniqid() . '.' . $imageExtension;
+
+                    $imagesPath = $this->getUploadsPath('images');
+                    $imagePath = $imagesPath . '/' . $newImagename;
+                    if (!file_put_contents($imagePath, $imageData)) {
+                        throw new \Exception('No se pudo guardar la imagen.');
+                    }
+
+                    $cancion->setImagen('/uploads/images/' . $newImagename);
+                } catch (\Exception $e) {
+                    error_log('Error al procesar la imagen: ' . $e->getMessage());
+
+                    if ($request->isXmlHttpRequest()) {
+
+                    } else {
+                        $this->addFlash('warning', 'Error al procesar la imagen: ' . $e->getMessage());
+                    }
+                }
+            }
+
+            if ($generoId) {
+                $genero = $this->generoRepository->find($generoId);
+                if ($genero) {
+                    $cancion->setGenero($genero);
+                }
+            }
+
+            $this->entityManager->persist($cancion);
+            $this->entityManager->flush();
+
+            if ($request->isXmlHttpRequest()) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Canción creada correctamente.',
+                    'redirect' => $this->generateUrl('musica_admin')
+                ]);
+            }
+
+            $this->addFlash('success', 'Canción creada correctamente.');
+            return $this->redirectToRoute('musica_admin');
+        }
+
+        return $this->render('@ModuloMusica/admin/nueva_cancion.html.twig', [
+            'cancion' => $cancion,
+            'generos' => $generos,
+            'user' => $this->ipAuthService->getCurrentUser()
+        ]);
+    }
+
+    private function handleError(string $message, Request $request): Response
+    {
+        if ($request->isXmlHttpRequest()) {
+            return $this->json([
+                'success' => false,
+                'message' => $message
+            ], 400);
+        }
+
+        $this->addFlash('error', $message);
+        return $this->redirectToRoute('musica_admin_nueva_cancion');
+    }
+
+    #[Route('/admin/editar-cancion/{id}', name: 'musica_admin_editar_cancion')]
+    public function editarCancion(int $id, Request $request): Response
+    {
+        $checkResult = $this->checkAdmin();
+        if ($checkResult) {
+            return $checkResult;
+        }
+
+        $cancion = $this->cancionRepository->find($id);
+        if (!$cancion) {
+            throw $this->createNotFoundException('La canción no existe');
+        }
+
+        $generos = $this->generoRepository->findAllOrdered();
+
+        if ($request->isMethod('POST')) {
+            $titulo = $request->request->get('titulo');
+            $artista = $request->request->get('artista');
+            $album = $request->request->get('album');
+            $descripcion = $request->request->get('descripcion');
+            $generoId = $request->request->get('genero');
+            $anio = $request->request->get('anio');
+            $duracion = $request->request->get('duracion');
+            $esPublico = $request->request->has('esPublico');
+            $mantenerAudio = $request->request->has('mantenerAudio');
+            $audioBase64 = $request->request->get('audioBase64');
+            $imagenBase64 = $request->request->get('imagenBase64');
+            $mantenerImagen = $request->request->has('mantenerImagen');
+
+            $cancion->setTitulo($titulo);
+            $cancion->setArtista($artista);
+            $cancion->setAlbum($album);
+            $cancion->setDescripcion($descripcion);
+            $cancion->setAnio($anio ? (int)$anio : null);
+            $cancion->setDuracion($duracion ? (int)$duracion : null);
+            $cancion->setEsPublico($esPublico);
+            $cancion->setActualizadoEn(new \DateTimeImmutable());
+
+            if ($audioBase64) {
+                try {
+                    $audioData = base64_decode($audioBase64);
+                    if ($audioData === false) {
+                        throw new \Exception('No se pudo decodificar el archivo de audio.');
+                    }
+
+                    $fileSize = strlen($audioData);
+                    if ($fileSize > 20 * 1024 * 1024) {
+                        throw new \Exception('El archivo excede el tamaño máximo de 20MB.');
+                    }
+
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $mimeType = $finfo->buffer($audioData);
+                    $extension = $this->getExtensionFromMimeType($mimeType);
+
+                    $safeFilename = $this->slugger->slug($titulo);
+                    $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
+
+                    $musicPath = $this->getUploadsPath('music');
+                    $filePath = $musicPath . '/' . $newFilename;
+                    if (!file_put_contents($filePath, $audioData)) {
+                        throw new \Exception('No se pudo guardar el archivo de audio.');
+                    }
+
+                    $oldUrl = $cancion->getUrl();
+                    if ($oldUrl && strpos($oldUrl, '/uploads/music/') === 0) {
+                        $oldFilename = basename($oldUrl);
+                        $oldFilePath = $musicPath . '/' . $oldFilename;
+                        if (file_exists($oldFilePath)) {
+                            unlink($oldFilePath);
+                        }
+                    }
+
+                    $cancion->setUrl('/uploads/music/' . $newFilename);
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Error al procesar el archivo de audio: ' . $e->getMessage());
+                    return $this->render('@ModuloMusica/admin/editar_cancion.html.twig', [
+                        'cancion' => $cancion,
+                        'generos' => $generos,
+                        'user' => $this->ipAuthService->getCurrentUser()
+                    ]);
+                }
+            } elseif (!$mantenerAudio) {
+                $oldUrl = $cancion->getUrl();
+                if ($oldUrl && strpos($oldUrl, '/uploads/music/') === 0) {
+                    $oldFilename = basename($oldUrl);
+                    $oldFilePath = $this->getUploadsPath('music') . '/' . $oldFilename;
+                    if (file_exists($oldFilePath)) {
+                        unlink($oldFilePath);
+                    }
+                }
+                $cancion->setUrl(null);
+            }
+
+            if ($imagenBase64) {
+                try {
+                    $imageData = base64_decode($imagenBase64);
+                    if ($imageData === false) {
+                        throw new \Exception('No se pudo decodificar la imagen.');
+                    }
+
+                    $imageSize = strlen($imageData);
+                    if ($imageSize > 2 * 1024 * 1024) {
+                        throw new \Exception('La imagen excede el tamaño máximo de 2MB.');
+                    }
+
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $imageMimeType = $finfo->buffer($imageData);
+                    $imageExtension = $this->getImageExtensionFromMimeType($imageMimeType);
+
+                    if (!$imageExtension) {
+                        throw new \Exception('Formato de imagen no soportado. Use PNG, JPG o WEBP.');
+                    }
+
+                    $safeImagename = $this->slugger->slug($titulo . '-cover');
+                    $newImagename = $safeImagename . '-' . uniqid() . '.' . $imageExtension;
+
+                    $imagesPath = $this->getUploadsPath('images');
+                    $imagePath = $imagesPath . '/' . $newImagename;
+                    if (!file_put_contents($imagePath, $imageData)) {
+                        throw new \Exception('No se pudo guardar la imagen.');
+                    }
+
+                    $oldImageUrl = $cancion->getImagen();
+                    if ($oldImageUrl && strpos($oldImageUrl, '/uploads/images/') === 0) {
+                        $oldImagename = basename($oldImageUrl);
+                        $oldImagePath = $imagesPath . '/' . $oldImagename;
+                        if (file_exists($oldImagePath)) {
+                            unlink($oldImagePath);
+                        }
+                    }
+
+                    $cancion->setImagen('/uploads/images/' . $newImagename);
+                } catch (\Exception $e) {
+                    $this->addFlash('warning', 'Error al procesar la imagen: ' . $e->getMessage());
+                }
+            } elseif (!$mantenerImagen && $cancion->getImagen()) {
+
+                $oldImageUrl = $cancion->getImagen();
+                if ($oldImageUrl && strpos($oldImageUrl, '/uploads/images/') === 0) {
+                    $oldImagename = basename($oldImageUrl);
+                    $oldImagePath = $this->getUploadsPath('images') . '/' . $oldImagename;
+                    if (file_exists($oldImagePath)) {
+                        unlink($oldImagePath);
+                    }
+                }
+                $cancion->setImagen(null);
+            }
+
+            if ($generoId) {
+                $genero = $this->generoRepository->find($generoId);
+                if ($genero) {
+                    $cancion->setGenero($genero);
+                }
+            } else {
+                $cancion->setGenero(null);
+            }
+
+            $this->entityManager->flush();
+
+            $this->addFlash('success', 'Canción actualizada correctamente.');
+            return $this->redirectToRoute('musica_admin');
+        }
+
+        return $this->render('@ModuloMusica/admin/editar_cancion.html.twig', [
+            'cancion' => $cancion,
+            'generos' => $generos,
+            'user' => $this->ipAuthService->getCurrentUser()
+        ]);
+    }
+
+    #[Route('/admin/nuevo-genero', name: 'musica_admin_nuevo_genero')]
+    public function nuevoGenero(Request $request): Response
+    {
+        $checkResult = $this->checkAdmin();
+        if ($checkResult) {
+            return $checkResult;
+        }
+
+        if ($request->isMethod('POST')) {
+            $nombre = $request->request->get('nombre');
+            $descripcion = $request->request->get('descripcion');
+            $icono = $request->request->get('icono');
+
+            $genero = new Genero();
+            $genero->setNombre($nombre);
+            $genero->setDescripcion($descripcion);
+            $genero->setIcono($icono);
+
+            $this->entityManager->persist($genero);
+            $this->entityManager->flush();
+
+            $this->addFlash('success', 'Género creado correctamente.');
+            return $this->redirectToRoute('musica_admin');
+        }
+
+        return $this->render('@ModuloMusica/admin/nuevo_genero.html.twig', [
+            'user' => $this->ipAuthService->getCurrentUser()
+        ]);
+    }
+
+    #[Route('/admin/editar-genero/{id}', name: 'musica_admin_editar_genero')]
+    public function editarGenero(int $id, Request $request): Response
+    {
+        $checkResult = $this->checkAdmin();
+        if ($checkResult) {
+            return $checkResult;
+        }
+
+        $genero = $this->generoRepository->find($id);
+        if (!$genero) {
+            throw $this->createNotFoundException('El género no existe');
+        }
+
+        if ($request->isMethod('POST')) {
+            $nombre = $request->request->get('nombre');
+            $descripcion = $request->request->get('descripcion');
+            $icono = $request->request->get('icono');
+
+            $genero->setNombre($nombre);
+            $genero->setDescripcion($descripcion);
+            $genero->setIcono($icono);
+
+            $this->entityManager->flush();
+
+            $this->addFlash('success', 'Género actualizado correctamente.');
+            return $this->redirectToRoute('musica_admin');
+        }
+
+        return $this->render('@ModuloMusica/admin/editar_genero.html.twig', [
+            'genero' => $genero,
+            'user' => $this->ipAuthService->getCurrentUser()
+        ]);
+    }
+
+    #[Route('/admin/eliminar-cancion/{id}', name: 'musica_admin_eliminar_cancion', methods: ['POST'])]
+    public function eliminarCancion(int $id): Response
+    {
+        $checkResult = $this->checkAdmin();
+        if ($checkResult) {
+            return $checkResult;
+        }
+
+        $cancion = $this->cancionRepository->find($id);
+        if (!$cancion) {
+            throw $this->createNotFoundException('La canción no existe');
+        }
+
+        $tituloCancion = $cancion->getTitulo();
+
+        $this->eliminarArchivoCancion($cancion->getUrl());
+
+        $this->eliminarArchivoCancion($cancion->getImagen());
+
+        $this->entityManager->remove($cancion);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', 'Canción "' . $tituloCancion . '" eliminada correctamente');
+        return $this->redirectToRoute('musica_admin');
+    }
+
+    private function eliminarArchivoCancion(?string $ruta): void
+    {
+        if ($ruta && strpos($ruta, '/uploads/') === 0) {
+            $rutaCompleta = $this->getParameter('kernel.project_dir') . '/public' . $ruta;
+            if (file_exists($rutaCompleta)) {
+                unlink($rutaCompleta);
+            }
+        }
+    }
+
+    #[Route('/admin/eliminar-genero/{id}', name: 'musica_admin_eliminar_genero', methods: ['POST'])]
+    public function eliminarGenero(int $id): Response
+    {
+        $checkResult = $this->checkAdmin();
+        if ($checkResult) {
+            return $checkResult;
+        }
+
+        $genero = $this->generoRepository->find($id);
+        if (!$genero) {
+            throw $this->createNotFoundException('El género no existe');
+        }
+
+        if (!$genero->getCanciones()->isEmpty()) {
+            $this->addFlash('error', 'No se puede eliminar el género porque tiene canciones asociadas.');
+            return $this->redirectToRoute('musica_admin');
+        }
+
+        $this->entityManager->remove($genero);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', 'Género eliminado correctamente.');
+        return $this->redirectToRoute('musica_admin');
+    }
+
+    private function getExtensionFromMimeType(string $mimeType): string
+    {
+        $mimeToExtension = [
+            'audio/mpeg' => 'mp3',
+            'audio/mp4' => 'm4a',
+            'audio/ogg' => 'ogg',
+            'audio/wav' => 'wav',
+        ];
+
+        return $mimeToExtension[$mimeType] ?? 'mp3';
+    }
+
     private function getImageExtensionFromMimeType(string $mimeType): ?string
     {
         $mimeToExtension = [
             'image/jpeg' => 'jpg',
             'image/jpg' => 'jpg',
-            'image/png' => 'png', 
+            'image/png' => 'png',
             'image/webp' => 'webp',
         ];
 

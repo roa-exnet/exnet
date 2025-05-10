@@ -5,6 +5,7 @@ namespace App\ModuloMusica\Command;
 use App\ModuloCore\Entity\MenuElement;
 use App\ModuloCore\Entity\Modulo;
 use App\ModuloMusica\Entity\Genero;
+use App\ModuloCore\Service\KeycloakModuleService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,6 +16,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsCommand(
     name: 'musica:install',
@@ -24,12 +26,16 @@ class MusicaInstallCommand extends Command
 {
     private EntityManagerInterface $entityManager;
     private Filesystem $filesystem;
+    private HttpClientInterface $httpClient;
+    private ParameterBagInterface $parameterBag;
     private string $projectDir;
 
-    public function __construct(EntityManagerInterface $entityManager, ParameterBagInterface $parameterBag)
+    public function __construct(EntityManagerInterface $entityManager, ParameterBagInterface $parameterBag, HttpClientInterface $httpClient,)
     {
         $this->entityManager = $entityManager;
         $this->filesystem = new Filesystem();
+        $this->httpClient = $httpClient;
+        $this->parameterBag = $parameterBag;
         $this->projectDir = $parameterBag->get('kernel.project_dir');
         parent::__construct();
     }
@@ -101,6 +107,42 @@ class MusicaInstallCommand extends Command
             }
 
             $this->createDefaultGenres($io);
+
+            // 8. Crear cliente y licencia de keycloak para el modulo
+            $io->section('Paso 8: Registrar licencia del módulo');
+
+            $moduleFilePath = __DIR__;
+            $modulePath = dirname($moduleFilePath);
+
+            $settingsPath = $modulePath . "/settings.json";
+
+            if (!file_exists($settingsPath)) {
+                $io->error('No se encontró settings.json en la ruta: ' . $settingsPath);
+                return Command::FAILURE;
+            }
+
+
+            $settings = json_decode(file_get_contents($settingsPath), true);
+            $moduloNombre = $settings['name'] ?? null;
+            $io->success('nombre del modulo: ' . $moduloNombre);
+            if (!$moduloNombre) {
+                $io->error('El archivo settings.json no contiene un campo "nombre".');
+                return Command::FAILURE;
+            }
+
+            $moduleService = new \App\ModuloCore\Service\KeycloakModuleService(
+                $this->httpClient,
+                $this->entityManager->getConnection(),
+                $this->parameterBag
+            );
+
+            $res = $moduleService->registrarLicencia($moduloNombre);
+            if ($res['success']) {
+                $io->success('Licencia registrada exitosamente');
+            } else {
+                $io->error('Error registrando licencia: ' . $res['error']);
+                return Command::FAILURE;
+            }
 
             // Limpiar completamente la caché después de todas las operaciones
             $io->section('Reiniciando el kernel y limpiando caché');
@@ -596,7 +638,7 @@ EOT;
                 $menuItem->setIcon('fas fa-music');
                 $menuItem->setType('menu');
                 $menuItem->setParentId(0);
-                $menuItem->setRuta('/musica');
+                $menuItem->setRuta('/kc/musica');
                 $menuItem->setEnabled(true);
                 $menuItem->addModulo($modulo);
                 
@@ -618,7 +660,7 @@ EOT;
                 $generalSubmenu->setIcon('fas fa-list');
                 $generalSubmenu->setType('menu');
                 $generalSubmenu->setParentId($parentMenuId);
-                $generalSubmenu->setRuta('/musica');
+                $generalSubmenu->setRuta('/kc/musica');
                 $generalSubmenu->setEnabled(true);
                 $generalSubmenu->addModulo($modulo);
                 
@@ -636,7 +678,7 @@ EOT;
                 $adminSubmenu->setIcon('fas fa-cog');
                 $adminSubmenu->setType('menu');
                 $adminSubmenu->setParentId($parentMenuId);
-                $adminSubmenu->setRuta('/musica/admin');
+                $adminSubmenu->setRuta('/kc/musica/admin');
                 $adminSubmenu->setEnabled(true);
                 $adminSubmenu->addModulo($modulo);
                 

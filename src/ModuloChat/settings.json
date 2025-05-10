@@ -3,5 +3,5 @@
     "description": "Módulo para chat y llamadas",
     "version": "1.0.1",
     "author": "Exnet",
-    "open": "/chat"
+    "open": "/kc/chat"
 }

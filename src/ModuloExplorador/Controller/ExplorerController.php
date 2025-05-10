@@ -18,6 +18,7 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+#[Route('/kc/explorador')]
 class ExplorerController extends AbstractController
 {
     private $projectDir;
@@ -42,7 +43,6 @@ class ExplorerController extends AbstractController
 
     private function verifyAuthentication(Request $request): ?User
     {
-
         $user = $this->jwtAuthService->getAuthenticatedUser($request);
 
         if (!$user && $this->ipAuthService->isIpRegistered()) {
@@ -61,7 +61,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos', name: 'explorer', methods: ['GET', 'POST'])]
     public function explorer(Request $request): Response 
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             return $this->redirectToRoute('app_login', [
@@ -120,7 +119,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/abrir', name: 'abrir_archivo', methods: ['POST'])]
     public function abrirArchivo(Request $request): Response
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -150,7 +148,6 @@ class ExplorerController extends AbstractController
             } elseif (strpos($fileMimeType, 'audio') === 0 || in_array($fileExtension, ['mp3', 'wav', 'ogg', 'flac'])) {
                 $isAudio = true;
             } else {
-
                 if (in_array($fileExtension, ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'log']) && filesize($filePath) < 1024 * 1024) {
                     $fileContent = file_get_contents($filePath);
                 } else {
@@ -182,7 +179,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/ver-media', name: 'ver_media', methods: ['GET'])]
     public function verMedia(Request $request): Response
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -210,7 +206,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/descargar', name: 'descargar_archivo', methods: ['POST'])]
     public function descargarArchivo(Request $request): Response
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -234,7 +229,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/crear-carpeta', name: 'crear_carpeta', methods: ['POST'])]
     public function crearCarpeta(Request $request): RedirectResponse
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -269,7 +263,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/eliminar-carpeta', name: 'eliminar_carpeta', methods: ['POST'])]
     public function eliminarCarpeta(Request $request): RedirectResponse
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -306,7 +299,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/eliminar-archivo', name: 'eliminar_archivo', methods: ['POST'])]
     public function eliminarArchivo(Request $request): RedirectResponse
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -340,7 +332,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/subir-archivo', name: 'subir_archivo', methods: ['POST'])]
     public function subirArchivo(Request $request): RedirectResponse
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -356,7 +347,6 @@ class ExplorerController extends AbstractController
         $file = $request->files->get('file');
 
         if ($file) {
-
             if (!is_dir($directoryPath)) {
                 $this->addFlash('error', 'El directorio no existe.');
                 return $this->redirectToRoute('explorer');
@@ -378,7 +368,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/subir-carpeta', name: 'subir_carpeta', methods: ['POST'])]
     public function subirCarpeta(Request $request): RedirectResponse
     {
-
         $user = $this->verifyAuthentication($request);
         if (!$user) {
             throw new AccessDeniedException('Usuario no autenticado');
@@ -395,7 +384,6 @@ class ExplorerController extends AbstractController
         $files = $request->files->get('folder');
 
         if ($files) {
-
             if (!is_dir($directoryPath)) {
                 $this->addFlash('error', 'El directorio no existe.');
                 return $this->redirectToRoute('explorer');
@@ -411,7 +399,6 @@ class ExplorerController extends AbstractController
             }
 
             try {
-
                 foreach ($files as $file) {
                     if ($file) {
                         $file->move($newFolderPath, $file->getClientOriginalName());
@@ -431,7 +418,6 @@ class ExplorerController extends AbstractController
     #[Route('/archivos/inicializar', name: 'inicializar_workspace')]
     public function inicializarWorkspace(Request $request): Response
     {
-
         $user = $this->verifyAuthentication($request);
 
         if (!$user || !in_array('ROLE_ADMIN', $user->getRoles())) {

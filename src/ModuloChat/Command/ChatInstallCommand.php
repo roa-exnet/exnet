@@ -575,7 +575,7 @@ EOT;
                 $menuItem->setIcon('fas fa-comments');
                 $menuItem->setType('menu');
                 $menuItem->setParentId(0); // Menú principal
-                $menuItem->setRuta('/chat');
+                $menuItem->setRuta('/kc/chat');
                 $menuItem->setEnabled(true);
                 $menuItem->addModulo($chatModule);
 
