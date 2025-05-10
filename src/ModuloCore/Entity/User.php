@@ -6,13 +6,12 @@ use App\ModuloCore\Repository\UserRepository;
 use App\ModuloCore\Service\EncryptionService;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
 #[UniqueEntity(fields: ['email'], message: 'Ya existe una cuenta con este email')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
+class User implements UserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -24,12 +23,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column]
     private array $roles = [];
-
-    /**
-     * @var string The hashed password
-     */
-    #[ORM\Column]
-    private ?string $password = null;
 
     #[ORM\Column(length: 255)]
     private ?string $nombre = null;
@@ -72,7 +65,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setEncryptionService(EncryptionService $service): void
     {
         $this->encryptionService = $service;
-        // Desciframos valores al cargar la entidad si no están ya en caché
         $this->initializeDecryptedValues();
     }
 
@@ -169,18 +161,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
-     * @see PasswordAuthenticatedUserInterface
+     * NO PASSWORD REQUIRED - Authentication by IP only
+     * @see UserInterface
      */
-    public function getPassword(): string
+    public function getPassword(): ?string
     {
-        return $this->password;
-    }
-
-    public function setPassword(string $password): static
-    {
-        $this->password = $password;
-
-        return $this;
+        return null;
     }
 
     /**
@@ -188,7 +174,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function eraseCredentials(): void
     {
-        // $this->plainPassword = null;
+        // Nothing to erase as we don't use passwords
     }
 
     public function getNombre(): ?string

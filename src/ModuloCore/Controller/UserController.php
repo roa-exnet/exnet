@@ -10,7 +10,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Psr\Log\LoggerInterface;
 
 #[Route('/admin')]
@@ -19,14 +18,12 @@ class UserController extends AbstractController
     use JwtAuthControllerTrait;
 
     private EntityManagerInterface $entityManager;
-    private UserPasswordHasherInterface $passwordHasher;
     private JwtAuthService $jwtAuthService;
     private ?EncryptionService $encryptionService;
     private ?LoggerInterface $logger;
 
     public function __construct(
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher,
         JwtAuthService $jwtAuthService,
         EncryptionService $encryptionService = null,
         LoggerInterface $logger = null
@@ -49,7 +46,6 @@ class UserController extends AbstractController
 
         $users = $this->entityManager->getRepository(User::class)->findAll();
         
-        // Asegurar que cada usuario tenga el servicio de cifrado para descifrar datos
         if ($this->encryptionService) {
             foreach ($users as $user) {
                 $user->setEncryptionService($this->encryptionService);
@@ -82,7 +78,6 @@ class UserController extends AbstractController
             return $this->redirectToRoute('admin_users_index');
         }
 
-        // Inyectar servicio de cifrado para obtener datos descifrados
         if ($this->encryptionService) {
             $userToEdit->setEncryptionService($this->encryptionService);
             
@@ -110,7 +105,6 @@ class UserController extends AbstractController
                 $errors[] = 'La dirección IP no es válida.';
             }
 
-            // Comprobar IP duplicada (con los datos descifrados)
             if (!empty($ipAddress) && $ipAddress !== $userToEdit->getIpAddress()) {
                 $allUsers = $this->entityManager->getRepository(User::class)->findAll();
                 $existingUserWithIp = null;
@@ -132,7 +126,6 @@ class UserController extends AbstractController
             }
 
             if (empty($errors)) {
-                // Aplicar los cambios (los setters cifrarán automáticamente)
                 $userToEdit->setNombre($nombre);
                 $userToEdit->setApellidos($apellidos);
                 $userToEdit->setIsActive($isActive);
@@ -186,7 +179,6 @@ class UserController extends AbstractController
             return $this->redirectToRoute('admin_users_index');
         }
     
-        // Inyectar el servicio de encriptación al usuario a eliminar
         if ($this->encryptionService) {
             $userToDelete->setEncryptionService($this->encryptionService);
         }
@@ -196,7 +188,6 @@ class UserController extends AbstractController
             return $this->redirectToRoute('admin_users_index');
         }
     
-        // Intenta eliminar el usuario
         try {
             $this->entityManager->remove($userToDelete);
             $this->entityManager->flush();
@@ -237,7 +228,6 @@ class UserController extends AbstractController
             return $this->redirectToRoute('admin_users_index');
         }
 
-        // Inyectar encriptación para verificar datos descifrados si es necesario
         if ($this->encryptionService) {
             $targetUser->setEncryptionService($this->encryptionService);
         }

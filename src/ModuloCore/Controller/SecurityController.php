@@ -77,9 +77,6 @@ class SecurityController extends AbstractController
             if (empty($errors)) {
                 $userRepository = $this->entityManager->getRepository(User::class);
                 
-                // Verificar si el usuario existe por email
-                // Nota: esto podría ser problemático ahora que el email está cifrado
-                // Consideramos usar findBy y luego verificar manualmente el email descifrado
                 $existingUsers = $userRepository->findAll();
                 $existingUser = null;
                 
@@ -103,7 +100,6 @@ class SecurityController extends AbstractController
                 } else {
                     $user = new User();
                     
-                    // Asignar el servicio de cifrado si está disponible
                     if ($this->encryptionService) {
                         $user->setEncryptionService($this->encryptionService);
                         if ($this->logger) {
@@ -111,15 +107,10 @@ class SecurityController extends AbstractController
                         }
                     }
                     
-                    // Establecer los datos del usuario (serán cifrados por los setters)
                     $user->setEmail($email);
                     $user->setNombre($nombre);
                     $user->setApellidos($apellidos);
                     $user->setRoles(['ROLE_USER']);
-                    $user->setPassword($this->passwordHasher->hashPassword(
-                        $user,
-                        uniqid()
-                    ));
                     $user->setCreatedAt(new \DateTimeImmutable());
                     $user->setIsActive(true);
                     
@@ -218,7 +209,6 @@ class SecurityController extends AbstractController
                 $user = $userRepository->find($payload['uid']);
                 
                 if ($user) {
-                    // El nombre y apellidos se descifrarán automáticamente al acceder a ellos
                     $userName = $user->getNombre() . ' ' . $user->getApellidos();
                     
                     return $this->json([
@@ -259,7 +249,6 @@ class SecurityController extends AbstractController
             
             $isValid = $this->ipAuthService->validateUserToken($user, $token);
             
-            // El nombre y apellidos se descifrarán automáticamente al acceder a ellos
             $userName = $user->getNombre() . ' ' . $user->getApellidos();
             
             return $this->json([
@@ -282,7 +271,6 @@ class SecurityController extends AbstractController
         
         $isValid = $this->ipAuthService->validateUserToken($user, $token);
         
-        // El nombre y apellidos se descifrarán automáticamente al acceder a ellos
         $userName = $user->getNombre() . ' ' . $user->getApellidos();
         
         return $this->json([
