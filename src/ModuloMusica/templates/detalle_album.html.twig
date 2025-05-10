@@ -1,0 +1,198 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ album }} - {{ artista }} - Música Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/moduloMusica/css/musica.css') }}">
+    <link rel="stylesheet" href="{{ asset('/moduloMusica/css/album.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Álbum</h1>
+        <div>
+            <a href="{{ path('musica_index') }}" class="exnet-btn-small me-2">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+            {% if artista %}
+            <a href="{{ path('musica_artista_detalle', {'artista': artista}) }}" class="exnet-btn-small">
+                <i class="fas fa-user"></i> Ver artista
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="album-container">
+        <div class="album-header">
+            <div class="album-cover">
+                {% if primeraCancion and primeraCancion.imagen %}
+                    <img src="{{ primeraCancion.imagen }}" alt="{{ album }}">
+                {% else %}
+                    <i class="fas fa-compact-disc album-cover-icon"></i>
+                {% endif %}
+            </div>
+            
+            <div class="album-info">
+                <div class="album-type">Álbum</div>
+                <h1 class="album-title">{{ album }}</h1>
+                
+                <div class="album-artist">
+                    {% if artista %}
+                        <a href="{{ path('musica_artista_detalle', {'artista': artista}) }}" class="text-decoration-none text-light">
+                            {{ artista }}
+                        </a>
+                    {% else %}
+                        Artista desconocido
+                    {% endif %}
+                </div>
+                
+                <div class="album-details">
+                    <div class="album-detail-item">
+                        <i class="fas fa-music"></i>
+                        {{ canciones|length }} canciones
+                    </div>
+                    
+                    {% if primeraCancion and primeraCancion.anio %}
+                    <div class="album-detail-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        {{ primeraCancion.anio }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="album-detail-item">
+                        <i class="fas fa-clock"></i>
+                        {% set duracionTotal = 0 %}
+                        {% for cancion in canciones %}
+                            {% set duracionTotal = duracionTotal + (cancion.duracion ?? 0) %}
+                        {% endfor %}
+                        
+                        {% if duracionTotal > 0 %}
+                            {% set horas = (duracionTotal / 3600)|round(0, 'floor') %}
+                            {% set minutos = ((duracionTotal % 3600) / 60)|round(0, 'floor') %}
+                            {% set segundos = duracionTotal % 60 %}
+                            
+                            {% if horas > 0 %}
+                                {{ horas }}:{{ minutos < 10 ? '0' : '' }}{{ minutos }}:{{ segundos < 10 ? '0' : '' }}{{ segundos }}
+                            {% else %}
+                                {{ minutos }}:{{ segundos < 10 ? '0' : '' }}{{ segundos }}
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="album-actions">
+                    {% if canciones|length > 0 %}
+                        <a href="{{ path('musica_reproductor', {'id': canciones[0].id}) }}" class="action-btn btn-play">
+                            <i class="fas fa-play"></i> Reproducir
+                        </a>
+                    {% endif %}
+                    
+                    {% if playlists and playlists|length > 0 and canciones|length > 0 %}
+                        <div class="playlist-dropdown">
+                            <button class="action-btn btn-add" id="addToPlaylistBtn">
+                                <i class="fas fa-plus"></i> Añadir a Playlist
+                            </button>
+                            <div class="dropdown-content" id="playlistDropdown">
+                                {% for playlist in playlists %}
+                                    <div class="dropdown-item" onclick="addAlbumToPlaylist({{ playlist.id }})">
+                                        <i class="fas fa-list me-2"></i> {{ playlist.nombre }}
+                                    </div>
+                                {% endfor %}
+                                <div class="dropdown-divider"></div>
+                                <a href="{{ path('musica_playlist_nueva') }}" class="dropdown-item">
+                                    <i class="fas fa-plus-circle me-2"></i> Crear nueva playlist
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if canciones|length > 0 %}
+            <table class="songs-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th style="width: 40%;">Título</th>
+                        <th style="width: 10%;">Duración</th>
+                        <th style="width: 80px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cancion in canciones %}
+                        <tr class="song-row" onclick="window.location='{{ path('musica_cancion_detalle', {'id': cancion.id}) }}'">
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <div class="song-title-cell">
+                                    <img src="{{ cancion.imagen ?: (primeraCancion.imagen ?: 'https://via.placeholder.com/40x40?text=Sin+imagen') }}" alt="{{ cancion.titulo }}" class="song-thumb">
+                                    <div>{{ cancion.titulo }}</div>
+                                </div>
+                            </td>
+                            <td>{{ cancion.duracionFormateada }}</td>
+                            <td class="text-end">
+                                <a href="{{ path('musica_reproductor', {'id': cancion.id}) }}" class="btn btn-sm btn-outline-light" onclick="event.stopPropagation();">
+                                    <i class="fas fa-play"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                No hay canciones disponibles para este álbum.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addToPlaylistBtn = document.getElementById('addToPlaylistBtn');
+        const playlistDropdown = document.getElementById('playlistDropdown');
+        
+        if (addToPlaylistBtn && playlistDropdown) {
+            addToPlaylistBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                playlistDropdown.classList.toggle('show');
+            });
+            
+            window.addEventListener('click', function(event) {
+                if (!event.target.matches('#addToPlaylistBtn') && !playlistDropdown.contains(event.target)) {
+                    playlistDropdown.classList.remove('show');
+                }
+            });
+        }
+    });
+    
+    function addAlbumToPlaylist(playlistId) {
+        if (!playlistId) return;
+        
+        let addedCount = 0;
+        {% for cancion in canciones %}
+            fetch('{{ path('musica_playlist_agregar_cancion', {'id': 'PLAYLIST_ID'}) }}'.replace('PLAYLIST_ID', playlistId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'cancion_id={{ cancion.id }}'
+            })
+            .then(response => {
+                addedCount++;
+                if (addedCount === {{ canciones|length }}) {
+                    alert('Álbum añadido a la playlist correctamente');
+                    playlistDropdown.classList.remove('show');
+                }
+            })
+            .catch(error => {
+                console.error('Error al añadir canción a playlist:', error);
+            });
+        {% endfor %}
+    }
+</script>
+{% endblock %}

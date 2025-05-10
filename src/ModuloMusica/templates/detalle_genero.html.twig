@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ genero.nombre }} - Música Exnet{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/moduloMusica/css/musica.css') }}">
+    <link rel="stylesheet" href="{{ asset('/moduloMusica/css/genero.css') }}">    
+{% endblock %}
+
+{% block body %}
+<div class="exnet-container-transparent p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="exnet-main-title">Género Musical</h1>
+        <div>
+            <a href="{{ path('musica_index') }}" class="exnet-btn-small">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="genre-container">
+        <div class="genre-header">
+            <div class="genre-icon">
+                {% if genero.icono %}
+                    <i class="{{ genero.icono }}"></i>
+                {% else %}
+                    <i class="fas fa-music"></i>
+                {% endif %}
+            </div>
+            
+            <div class="genre-info">
+                <h1 class="genre-title">{{ genero.nombre }}</h1>
+                
+                {% if genero.descripcion %}
+                    <div class="genre-description">
+                        {{ genero.descripcion|nl2br }}
+                    </div>
+                {% endif %}
+                
+                <div class="genre-details">
+                    <div class="genre-detail-item">
+                        <i class="fas fa-music"></i>
+                        {{ canciones|length }} canciones
+                    </div>
+                    
+                    <div class="genre-detail-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        Creado el {{ genero.creadoEn|date('d/m/Y') }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if canciones|length > 0 %}
+            <div class="music-grid mt-4">
+                {% for cancion in canciones %}
+                    <div class="music-card">
+                        <a href="{{ path('musica_cancion_detalle', {'id': cancion.id}) }}">
+                            <div class="music-thumbnail">
+                                <img src="{{ cancion.imagen ?: 'https://via.placeholder.com/200x200?text=Sin+imagen' }}" alt="{{ cancion.titulo }}">
+                                <div class="play-icon">
+                                    <i class="fas fa-play fa-lg text-white"></i>
+                                </div>
+                            </div>
+                            <div class="music-info">
+                                <div class="music-title">{{ cancion.titulo }}</div>
+                                <div class="music-artist">
+                                    {% if cancion.artista %}
+                                        {{ cancion.artista }}
+                                    {% else %}
+                                        Artista desconocido
+                                    {% endif %}
+                                </div>
+                                <div class="music-meta">
+                                    <span>{{ cancion.duracionFormateada }}</span>
+                                    {% if cancion.anio %}
+                                        <span>{{ cancion.anio }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-genre">
+                <i class="fas fa-music mb-3" style="font-size: 3rem;"></i>
+                <h3>Sin canciones</h3>
+                <p>No hay canciones asignadas a este género todavía.</p>
+                <a href="{{ path('musica_index') }}" class="btn btn-outline-light mt-3">Explorar música</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

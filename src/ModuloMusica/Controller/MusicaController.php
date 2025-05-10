@@ -470,32 +470,49 @@ class MusicaController extends AbstractController
     }
 
     #[Route('/playlist/{id}/eliminar-cancion/{cancionId}', name: 'musica_playlist_eliminar_cancion', methods: ['POST'])]
-    public function eliminarCancionPlaylist(int $id, int $cancionId): Response
+    public function eliminarCancionPlaylist(int $id, int $cancionId, Request $request): Response
     {
         $user = $this->ipAuthService->getCurrentUser();
         if (!$user) {
-            return $this->redirectToRoute('app_register_ip');
+            return $this->redirectToRoute('app_register_ip', [
+                'redirect' => $this->generateUrl('musica_playlist_detalle', ['id' => $id])
+            ]);
         }
-
+    
         $playlist = $this->playlistRepository->find($id);
         if (!$playlist) {
             throw $this->createNotFoundException('La playlist no existe');
         }
-
-        if ($playlist->getCreadorId() !== $user->getId()) {
+    
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('delete-song-' . $id . '-' . $cancionId, $token)) {
+            $this->addFlash('error', 'Token de seguridad inválido');
+            return $this->redirectToRoute('musica_playlist_detalle', ['id' => $id]);
+        }
+    
+        $userId = (string) $user->getId();
+        $playlistCreadorId = (string) $playlist->getCreadorId();
+    
+        if ($userId !== $playlistCreadorId) {
+            error_log("Error de permisos: ID Usuario: {$userId}, ID Creador Playlist: {$playlistCreadorId}");
             throw $this->createAccessDeniedException('No tienes permisos para modificar esta playlist');
         }
-
+    
         $cancion = $this->cancionRepository->find($cancionId);
         if (!$cancion) {
             throw $this->createNotFoundException('La canción no existe');
         }
-
-        $playlist->removeCancion($cancion);
-        $playlist->setActualizadoEn(new \DateTimeImmutable());
-        $this->entityManager->flush();
-
-        $this->addFlash('success', 'Canción eliminada de la playlist');
+    
+        try {
+            $playlist->removeCancion($cancion);
+            $playlist->setActualizadoEn(new \DateTimeImmutable());
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Canción eliminada de la playlist');
+        } catch (\Exception $e) {
+            error_log("Error al eliminar canción de playlist: " . $e->getMessage());
+            $this->addFlash('error', 'Error al eliminar la canción: ' . $e->getMessage());
+        }
+    
         return $this->redirectToRoute('musica_playlist_detalle', ['id' => $id]);
     }
 
@@ -651,22 +668,31 @@ class MusicaController extends AbstractController
     }
 
     #[Route('/playlist/{id}/eliminar', name: 'musica_playlist_eliminar', methods: ['POST'])]
-    public function eliminarPlaylist(int $id): Response
+    public function eliminarPlaylist(int $id, Request $request): Response
     {
         $user = $this->ipAuthService->getCurrentUser();
         if (!$user) {
             return $this->redirectToRoute('app_register_ip');
         }
-
+    
         $playlist = $this->playlistRepository->find($id);
         if (!$playlist) {
             throw $this->createNotFoundException('La playlist no existe');
         }
-
-        if ($playlist->getCreadorId() !== $user->getId()) {
+    
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('delete-playlist-' . $id, $token)) {
+            $this->addFlash('error', 'Token de seguridad inválido');
+            return $this->redirectToRoute('musica_playlist_detalle', ['id' => $id]);
+        }
+    
+        $userId = (string) $user->getId();
+        $playlistCreadorId = (string) $playlist->getCreadorId();
+    
+        if ($userId !== $playlistCreadorId) {
             throw $this->createAccessDeniedException('No tienes permisos para eliminar esta playlist');
         }
-
+    
         $imagenUrl = $playlist->getImagen();
         if ($imagenUrl && strpos($imagenUrl, '/uploads/images/') === 0) {
             $imagenFilename = basename($imagenUrl);
@@ -675,11 +701,15 @@ class MusicaController extends AbstractController
                 unlink($imagenFilePath);
             }
         }
-
-        $this->entityManager->remove($playlist);
-        $this->entityManager->flush();
-
-        $this->addFlash('success', 'Playlist eliminada correctamente');
+    
+        try {
+            $this->entityManager->remove($playlist);
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Playlist eliminada correctamente');
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Error al eliminar la playlist: ' . $e->getMessage());
+        }
+    
         return $this->redirectToRoute('musica_index');
     }
 
