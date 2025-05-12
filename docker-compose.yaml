@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   php:
     build:
@@ -7,6 +9,10 @@ services:
       - .:/var/www/html
     networks:
       - exnet_network
+    environment:
+      - PHP_MEMORY_LIMIT=256M
+      - PHP_MAX_EXECUTION_TIME=60
+      - APP_ENV=dev
 
   nginx:
     image: nginx:stable-alpine
