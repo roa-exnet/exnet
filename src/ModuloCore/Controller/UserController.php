@@ -29,7 +29,6 @@ class UserController extends AbstractController
         LoggerInterface $logger = null
     ) {
         $this->entityManager = $entityManager;
-        $this->passwordHasher = $passwordHasher;
         $this->jwtAuthService = $jwtAuthService;
         $this->encryptionService = $encryptionService;
         $this->logger = $logger;
