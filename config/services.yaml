@@ -86,6 +86,21 @@ services:
             $parameterBag: '@parameter_bag'
 
     #END ------------------------------------------------------- ModuloCore ---------------------------------------------------------------------------        
+    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
+    App\ModuloExplorador\Controller\:
+        resource: '../src/ModuloExplorador/Controller'
+        tags: ['controller.service_arguments']
+        
+    App\ModuloExplorador\Command\:
+        resource: '../src/ModuloExplorador/Command'
+        tags: ['console.command']
+        
+    App\ModuloExplorador\Service\:
+        resource: '../src/ModuloExplorador/Service/'
+        autowire: true
+        autoconfigure: true
+        public: true
+    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        
     #START -----------------------------------------------------  ModuloMusica -------------------------------------------------------------------------- 
     App\ModuloMusica\Controller\:
         resource: '../src/ModuloMusica/Controller'
@@ -116,13 +131,3 @@ services:
         autoconfigure: true
         public: true
     #END ------------------------------------------------------- ModuloChat -----------------------------------------------------------------------------        
-    #START ----------------------------------------------------- ModuloExplorador -------------------------------------------------------------------------- 
-    App\ModuloExplorador\Controller\:
-        resource: '../src/ModuloExplorador/Controller'
-        
-    App\ModuloExplorador\Command\:
-        resource: '../src/ModuloExplorador/Command'
-        
-    App\ModuloExplorador\Service\:
-        resource: '../src/ModuloExplorador/Service/'
-    #END ------------------------------------------------------- ModuloExplorador -----------------------------------------------------------------------------        

@@ -195,3 +195,62 @@
     font-size: 0.8rem;
     padding: 2px 10px;
 }
+
+@media (max-width: 767px) {
+  .user-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; 
+    max-width: 100%;
+    display: block;
+    margin-bottom: 1rem;
+  }
+  
+  
+  .user-table table {
+    width: 100%;
+    min-width: 650px; 
+  }
+  
+  
+  .user-table:before {
+    display: block;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0.5rem;
+    border-radius: 4px 4px 0 0;
+  }
+  
+  
+  .user-table th, 
+  .user-table td {
+    white-space: nowrap;
+  }
+  
+  
+  .user-table .user-email {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  
+  .exnet-container-transparent {
+    padding: 1rem 0.75rem;
+  }
+  
+  
+  .filter-bar {
+    flex-direction: column;
+  }
+  
+  .filter-bar .col-md-6 {
+    width: 100%;
+  }
+  
+  
+  #userSearch {
+    width: 100%;
+    margin-bottom: 0.75rem;
+  }
+}
